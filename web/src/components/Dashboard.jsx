@@ -208,7 +208,7 @@ export default function Dashboard() {
                 )}
 
                 {/* Chart and Table */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
                     <div className="premium-card glass" style={{ border: '1px solid rgba(255,255,255,0.4)', boxShadow: 'var(--shadow)' }}>
                         <h4 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontFamily: 'var(--font-display)', fontWeight: '800', color: 'var(--text)' }}>
                             <div style={{ padding: '0.4rem', background: 'rgba(25, 118, 210, 0.1)', borderRadius: '10px' }}>
@@ -278,8 +278,8 @@ export default function Dashboard() {
                         <h4 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <CloudRain size={20} color="#1976d2" /> Histórico de Lançamentos
                         </h4>
-                        <div style={{ maxHeight: '380px', overflowY: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <div className="table-responsive" style={{ maxHeight: '380px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '400px' }}>
                                 <thead style={{ position: 'sticky', top: 0, backgroundColor: 'white', zIndex: 1, borderBottom: '2px solid var(--border)' }}>
                                     <tr style={{ textAlign: 'left', fontSize: '0.8rem' }}>
                                         <th style={{ padding: '0.75rem' }}>Data</th>
@@ -343,9 +343,27 @@ export default function Dashboard() {
 
         const recipes = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
 
+        const ongoing = registros.filter(r => r.situacao === 'Iniciada').sort((a, b) => new Date(a.data_inicial) - new Date(b.data_inicial));
+
         const exportPDF = () => {
             const doc = new jsPDF();
             doc.text('Planejamento de Pulverização', 14, 15);
+
+            // Ongoing section
+            if (ongoing.length > 0) {
+                doc.setFontSize(14);
+                doc.text('Em Andamento', 14, 25);
+                doc.autoTable({
+                    head: [['Início', 'Quadra', 'Atividade', 'Obs', 'Bombas']],
+                    body: ongoing.map(r => [format(parseISO(r.data_inicial), 'dd/MM/yyyy'), r.quadra, r.receita, r.observacao || '', r.quantidade_bombas || '']),
+                    startY: 30
+                });
+            }
+
+            const nextY = ongoing.length > 0 ? doc.lastAutoTable.finalY + 15 : 25;
+            doc.setFontSize(14);
+            doc.text('Próximas Pulverizações', 14, nextY);
+
             const data = upcoming.map(r => [
                 format(parseISO(r.proxima_pulverizacao), 'dd/MM/yyyy'),
                 r.quadra,
@@ -358,7 +376,7 @@ export default function Dashboard() {
             doc.autoTable({
                 head: [['Vencimento', 'Quadra', 'Atividade', 'Obs', 'Bombas', 'Pés', 'Restante']],
                 body: data,
-                startY: 20
+                startY: nextY + 5
             });
             doc.save('planejamento.pdf');
         };
@@ -384,8 +402,44 @@ export default function Dashboard() {
                     </button>
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                {/* --- Ongoing Table --- */}
+                {ongoing.length > 0 && (
+                    <div style={{ marginBottom: '3rem' }}>
+                        <h4 style={{ marginBottom: '1.2rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <Droplets size={20} /> Pulverizações em Andamento
+                        </h4>
+                        <div className="table-responsive">
+                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
+                                        <th style={{ padding: '0.75rem' }}>Início</th>
+                                        <th style={{ padding: '0.75rem' }}>Quadra</th>
+                                        <th style={{ padding: '0.75rem' }}>Atividade</th>
+                                        <th style={{ padding: '0.75rem' }}>Obs</th>
+                                        <th style={{ padding: '0.75rem' }}>Bombas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {ongoing.map(r => (
+                                        <tr key={r.id} style={{ borderBottom: '1px solid #eee', backgroundColor: 'rgba(251, 140, 0, 0.02)' }}>
+                                            <td style={{ padding: '0.75rem' }}>{format(parseISO(r.data_inicial), 'dd/MM/yyyy')}</td>
+                                            <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{r.quadra}</td>
+                                            <td style={{ padding: '0.75rem' }}>{r.receita}</td>
+                                            <td style={{ padding: '0.75rem', fontSize: '0.8rem', maxWidth: '200px' }}>{r.observacao}</td>
+                                            <td style={{ padding: '0.75rem' }}>{r.quantidade_bombas}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                <h4 style={{ marginBottom: '1.2rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <CalendarIcon size={20} /> Próximas Pulverizações
+                </h4>
+                <div className="table-responsive">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                         <thead>
                             <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
                                 <th style={{ padding: '0.75rem' }}>Próxima</th>
@@ -470,8 +524,8 @@ export default function Dashboard() {
 
                 <div className="premium-card">
                     <h4 style={{ marginBottom: '1.5rem' }}>Histórico de Desempenho (Atrasos)</h4>
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div className="table-responsive">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                             <thead>
                                 <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                                     <th style={{ padding: '0.75rem' }}>Quadra</th>
@@ -507,26 +561,28 @@ export default function Dashboard() {
 
                 <div className="premium-card">
                     <h4 style={{ marginBottom: '1.5rem' }}>Todas Pulverizações</h4>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                                <th style={{ padding: '0.75rem' }}>Data</th>
-                                <th style={{ padding: '0.75rem' }}>Quadra</th>
-                                <th style={{ padding: '0.75rem' }}>Atividade</th>
-                                <th style={{ padding: '0.75rem' }}>Bombas</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {concluídasHist.slice(0, 10).map(r => (
-                                <tr key={r.id} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '0.75rem' }}>{format(parseISO(r.data_inicial), 'dd/MM/yyyy')}</td>
-                                    <td style={{ padding: '0.75rem' }}>{r.quadra}</td>
-                                    <td style={{ padding: '0.75rem' }}>{r.receita}</td>
-                                    <td style={{ padding: '0.75rem' }}>{r.quantidade_bombas}</td>
+                    <div className="table-responsive">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                                    <th style={{ padding: '0.75rem' }}>Data</th>
+                                    <th style={{ padding: '0.75rem' }}>Quadra</th>
+                                    <th style={{ padding: '0.75rem' }}>Atividade</th>
+                                    <th style={{ padding: '0.75rem' }}>Bombas</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {concluídasHist.slice(0, 10).map(r => (
+                                    <tr key={r.id} style={{ borderBottom: '1px solid #eee' }}>
+                                        <td style={{ padding: '0.75rem' }}>{format(parseISO(r.data_inicial), 'dd/MM/yyyy')}</td>
+                                        <td style={{ padding: '0.75rem' }}>{r.quadra}</td>
+                                        <td style={{ padding: '0.75rem' }}>{r.receita}</td>
+                                        <td style={{ padding: '0.75rem' }}>{r.quantidade_bombas}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         );
@@ -539,7 +595,7 @@ export default function Dashboard() {
             </div>
 
             {/* Submenu Tabs */}
-            <div style={{ display: 'flex', gap: '1rem', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.8rem', paddingBottom: '0.8rem', marginBottom: '1rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 {[
                     { id: 'chuva', label: 'Chuva', icon: <Droplets size={18} /> },
                     { id: 'planejamento', label: 'Planejamento', icon: <ClipboardList size={18} /> },
@@ -555,12 +611,13 @@ export default function Dashboard() {
                             padding: '0.75rem 1.25rem',
                             borderRadius: '12px',
                             border: 'none',
-                            background: activeTab === tab.id ? 'var(--primary-gradient)' : 'transparent',
+                            background: activeTab === tab.id ? 'var(--primary-gradient)' : 'white',
                             color: activeTab === tab.id ? 'white' : 'var(--text-muted)',
                             cursor: 'pointer',
                             fontWeight: '700',
                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: activeTab === tab.id ? '0 4px 15px rgba(46, 125, 50, 0.2)' : 'none'
+                            boxShadow: activeTab === tab.id ? '0 4px 15px rgba(46, 125, 50, 0.2)' : 'none',
+                            whiteSpace: 'nowrap'
                         }}
                     >
                         {tab.icon}

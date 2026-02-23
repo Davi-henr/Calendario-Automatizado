@@ -28,6 +28,14 @@ function App() {
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [logo, setLogo] = useState(localStorage.getItem('agrologo'));
 
+    const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth <= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
@@ -75,34 +83,53 @@ function App() {
     const menuItems = isAdminMode ? adminMenuItems : userMenuItems;
 
     return (
-        <div style={{ display: 'flex', height: '100vh', width: '100%', backgroundColor: 'transparent', position: 'relative' }}>
+        <div style={{ display: 'flex', height: '100vh', width: '100%', backgroundColor: 'transparent', position: 'relative', overflow: 'hidden' }}>
             {/* Geometric Background Decorations */}
             <div className="geometric-bg">
                 <div className="shape shape-1"></div>
                 <div className="shape shape-2"></div>
             </div>
 
+            {/* Mobile Overlay */}
+            {isMobile && isSidebarOpen && (
+                <div
+                    onClick={() => setIsSidebarOpen(false)}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        backgroundColor: 'rgba(0,0,0,0.4)',
+                        backdropFilter: 'blur(4px)',
+                        zIndex: 999
+                    }}
+                />
+            )}
+
             {/* Sidebar */}
             <aside style={{
-                width: '320px',
+                width: isMobile ? '280px' : '320px',
                 background: 'white',
                 color: 'var(--text)',
-                display: window.innerWidth > 768 || isSidebarOpen ? 'flex' : 'none',
+                display: 'flex',
                 flexDirection: 'column',
-                position: window.innerWidth > 768 ? 'relative' : 'fixed',
+                position: isMobile ? 'fixed' : 'relative',
+                left: isMobile && !isSidebarOpen ? '-280px' : '0',
                 zIndex: 1000,
                 height: '100%',
                 boxShadow: '15px 0 40px rgba(0,0,0,0.02)',
-                borderRight: '1px solid var(--border)'
+                borderRight: '1px solid var(--border)',
+                transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}>
-                <div style={{ padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem', textAlign: 'center' }}>
+                <div style={{ padding: isMobile ? '1.5rem 1rem' : '2.5rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem', textAlign: 'center' }}>
                     {logo ? (
                         <div style={{
-                            width: '90px',
-                            height: '90px',
+                            width: isMobile ? '60px' : '90px',
+                            height: isMobile ? '60px' : '90px',
                             backgroundColor: 'white',
-                            borderRadius: '24px',
-                            padding: '12px',
+                            borderRadius: '20px',
+                            padding: '10px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -114,20 +141,20 @@ function App() {
                         </div>
                     ) : (
                         <div style={{
-                            width: '90px',
-                            height: '90px',
+                            width: isMobile ? '60px' : '90px',
+                            height: isMobile ? '60px' : '90px',
                             background: 'var(--primary-gradient)',
-                            borderRadius: '24px',
+                            borderRadius: '20px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             boxShadow: '0 10px 20px rgba(46, 125, 50, 0.2)'
                         }}>
-                            <Sprout size={48} color="#fff" />
+                            <Sprout size={isMobile ? 32 : 48} color="#fff" />
                         </div>
                     )}
                     <div>
-                        <h2 style={{ fontSize: '1.5rem', fontWeight: '900', letterSpacing: '-0.8px', fontFamily: 'var(--font-display)', color: 'var(--text)' }}>Calendário Automatizado</h2>
+                        <h2 style={{ fontSize: isMobile ? '1.1rem' : '1.5rem', fontWeight: '900', letterSpacing: '-0.8px', fontFamily: 'var(--font-display)', color: 'var(--text)' }}>Calendário Automatizado</h2>
                         <p style={{ fontSize: '0.7rem', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700', marginTop: '4px' }}>por davi henrique</p>
                     </div>
                 </div>
@@ -167,7 +194,7 @@ function App() {
                             key={item.id}
                             onClick={() => {
                                 setCurrentPage(item.id);
-                                if (window.innerWidth <= 768) setIsSidebarOpen(false);
+                                if (isMobile) setIsSidebarOpen(false);
                             }}
                             style={{
                                 width: '100%',
@@ -204,7 +231,7 @@ function App() {
                     ))}
                 </nav>
 
-                <div style={{ padding: '2rem', borderTop: '1px solid var(--border)', background: 'rgba(248, 250, 252, 0.5)' }}>
+                <div style={{ padding: isMobile ? '1.2rem' : '2rem', borderTop: '1px solid var(--border)', background: 'rgba(248, 250, 252, 0.5)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
                         <div style={{
                             width: '44px',
@@ -245,9 +272,9 @@ function App() {
             </aside>
 
             {/* Main Content */}
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', width: '100%' }}>
                 <header style={{
-                    padding: '1.5rem 3rem',
+                    padding: isMobile ? '1rem 1.5rem' : '1.5rem 3rem',
                     backgroundColor: 'rgba(255,255,255,0.8)',
                     backdropFilter: 'blur(10px)',
                     borderBottom: '1px solid var(--border)',
@@ -257,24 +284,24 @@ function App() {
                     zIndex: 10
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        {window.innerWidth <= 768 && (
-                            <button onClick={() => setIsSidebarOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--primary)' }}>
-                                <Menu />
+                        {isMobile && (
+                            <button onClick={() => setIsSidebarOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--primary)', padding: '0.5rem', display: 'flex', alignItems: 'center' }}>
+                                <Menu size={24} />
                             </button>
                         )}
-                        <h1 style={{ fontSize: '1.4rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px' }}>
-                            {isAdminMode ? 'Gerenciamento Administrativo' : menuItems.find(i => i.id === currentPage)?.label}
+                        <h1 style={{ fontSize: isMobile ? '1.1rem' : '1.4rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px' }}>
+                            {isAdminMode ? 'Painel ADM' : menuItems.find(i => i.id === currentPage)?.label}
                         </h1>
                     </div>
                     {logo && (
-                        <div style={{ height: '40px' }}>
+                        <div style={{ height: isMobile ? '30px' : '40px' }}>
                             <img src={logo} alt="Fazenda" style={{ height: '100%', width: 'auto', borderRadius: '4px' }} />
                         </div>
                     )}
                 </header>
 
-                <section style={{ flex: 1, padding: '2rem', overflowY: 'auto' }}>
-                    <div className="container">
+                <section style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', overflowY: 'auto' }}>
+                    <div className="container" style={{ padding: 0 }}>
                         {currentPage === 'launch' && <Launch />}
                         {currentPage === 'climate' && <Climate />}
                         {currentPage === 'calendar' && <SprayingCalendar />}

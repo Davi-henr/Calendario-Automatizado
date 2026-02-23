@@ -155,33 +155,33 @@ export default function Climate() {
             </div>
 
             <div style={{ marginBottom: '3.5rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1.25rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
                     {forecast.map(([date, data]) => {
                         const isToday = isSameDay(parseISO(date), new Date());
                         return (
                             <div key={date} className="premium-card glass" style={{
                                 textAlign: 'center',
-                                padding: '1.5rem',
+                                padding: isToday ? '1.2rem' : '1rem',
                                 border: isToday ? '2px solid var(--primary)' : '1px solid var(--border)',
                                 background: isToday ? 'white' : 'rgba(255,255,255,0.6)',
                                 transform: isToday ? 'scale(1.02)' : 'none',
                                 zIndex: isToday ? 2 : 1
                             }}>
-                                <p style={{ fontWeight: '800', fontSize: '0.75rem', color: isToday ? 'var(--primary)' : 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1rem', letterSpacing: '0.5px' }}>
+                                <p style={{ fontWeight: '800', fontSize: '0.65rem', color: isToday ? 'var(--primary)' : 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.8rem', letterSpacing: '0.5px' }}>
                                     {isToday ? 'Hoje' : format(parseISO(date), 'eee, dd/MM', { locale: ptBR })}
                                 </p>
-                                <div style={{ margin: '1.2rem 0' }}>{getWeatherIcon(data.icon)}</div>
-                                <p style={{ fontSize: '1.8rem', fontWeight: '900', fontFamily: 'var(--font-display)', color: 'var(--text)', marginBottom: '0.25rem' }}>{Math.round(data.temp_max)}°</p>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'capitalize' }}>{data.description}</p>
+                                <div style={{ margin: '0.8rem 0' }}>{getWeatherIcon(data.icon)}</div>
+                                <p style={{ fontSize: '1.4rem', fontWeight: '900', fontFamily: 'var(--font-display)', color: 'var(--text)', marginBottom: '0.2rem' }}>{Math.round(data.temp_max)}°</p>
+                                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'capitalize' }}>{data.description}</p>
 
-                                <div style={{ marginTop: '1.5rem', paddingTop: '1.2rem', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                        <Droplets size={14} color="#3b82f6" />
-                                        <span style={{ fontSize: '0.7rem', fontWeight: '800' }}>{Math.round(data.pop)}%</span>
+                                <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                        <Droplets size={12} color="#3b82f6" />
+                                        <span style={{ fontSize: '0.65rem', fontWeight: '800' }}>{Math.round(data.pop)}%</span>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                        <AirIcon size={14} color="var(--text-muted)" />
-                                        <span style={{ fontSize: '0.7rem', fontWeight: '800' }}>{Math.round(data.wind)}<span style={{ fontSize: '0.6rem', opacity: 0.6 }}>km/h</span></span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                                        <Wind size={12} color="var(--text-muted)" />
+                                        <span style={{ fontSize: '0.65rem', fontWeight: '800' }}>{Math.round(data.wind)}<span style={{ fontSize: '0.55rem', opacity: 0.6 }}>km/h</span></span>
                                     </div>
                                 </div>
                             </div>
@@ -227,8 +227,8 @@ export default function Climate() {
                 )}
 
                 <div className="premium-card">
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div className="table-responsive">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
                             <thead>
                                 <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--border)' }}>
                                     <th style={{ padding: '0.75rem' }}>Data</th>

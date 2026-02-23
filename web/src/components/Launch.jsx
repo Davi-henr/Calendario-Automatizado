@@ -303,8 +303,8 @@ export default function Launch() {
                 ) : filteredRegistros.length === 0 ? (
                     <p style={{ textAlign: 'center', padding: '2rem' }}>Nenhum registro encontrado.</p>
                 ) : (
-                    <div className="table-wrapper" style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <div className="table-responsive">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
                             <thead>
                                 <tr style={{ textAlign: 'left', borderBottom: '2px solid var(--border)' }}>
                                     <th style={{ padding: '1rem' }}>Situação</th>

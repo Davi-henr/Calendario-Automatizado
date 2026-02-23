@@ -224,10 +224,12 @@ export default function SprayingCalendar() {
                     <p style={{ color: 'var(--text-muted)', marginTop: '1rem', fontWeight: '600' }}>Sincronizando calendário...</p>
                 </div>
             ) : (
-                <div style={{ minWidth: '800px' }}>
-                    {renderHeader()}
-                    {renderDays()}
-                    {renderCells()}
+                <div style={{ width: '100%', overflowX: 'auto' }}>
+                    <div style={{ minWidth: window.innerWidth < 768 ? '600px' : 'auto' }}>
+                        {renderHeader()}
+                        {renderDays()}
+                        {renderCells()}
+                    </div>
                 </div>
             )}
 
