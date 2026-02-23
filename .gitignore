@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+
+# Distribution / Build
+dist/
+build/
+.fly/
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# IDEs
+.idea/
+.vscode/
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Project Specific
+registros.json
+pendentes.pdf

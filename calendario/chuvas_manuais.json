@@ -1,0 +1,1154 @@
+[
+    {
+        "id": "20241024000000000000",
+        "data": "24/10/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 25.0
+    },
+    {
+        "id": "20241024000000000001",
+        "data": "24/10/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 25.0
+    },
+    {
+        "id": "20241024000000000002",
+        "data": "24/10/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 25.0
+    },
+    {
+        "id": "20241024000000000003",
+        "data": "24/10/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 25.0
+    },
+    {
+        "id": "20241025000000000004",
+        "data": "25/10/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 35.0
+    },
+    {
+        "id": "20241025000000000005",
+        "data": "25/10/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 25.0
+    },
+    {
+        "id": "20241025000000000006",
+        "data": "25/10/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 15.0
+    },
+    {
+        "id": "20241025000000000007",
+        "data": "25/10/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 58.0
+    },
+    {
+        "id": "20241026000000000008",
+        "data": "26/10/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 7.0
+    },
+    {
+        "id": "20241026000000000009",
+        "data": "26/10/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 13.0
+    },
+    {
+        "id": "20241026000000000010",
+        "data": "26/10/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 15.0
+    },
+    {
+        "id": "20241026000000000011",
+        "data": "26/10/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 15.0
+    },
+    {
+        "id": "20241029000000000012",
+        "data": "29/10/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 18.0
+    },
+    {
+        "id": "20241029000000000013",
+        "data": "29/10/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 20.0
+    },
+    {
+        "id": "20241029000000000014",
+        "data": "29/10/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 22.0
+    },
+    {
+        "id": "20241029000000000015",
+        "data": "29/10/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 20.0
+    },
+    {
+        "id": "20241103000000000016",
+        "data": "03/11/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 45.0
+    },
+    {
+        "id": "20241103000000000017",
+        "data": "03/11/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 45.0
+    },
+    {
+        "id": "20241103000000000018",
+        "data": "03/11/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 45.0
+    },
+    {
+        "id": "20241103000000000019",
+        "data": "03/11/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 48.0
+    },
+    {
+        "id": "20241104000000000020",
+        "data": "04/11/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 75.0
+    },
+    {
+        "id": "20241104000000000021",
+        "data": "04/11/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 68.0
+    },
+    {
+        "id": "20241104000000000022",
+        "data": "04/11/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 68.0
+    },
+    {
+        "id": "20241104000000000023",
+        "data": "04/11/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 70.0
+    },
+    {
+        "id": "20241105000000000024",
+        "data": "05/11/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 5.0
+    },
+    {
+        "id": "20241105000000000025",
+        "data": "05/11/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 18.0
+    },
+    {
+        "id": "20241105000000000026",
+        "data": "05/11/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 5.0
+    },
+    {
+        "id": "20241105000000000027",
+        "data": "05/11/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 8.0
+    },
+    {
+        "id": "20241106000000000028",
+        "data": "06/11/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 67.0
+    },
+    {
+        "id": "20241106000000000029",
+        "data": "06/11/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 48.0
+    },
+    {
+        "id": "20241106000000000030",
+        "data": "06/11/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 46.0
+    },
+    {
+        "id": "20241107000000000031",
+        "data": "07/11/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 44.0
+    },
+    {
+        "id": "20241108000000000032",
+        "data": "08/11/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 46.0
+    },
+    {
+        "id": "20241108000000000033",
+        "data": "08/11/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 31.0
+    },
+    {
+        "id": "20241108000000000034",
+        "data": "08/11/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 40.0
+    },
+    {
+        "id": "20241108000000000035",
+        "data": "08/11/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 35.0
+    },
+    {
+        "id": "20241109000000000036",
+        "data": "09/11/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 40.0
+    },
+    {
+        "id": "20241109000000000037",
+        "data": "09/11/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 40.0
+    },
+    {
+        "id": "20241109000000000038",
+        "data": "09/11/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 30.0
+    },
+    {
+        "id": "20241109000000000039",
+        "data": "09/11/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 30.0
+    },
+    {
+        "id": "20241115000000000040",
+        "data": "15/11/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 65.0
+    },
+    {
+        "id": "20241115000000000041",
+        "data": "15/11/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 45.0
+    },
+    {
+        "id": "20241115000000000042",
+        "data": "15/11/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 45.0
+    },
+    {
+        "id": "20241115000000000043",
+        "data": "15/11/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 55.0
+    },
+    {
+        "id": "20241129000000000044",
+        "data": "29/11/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 35.0
+    },
+    {
+        "id": "20241129000000000045",
+        "data": "29/11/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 37.0
+    },
+    {
+        "id": "20241129000000000046",
+        "data": "29/11/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 30.0
+    },
+    {
+        "id": "20241129000000000047",
+        "data": "29/11/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 30.0
+    },
+    {
+        "id": "20241202000000000048",
+        "data": "02/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 30.0
+    },
+    {
+        "id": "20241202000000000049",
+        "data": "02/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 50.0
+    },
+    {
+        "id": "20241202000000000050",
+        "data": "02/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 55.0
+    },
+    {
+        "id": "20241202000000000051",
+        "data": "02/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 65.0
+    },
+    {
+        "id": "20241204000000000052",
+        "data": "04/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 40.0
+    },
+    {
+        "id": "20241204000000000053",
+        "data": "04/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 38.0
+    },
+    {
+        "id": "20241204000000000054",
+        "data": "04/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 35.0
+    },
+    {
+        "id": "20241204000000000055",
+        "data": "04/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 38.0
+    },
+    {
+        "id": "20241205000000000056",
+        "data": "05/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 2.0
+    },
+    {
+        "id": "20241205000000000057",
+        "data": "05/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 2.0
+    },
+    {
+        "id": "20241205000000000058",
+        "data": "05/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 2.0
+    },
+    {
+        "id": "20241205000000000059",
+        "data": "05/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 2.0
+    },
+    {
+        "id": "20241205000000000060",
+        "data": "05/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 12.0
+    },
+    {
+        "id": "20241205000000000061",
+        "data": "05/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 15.0
+    },
+    {
+        "id": "20241205000000000062",
+        "data": "05/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 20.0
+    },
+    {
+        "id": "20241205000000000063",
+        "data": "05/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 20.0
+    },
+    {
+        "id": "20241211000000000064",
+        "data": "11/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 10.0
+    },
+    {
+        "id": "20241211000000000065",
+        "data": "11/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 10.0
+    },
+    {
+        "id": "20241211000000000066",
+        "data": "11/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 10.0
+    },
+    {
+        "id": "20241211000000000067",
+        "data": "11/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 10.0
+    },
+    {
+        "id": "20241216000000000068",
+        "data": "16/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 75.0
+    },
+    {
+        "id": "20241216000000000069",
+        "data": "16/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 60.0
+    },
+    {
+        "id": "20241216000000000070",
+        "data": "16/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 55.0
+    },
+    {
+        "id": "20241216000000000071",
+        "data": "16/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 50.0
+    },
+    {
+        "id": "20241221000000000072",
+        "data": "21/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 45.0
+    },
+    {
+        "id": "20241221000000000073",
+        "data": "21/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 40.0
+    },
+    {
+        "id": "20241221000000000074",
+        "data": "21/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 40.0
+    },
+    {
+        "id": "20241221000000000075",
+        "data": "21/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 40.0
+    },
+    {
+        "id": "20241223000000000076",
+        "data": "23/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 80.0
+    },
+    {
+        "id": "20241223000000000077",
+        "data": "23/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 75.0
+    },
+    {
+        "id": "20241223000000000078",
+        "data": "23/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 70.0
+    },
+    {
+        "id": "20241223000000000079",
+        "data": "23/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 70.0
+    },
+    {
+        "id": "20241226000000000080",
+        "data": "26/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 95.0
+    },
+    {
+        "id": "20241226000000000081",
+        "data": "26/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 90.0
+    },
+    {
+        "id": "20241226000000000082",
+        "data": "26/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 85.0
+    },
+    {
+        "id": "20241226000000000083",
+        "data": "26/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 90.0
+    },
+    {
+        "id": "20241227000000000084",
+        "data": "27/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 45.0
+    },
+    {
+        "id": "20241227000000000085",
+        "data": "27/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 40.0
+    },
+    {
+        "id": "20241227000000000086",
+        "data": "27/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 30.0
+    },
+    {
+        "id": "20241227000000000087",
+        "data": "27/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 30.0
+    },
+    {
+        "id": "20241228000000000088",
+        "data": "28/12/2024",
+        "local": "Pluviômetro Portaria",
+        "mm": 28.0
+    },
+    {
+        "id": "20241228000000000089",
+        "data": "28/12/2024",
+        "local": "Pluviômetro Murcote",
+        "mm": 20.0
+    },
+    {
+        "id": "20241228000000000090",
+        "data": "28/12/2024",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 25.0
+    },
+    {
+        "id": "20241228000000000091",
+        "data": "28/12/2024",
+        "local": "Pluviômetro Piscinao",
+        "mm": 25.0
+    },
+    {
+        "id": "20250102000000000092",
+        "data": "02/01/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 25.0
+    },
+    {
+        "id": "20250102000000000093",
+        "data": "02/01/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 20.0
+    },
+    {
+        "id": "20250102000000000094",
+        "data": "02/01/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 18.0
+    },
+    {
+        "id": "20250102000000000095",
+        "data": "02/01/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 20.0
+    },
+    {
+        "id": "20250116000000000096",
+        "data": "16/01/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 12.0
+    },
+    {
+        "id": "20250116000000000097",
+        "data": "16/01/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 10.0
+    },
+    {
+        "id": "20250116000000000098",
+        "data": "16/01/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 18.0
+    },
+    {
+        "id": "20250116000000000099",
+        "data": "16/01/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 24.0
+    },
+    {
+        "id": "20250117000000000100",
+        "data": "17/01/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 45.0
+    },
+    {
+        "id": "20250117000000000101",
+        "data": "17/01/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 35.0
+    },
+    {
+        "id": "20250117000000000102",
+        "data": "17/01/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 30.0
+    },
+    {
+        "id": "20250117000000000103",
+        "data": "17/01/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 30.0
+    },
+    {
+        "id": "20250127000000000104",
+        "data": "27/01/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 12.0
+    },
+    {
+        "id": "20250127000000000105",
+        "data": "27/01/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 10.0
+    },
+    {
+        "id": "20250127000000000106",
+        "data": "27/01/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 14.0
+    },
+    {
+        "id": "20250127000000000107",
+        "data": "27/01/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 14.0
+    },
+    {
+        "id": "20250128000000000108",
+        "data": "28/01/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 11.0
+    },
+    {
+        "id": "20250128000000000109",
+        "data": "28/01/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 31.0
+    },
+    {
+        "id": "20250128000000000110",
+        "data": "28/01/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 40.0
+    },
+    {
+        "id": "20250128000000000111",
+        "data": "28/01/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 70.0
+    },
+    {
+        "id": "20250129000000000112",
+        "data": "29/01/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 4.0
+    },
+    {
+        "id": "20250129000000000113",
+        "data": "29/01/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 3.0
+    },
+    {
+        "id": "20250129000000000114",
+        "data": "29/01/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 4.0
+    },
+    {
+        "id": "20250129000000000115",
+        "data": "29/01/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 3.0
+    },
+    {
+        "id": "20250130000000000116",
+        "data": "30/01/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 95.0
+    },
+    {
+        "id": "20250130000000000117",
+        "data": "30/01/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 80.0
+    },
+    {
+        "id": "20250130000000000118",
+        "data": "30/01/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 120.0
+    },
+    {
+        "id": "20250130000000000119",
+        "data": "30/01/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 180.0
+    },
+    {
+        "id": "20250201000000000120",
+        "data": "01/02/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 50.0
+    },
+    {
+        "id": "20250201000000000121",
+        "data": "01/02/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 46.0
+    },
+    {
+        "id": "20250201000000000122",
+        "data": "01/02/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 48.0
+    },
+    {
+        "id": "20250201000000000123",
+        "data": "01/02/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 46.0
+    },
+    {
+        "id": "20250203000000000124",
+        "data": "03/02/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 60.0
+    },
+    {
+        "id": "20250203000000000125",
+        "data": "03/02/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 40.0
+    },
+    {
+        "id": "20250203000000000126",
+        "data": "03/02/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 45.0
+    },
+    {
+        "id": "20250203000000000127",
+        "data": "03/02/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 45.0
+    },
+    {
+        "id": "20250204000000000128",
+        "data": "04/02/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 14.0
+    },
+    {
+        "id": "20250204000000000129",
+        "data": "04/02/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 5.0
+    },
+    {
+        "id": "20250204000000000130",
+        "data": "04/02/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 5.0
+    },
+    {
+        "id": "20250204000000000131",
+        "data": "04/02/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 6.0
+    },
+    {
+        "id": "20250206000000000132",
+        "data": "06/02/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 10.0
+    },
+    {
+        "id": "20250206000000000133",
+        "data": "06/02/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 12.0
+    },
+    {
+        "id": "20250206000000000134",
+        "data": "06/02/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 12.0
+    },
+    {
+        "id": "20250206000000000135",
+        "data": "06/02/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 18.0
+    },
+    {
+        "id": "20250211000000000136",
+        "data": "11/02/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 12.0
+    },
+    {
+        "id": "20250211000000000137",
+        "data": "11/02/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 14.0
+    },
+    {
+        "id": "20250211000000000138",
+        "data": "11/02/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 10.0
+    },
+    {
+        "id": "20250211000000000139",
+        "data": "11/02/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 12.0
+    },
+    {
+        "id": "20250316000000000140",
+        "data": "16/03/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 8.0
+    },
+    {
+        "id": "20250316000000000141",
+        "data": "16/03/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 4.0
+    },
+    {
+        "id": "20250316000000000142",
+        "data": "16/03/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 4.0
+    },
+    {
+        "id": "20250316000000000143",
+        "data": "16/03/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 4.0
+    },
+    {
+        "id": "20250319000000000144",
+        "data": "19/03/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 30.0
+    },
+    {
+        "id": "20250319000000000145",
+        "data": "19/03/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 38.0
+    },
+    {
+        "id": "20250319000000000146",
+        "data": "19/03/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 35.0
+    },
+    {
+        "id": "20250319000000000147",
+        "data": "19/03/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 54.0
+    },
+    {
+        "id": "20250324000000000148",
+        "data": "24/03/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 15.0
+    },
+    {
+        "id": "20250324000000000149",
+        "data": "24/03/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 10.0
+    },
+    {
+        "id": "20250324000000000150",
+        "data": "24/03/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 35.0
+    },
+    {
+        "id": "20250324000000000151",
+        "data": "24/03/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 25.0
+    },
+    {
+        "id": "20250331000000000152",
+        "data": "31/03/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 55.0
+    },
+    {
+        "id": "20250331000000000153",
+        "data": "31/03/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 55.0
+    },
+    {
+        "id": "20250331000000000154",
+        "data": "31/03/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 55.0
+    },
+    {
+        "id": "20250331000000000155",
+        "data": "31/03/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 55.0
+    },
+    {
+        "id": "20250401000000000156",
+        "data": "01/04/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 12.0
+    },
+    {
+        "id": "20250401000000000157",
+        "data": "01/04/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 8.0
+    },
+    {
+        "id": "20250401000000000158",
+        "data": "01/04/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 4.0
+    },
+    {
+        "id": "20250401000000000159",
+        "data": "01/04/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 6.0
+    },
+    {
+        "id": "20250425000000000160",
+        "data": "25/04/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 28.0
+    },
+    {
+        "id": "20250425000000000161",
+        "data": "25/04/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 28.0
+    },
+    {
+        "id": "20250425000000000162",
+        "data": "25/04/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 26.0
+    },
+    {
+        "id": "20250425000000000163",
+        "data": "25/04/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 26.0
+    },
+    {
+        "id": "20250426000000000164",
+        "data": "26/04/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 28.0
+    },
+    {
+        "id": "20250426000000000165",
+        "data": "26/04/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 48.0
+    },
+    {
+        "id": "20250426000000000166",
+        "data": "26/04/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 22.0
+    },
+    {
+        "id": "20250426000000000167",
+        "data": "26/04/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 16.0
+    },
+    {
+        "id": "20250428000000000168",
+        "data": "28/04/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 16.0
+    },
+    {
+        "id": "20250428000000000169",
+        "data": "28/04/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 14.0
+    },
+    {
+        "id": "20250428000000000170",
+        "data": "28/04/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 14.0
+    },
+    {
+        "id": "20250428000000000171",
+        "data": "28/04/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 18.0
+    },
+    {
+        "id": "20250603000000000172",
+        "data": "03/06/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 35.0
+    },
+    {
+        "id": "20250603000000000173",
+        "data": "03/06/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 28.0
+    },
+    {
+        "id": "20250603000000000174",
+        "data": "03/06/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 30.0
+    },
+    {
+        "id": "20250603000000000175",
+        "data": "03/06/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 28.0
+    },
+    {
+        "id": "20250605000000000176",
+        "data": "05/06/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 9.0
+    },
+    {
+        "id": "20250605000000000177",
+        "data": "05/06/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 6.0
+    },
+    {
+        "id": "20250605000000000178",
+        "data": "05/06/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 6.0
+    },
+    {
+        "id": "20250605000000000179",
+        "data": "05/06/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 5.0
+    },
+    {
+        "id": "20250606000000000180",
+        "data": "06/06/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 3.0
+    },
+    {
+        "id": "20250606000000000181",
+        "data": "06/06/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 6.0
+    },
+    {
+        "id": "20250606000000000182",
+        "data": "06/06/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 1.0
+    },
+    {
+        "id": "20250606000000000183",
+        "data": "06/06/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 1.0
+    },
+    {
+        "id": "20250608000000000184",
+        "data": "08/06/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 8.0
+    },
+    {
+        "id": "20250608000000000185",
+        "data": "08/06/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 5.0
+    },
+    {
+        "id": "20250608000000000186",
+        "data": "08/06/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 7.0
+    },
+    {
+        "id": "20250608000000000187",
+        "data": "08/06/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 5.0
+    },
+    {
+        "id": "20250714121331787636",
+        "data": "23/06/2025",
+        "local": "Pluviômetro Portaria",
+        "mm": 14.0
+    },
+    {
+        "id": "20250714121350245835",
+        "data": "23/06/2025",
+        "local": "Pluviômetro Piscinao",
+        "mm": 10.0
+    },
+    {
+        "id": "20250714121409708315",
+        "data": "24/06/2025",
+        "local": "Pluviômetro Quadra 17",
+        "mm": 11.0
+    },
+    {
+        "id": "20250714121421867218",
+        "data": "24/06/2025",
+        "local": "Pluviômetro Murcote",
+        "mm": 8.0
+    }
+]
