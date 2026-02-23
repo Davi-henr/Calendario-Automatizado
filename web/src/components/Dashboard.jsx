@@ -73,6 +73,8 @@ export default function Dashboard() {
 
     // Filters for Resumo
     const [summaryFilters, setSummaryFilters] = useState({ quadra: 'Todos', receita: 'Todos' });
+    const [summaryStartDate, setSummaryStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [summaryEndDate, setSummaryEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
     // Period Filter for Chuva Chart
     const [rainStartDate, setRainStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
@@ -487,12 +489,14 @@ export default function Dashboard() {
         const finalizadas = registros.filter(r =>
             r.situacao === 'Finalizada' &&
             (summaryFilters.quadra === 'Todos' || r.quadra === summaryFilters.quadra) &&
-            (summaryFilters.receita === 'Todos' || r.receita === summaryFilters.receita)
+            (summaryFilters.receita === 'Todos' || r.receita === summaryFilters.receita) &&
+            r.data_final && isWithinInterval(parseISO(r.data_final), { start: parseISO(summaryStartDate), end: parseISO(summaryEndDate) })
         ).sort((a, b) => new Date(b.data_final) - new Date(a.data_final));
 
         const concluídasHist = registros.filter(r =>
             (summaryFilters.quadra === 'Todos' || r.quadra === summaryFilters.quadra) &&
-            (summaryFilters.receita === 'Todos' || r.receita === summaryFilters.receita)
+            (summaryFilters.receita === 'Todos' || r.receita === summaryFilters.receita) &&
+            isWithinInterval(parseISO(r.data_inicial), { start: parseISO(summaryStartDate), end: parseISO(summaryEndDate) })
         ).sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial));
 
         const blocks = ["001", "002", "003", "004", "005A", "005B", "005C", "006A", "006B", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "024", "026", "027", "028", "029", "030", "031", "032", "033", "034"];
@@ -510,16 +514,29 @@ export default function Dashboard() {
                     ))}
                 </div>
 
-                <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem' }}>
-                    <Search size={18} color="var(--primary)" />
-                    <select value={summaryFilters.quadra} onChange={(e) => setSummaryFilters(s => ({ ...s, quadra: e.target.value }))} className="filter-select" style={{ fontSize: '0.8rem' }}>
-                        <option value="Todos">Todas Quadras</option>
-                        {blocks.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                    <select value={summaryFilters.receita} onChange={(e) => setSummaryFilters(s => ({ ...s, receita: e.target.value }))} className="filter-select" style={{ fontSize: '0.8rem' }}>
-                        <option value="Todos">Todas Receitas</option>
-                        {recipes.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
+                <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flex: 1, minWidth: '300px' }}>
+                        <Search size={18} color="var(--primary)" />
+                        <select value={summaryFilters.quadra} onChange={(e) => setSummaryFilters(s => ({ ...s, quadra: e.target.value }))} className="filter-select" style={{ fontSize: '0.8rem', flex: 1 }}>
+                            <option value="Todos">Todas Quadras</option>
+                            {blocks.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                        <select value={summaryFilters.receita} onChange={(e) => setSummaryFilters(s => ({ ...s, receita: e.target.value }))} className="filter-select" style={{ fontSize: '0.8rem', flex: 1 }}>
+                            <option value="Todos">Todas Receitas</option>
+                            {recipes.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label style={{ fontSize: '0.7rem', marginBottom: '0.2rem' }}>De:</label>
+                            <input type="date" value={summaryStartDate} onChange={e => setSummaryStartDate(e.target.value)} className="input-field" style={{ fontSize: '0.8rem', padding: '0.4rem' }} />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label style={{ fontSize: '0.7rem', marginBottom: '0.2rem' }}>Até:</label>
+                            <input type="date" value={summaryEndDate} onChange={e => setSummaryEndDate(e.target.value)} className="input-field" style={{ fontSize: '0.8rem', padding: '0.4rem' }} />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="premium-card">

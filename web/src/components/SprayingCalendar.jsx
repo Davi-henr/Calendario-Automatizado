@@ -125,14 +125,14 @@ export default function SprayingCalendar() {
                     const isCurrentMonth = isSameMonth(day, monthStart);
 
                     return (
-                        <div key={formattedDate} className="premium-card glass" style={{
-                            minHeight: '130px',
+                        <div key={formattedDate} className="premium-card glass cell-calendar" style={{
+                            minHeight: window.innerWidth < 768 ? '90px' : '130px',
                             backgroundColor: isCurrentMonth ? 'white' : 'rgba(0,0,0,0.02)',
                             opacity: isCurrentMonth ? 1 : 0.4,
-                            padding: '0.8rem',
+                            padding: window.innerWidth < 768 ? '0.4rem' : '0.8rem',
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '0.5rem',
+                            gap: '0.4rem',
                             border: isToday ? '2px solid var(--primary)' : '1px solid var(--border)',
                             boxShadow: isToday ? '0 10px 20px rgba(46, 125, 50, 0.15)' : 'var(--shadow-sm)',
                             position: 'relative',
@@ -166,9 +166,9 @@ export default function SprayingCalendar() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
                                 {dayEvents.map((evt, idx) => (
                                     <div key={`${evt.id}-${evt.type}-${idx}`} style={{
-                                        fontSize: '0.65rem',
-                                        padding: '0.5rem 0.75rem',
-                                        borderRadius: '10px',
+                                        fontSize: window.innerWidth < 768 ? '0.55rem' : '0.65rem',
+                                        padding: window.innerWidth < 768 ? '0.3rem 0.5rem' : '0.5rem 0.75rem',
+                                        borderRadius: '8px',
                                         background: evt.type === 'iniciada' ? 'var(--primary-gradient)' : 'var(--secondary-gradient)',
                                         color: 'white',
                                         fontWeight: '800',
@@ -176,7 +176,7 @@ export default function SprayingCalendar() {
                                         border: 'none',
                                         display: 'flex',
                                         flexDirection: 'column',
-                                        gap: '2px'
+                                        gap: '1px'
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             {evt.type === 'iniciada' ? <Clock size={10} /> : <AlertCircle size={10} />}
@@ -224,8 +224,8 @@ export default function SprayingCalendar() {
                     <p style={{ color: 'var(--text-muted)', marginTop: '1rem', fontWeight: '600' }}>Sincronizando calendário...</p>
                 </div>
             ) : (
-                <div style={{ width: '100%', overflowX: 'auto' }}>
-                    <div style={{ minWidth: window.innerWidth < 768 ? '600px' : 'auto' }}>
+                <div style={{ width: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                    <div style={{ minWidth: '600px', paddingBottom: '1rem' }}>
                         {renderHeader()}
                         {renderDays()}
                         {renderCells()}

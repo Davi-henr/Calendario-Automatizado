@@ -252,14 +252,24 @@ export default function Launch() {
                                 {recipes.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
                         </div>
-                        <div className="form-group">
-                            <label>Nº Bombas</label>
-                            <input type="number" name="quantidade_bombas" value={formData.quantidade_bombas} onChange={handleInputChange} className="input-field" />
-                        </div>
-                        <div className="form-group">
-                            <label>Pés Tratados</label>
-                            <input type="number" name="pes_tratados" value={formData.pes_tratados} onChange={handleInputChange} className="input-field" />
-                        </div>
+
+                        {formData.situacao !== 'Iniciada' && (
+                            <>
+                                <div className="form-group">
+                                    <label>Data Final</label>
+                                    <input type="date" name="data_final" value={formData.data_final} onChange={handleInputChange} className="input-field" />
+                                </div>
+                                <div className="form-group">
+                                    <label>Nº Bombas</label>
+                                    <input type="number" name="quantidade_bombas" value={formData.quantidade_bombas} onChange={handleInputChange} className="input-field" />
+                                </div>
+                                <div className="form-group">
+                                    <label>Pés Tratados</label>
+                                    <input type="number" name="pes_tratados" value={formData.pes_tratados} onChange={handleInputChange} className="input-field" />
+                                </div>
+                            </>
+                        )}
+
                         <div className="form-group">
                             <label>Carência (Dias)</label>
                             <input type="number" name="dias_carencia" value={formData.dias_carencia} onChange={handleInputChange} className="input-field" />
