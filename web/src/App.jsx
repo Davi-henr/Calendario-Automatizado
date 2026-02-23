@@ -133,7 +133,8 @@ function App() {
                         </div>
                     )}
                     <div className="hide-mobile">
-                        <h2 style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px', fontFamily: 'var(--font-display)' }}>Balança Fazenda Vale dos Laranjais</h2>
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px', fontFamily: 'var(--font-display)' }}>Calendário Automatizado</h2>
+                        <p style={{ fontSize: '0.65rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '800', marginTop: '-2px' }}>por davi henrique</p>
                     </div>
                 </div>
 
