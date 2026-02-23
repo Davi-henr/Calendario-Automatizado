@@ -67,11 +67,19 @@ export default function Launch() {
         e.preventDefault();
         setLoading(true);
         try {
+            // Sanitize data before sending
+            const sanitizedData = {
+                ...formData,
+                data_final: formData.data_final || null,
+                quantidade_bombas: formData.quantidade_bombas || 0,
+                pes_tratados: formData.pes_tratados || 0
+            };
+
             if (editingId) {
-                await registrosService.update(editingId, formData);
+                await registrosService.update(editingId, sanitizedData);
                 setEditingId(null);
             } else {
-                await registrosService.create(formData);
+                await registrosService.create(sanitizedData);
             }
             setShowForm(false);
             setFormData({
@@ -125,6 +133,9 @@ export default function Launch() {
             setLoading(true);
             await registrosService.update(finalizingReg.id, {
                 ...finalizeData,
+                data_final: finalizeData.data_final || null,
+                quantidade_bombas: finalizeData.quantidade_bombas || 0,
+                pes_tratados: finalizeData.pes_tratados || 0,
                 situacao: 'Finalizada'
             });
             setShowFinalizeModal(false);

@@ -91,3 +91,25 @@ export const chuvasService = {
         if (error) throw error;
     }
 };
+
+export const settingsService = {
+    async get() {
+        const { data, error } = await supabase
+            .from('system_settings')
+            .select('*')
+            .single();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        return data || { logo_url: null };
+    },
+
+    async updateLogo(logoUrl) {
+        const { data, error } = await supabase
+            .from('system_settings')
+            .upsert({ id: 1, logo_url: logoUrl })
+            .select();
+
+        if (error) throw error;
+        return data[0];
+    }
+};

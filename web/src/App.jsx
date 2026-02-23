@@ -15,19 +15,16 @@ import {
     Shield
 } from 'lucide-react';
 
-import Launch from './components/Launch';
-import Climate from './components/Climate';
-import SprayingCalendar from './components/SprayingCalendar';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
+import { settingsService } from './lib/services';
 
 function App() {
     const [session, setSession] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState('launch'); // launch, climate, calendar, dashboard, settings
     const [isAdminMode, setIsAdminMode] = useState(false);
-    const [logo, setLogo] = useState(localStorage.getItem('agrologo'));
-
+    const [logo, setLogo] = useState(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
     useEffect(() => {
@@ -39,27 +36,40 @@ function App() {
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
+            if (session) loadSettings();
         });
 
         const {
             data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
+            if (session) loadSettings();
         });
 
         return () => subscription.unsubscribe();
     }, []);
 
+    const loadSettings = async () => {
+        try {
+            const settings = await settingsService.get();
+            if (settings?.logo_url) {
+                setLogo(settings.logo_url);
+            }
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    };
+
     const handleLogout = async () => {
         await supabase.auth.signOut();
     };
 
-    const handleLogoChange = (newLogo) => {
+    const handleLogoChange = async (newLogo) => {
         setLogo(newLogo);
-        if (newLogo) {
-            localStorage.setItem('agrologo', newLogo);
-        } else {
-            localStorage.removeItem('agrologo');
+        try {
+            await settingsService.updateLogo(newLogo);
+        } catch (error) {
+            console.error('Error updating logo in DB:', error);
         }
     };
 
