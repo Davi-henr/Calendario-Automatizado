@@ -15,6 +15,9 @@ import {
     Shield
 } from 'lucide-react';
 
+import Launch from './components/Launch';
+import Climate from './components/Climate';
+import SprayingCalendar from './components/SprayingCalendar';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
 import { settingsService } from './lib/services';
