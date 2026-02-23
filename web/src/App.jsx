@@ -133,7 +133,7 @@ function App() {
                         </div>
                     )}
                     <div className="hide-mobile">
-                        <h2 style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px', fontFamily: 'var(--font-display)' }}>Balança Fazenda</h2>
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px', fontFamily: 'var(--font-display)' }}>Balança Fazenda Vale dos Laranjais</h2>
                     </div>
                 </div>
 
