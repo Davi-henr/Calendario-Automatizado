@@ -83,232 +83,181 @@ function App() {
     const menuItems = isAdminMode ? adminMenuItems : userMenuItems;
 
     return (
-        <div style={{ display: 'flex', height: '100vh', width: '100%', backgroundColor: 'transparent', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', backgroundColor: 'transparent', position: 'relative', overflow: 'hidden' }}>
             {/* Geometric Background Decorations */}
             <div className="geometric-bg">
                 <div className="shape shape-1"></div>
                 <div className="shape shape-2"></div>
             </div>
 
-            {/* Mobile Overlay */}
-            {isMobile && isSidebarOpen && (
-                <div
-                    onClick={() => setIsSidebarOpen(false)}
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: 'rgba(0,0,0,0.4)',
-                        backdropFilter: 'blur(4px)',
-                        zIndex: 999
-                    }}
-                />
-            )}
-
-            {/* Sidebar */}
-            <aside style={{
-                width: isMobile ? '280px' : '320px',
-                background: 'white',
-                color: 'var(--text)',
+            {/* Header / Top Navigation */}
+            <header style={{
+                padding: isMobile ? '0.75rem 1rem' : '0 2rem',
+                backgroundColor: 'rgba(255,255,255,0.9)',
+                backdropFilter: 'blur(12px)',
+                borderBottom: '1px solid var(--border)',
                 display: 'flex',
-                flexDirection: 'column',
-                position: isMobile ? 'fixed' : 'relative',
-                left: isMobile && !isSidebarOpen ? '-280px' : '0',
+                alignItems: 'center',
+                justifyContent: 'space-between',
                 zIndex: 1000,
-                height: '100%',
-                boxShadow: '15px 0 40px rgba(0,0,0,0.02)',
-                borderRight: '1px solid var(--border)',
-                transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                minHeight: '80px',
+                position: 'relative'
             }}>
-                <div style={{ padding: isMobile ? '1.5rem 1rem' : '2.5rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.2rem', textAlign: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     {logo ? (
                         <div style={{
-                            width: isMobile ? '60px' : '90px',
-                            height: isMobile ? '60px' : '90px',
+                            width: '45px',
+                            height: '45px',
                             backgroundColor: 'white',
-                            borderRadius: '20px',
-                            padding: '10px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginBottom: '0.5rem',
-                            boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
-                            border: '1px solid var(--border)'
-                        }}>
-                            <img src={logo} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                        </div>
-                    ) : (
-                        <div style={{
-                            width: isMobile ? '60px' : '90px',
-                            height: isMobile ? '60px' : '90px',
-                            background: 'var(--primary-gradient)',
-                            borderRadius: '20px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 10px 20px rgba(46, 125, 50, 0.2)'
-                        }}>
-                            <Sprout size={isMobile ? 32 : 48} color="#fff" />
-                        </div>
-                    )}
-                    <div>
-                        <h2 style={{ fontSize: isMobile ? '1.1rem' : '1.5rem', fontWeight: '900', letterSpacing: '-0.8px', fontFamily: 'var(--font-display)', color: 'var(--text)' }}>Calendário Automatizado</h2>
-                        <p style={{ fontSize: '0.7rem', opacity: 0.5, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '700', marginTop: '4px' }}>por davi henrique</p>
-                    </div>
-                </div>
-
-                <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                    <button
-                        onClick={() => {
-                            setIsAdminMode(!isAdminMode);
-                            setCurrentPage(isAdminMode ? 'launch' : 'dashboard');
-                        }}
-                        style={{
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.75rem',
-                            padding: '0.8rem',
-                            borderRadius: '16px',
-                            border: '1px solid var(--border)',
-                            background: isAdminMode ? 'var(--primary-gradient)' : 'white',
-                            color: isAdminMode ? 'white' : 'var(--text)',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: '800',
-                            transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                            boxShadow: isAdminMode ? '0 8px 15px rgba(46, 125, 50, 0.2)' : 'none'
-                        }}
-                    >
-                        <Shield size={18} />
-                        {isAdminMode ? 'Voltar para Usuário' : 'Painel de Gerenciamento'}
-                    </button>
-                </div>
-
-                <nav style={{ flex: 1, padding: '0 1.2rem', overflowY: 'auto' }}>
-                    {menuItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => {
-                                setCurrentPage(item.id);
-                                if (isMobile) setIsSidebarOpen(false);
-                            }}
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '1.2rem',
-                                padding: '1.1rem 1.5rem',
-                                borderRadius: '18px',
-                                border: 'none',
-                                backgroundColor: currentPage === item.id ? 'rgba(46, 125, 50, 0.08)' : 'transparent',
-                                color: currentPage === item.id ? 'var(--primary)' : 'var(--text-muted)',
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                                marginBottom: '0.8rem',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                transform: currentPage === item.id ? 'scale(1.02)' : 'none'
-                            }}
-                        >
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '36px',
-                                height: '36px',
-                                borderRadius: '12px',
-                                background: currentPage === item.id ? 'var(--primary-gradient)' : 'rgba(0,0,0,0.02)',
-                                color: currentPage === item.id ? 'white' : 'inherit',
-                                transition: 'all 0.3s'
-                            }}>
-                                {React.cloneElement(item.icon, { size: 18 })}
-                            </div>
-                            <span style={{ fontWeight: currentPage === item.id ? '800' : '600', fontSize: '0.95rem' }}>{item.label}</span>
-                        </button>
-                    ))}
-                </nav>
-
-                <div style={{ padding: isMobile ? '1.2rem' : '2rem', borderTop: '1px solid var(--border)', background: 'rgba(248, 250, 252, 0.5)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-                        <div style={{
-                            width: '44px',
-                            height: '44px',
-                            backgroundColor: 'white',
-                            borderRadius: '14px',
+                            borderRadius: '12px',
+                            padding: '5px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             boxShadow: 'var(--shadow-sm)',
                             border: '1px solid var(--border)'
                         }}>
-                            <User size={22} color="var(--primary)" />
+                            <img src={logo} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                         </div>
-                        <div style={{ overflow: 'hidden' }}>
-                            <p style={{ fontSize: '0.9rem', fontWeight: '800', color: 'var(--text)', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                                {session.user.user_metadata?.username || session.user.email?.split('@')[0]}
-                            </p>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></div>
-                                <p style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: '700' }}>Ativo agora</p>
-                            </div>
-                        </div>
-                    </div>
-                    <button onClick={handleLogout} className="btn" style={{
-                        width: '100%',
-                        backgroundColor: 'white',
-                        color: '#ef4444',
-                        justifyContent: 'center',
-                        border: '1px solid #fee2e2',
-                        borderRadius: '14px',
-                        padding: '0.8rem',
-                        fontWeight: '700'
-                    }}>
-                        <LogOut size={18} /> Sair do sistema
-                    </button>
-                </div>
-            </aside>
-
-            {/* Main Content */}
-            <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', width: '100%' }}>
-                <header style={{
-                    padding: isMobile ? '1rem 1.5rem' : '1.5rem 3rem',
-                    backgroundColor: 'rgba(255,255,255,0.8)',
-                    backdropFilter: 'blur(10px)',
-                    borderBottom: '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    zIndex: 10
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        {isMobile && (
-                            <button onClick={() => setIsSidebarOpen(true)} style={{ background: 'none', border: 'none', color: 'var(--primary)', padding: '0.5rem', display: 'flex', alignItems: 'center' }}>
-                                <Menu size={24} />
-                            </button>
-                        )}
-                        <h1 style={{ fontSize: isMobile ? '1.1rem' : '1.4rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px' }}>
-                            {isAdminMode ? 'Painel ADM' : menuItems.find(i => i.id === currentPage)?.label}
-                        </h1>
-                    </div>
-                    {logo && (
-                        <div style={{ height: isMobile ? '30px' : '40px' }}>
-                            <img src={logo} alt="Fazenda" style={{ height: '100%', width: 'auto', borderRadius: '4px' }} />
+                    ) : (
+                        <div style={{
+                            width: '45px',
+                            height: '45px',
+                            background: 'var(--primary-gradient)',
+                            borderRadius: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <Sprout size={24} color="#fff" />
                         </div>
                     )}
-                </header>
+                    <div className="hide-mobile">
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px', fontFamily: 'var(--font-display)' }}>Balança Fazenda</h2>
+                    </div>
+                </div>
 
-                <section style={{ flex: 1, padding: isMobile ? '1rem' : '2rem', overflowY: 'auto' }}>
-                    <div className="container" style={{ padding: 0 }}>
+                {/* Desktop Menu */}
+                {!isMobile && (
+                    <nav style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {menuItems.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => setCurrentPage(item.id)}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.6rem',
+                                    padding: '0.75rem 1.2rem',
+                                    borderRadius: '14px',
+                                    border: 'none',
+                                    backgroundColor: currentPage === item.id ? 'rgba(46, 125, 50, 0.08)' : 'transparent',
+                                    color: currentPage === item.id ? 'var(--primary)' : 'var(--text-muted)',
+                                    cursor: 'pointer',
+                                    fontWeight: '700',
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                }}
+                            >
+                                {React.cloneElement(item.icon, { size: 18 })}
+                                {item.label}
+                            </button>
+                        ))}
+
+                        <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border)', margin: '0 1rem' }}></div>
+
+                        <button
+                            onClick={() => {
+                                setIsAdminMode(!isAdminMode);
+                                setCurrentPage(isAdminMode ? 'launch' : 'dashboard');
+                            }}
+                            className="btn"
+                            style={{
+                                background: isAdminMode ? 'var(--secondary-gradient)' : 'white',
+                                border: '1px solid var(--border)',
+                                color: isAdminMode ? 'white' : 'var(--text)',
+                                padding: '0.6rem 1.2rem',
+                                fontSize: '0.85rem'
+                            }}
+                        >
+                            <Shield size={16} />
+                            {isAdminMode ? 'Sair ADM' : 'Painel ADM'}
+                        </button>
+                    </nav>
+                )}
+
+                {/* Right Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem', borderLeft: isMobile ? 'none' : '1px solid var(--border)', paddingLeft: isMobile ? 0 : '1rem' }}>
+                        <div className="hide-mobile" style={{ textAlign: 'right' }}>
+                            <p style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text)' }}>{session.user.user_metadata?.username || 'Usuário'}</p>
+                            <button onClick={handleLogout} style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.7rem', color: '#ef4444', fontWeight: '700', cursor: 'pointer' }}>Sair</button>
+                        </div>
+                        <div style={{ width: '40px', height: '40px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <User size={20} color="var(--primary)" />
+                        </div>
+                    </div>
+
+                    {isMobile && (
+                        <button
+                            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                            style={{ background: 'var(--primary-gradient)', border: 'none', color: 'white', padding: '0.6rem', borderRadius: '12px', display: 'flex' }}
+                        >
+                            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                        </button>
+                    )}
+                </div>
+
+                {/* Mobile Dropdown Menu */}
+                {isMobile && isSidebarOpen && (
+                    <div style={{
+                        position: 'absolute', top: '80px', left: 0, width: '100%',
+                        backgroundColor: 'white', borderBottom: '1px solid var(--border)',
+                        padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem',
+                        boxShadow: '0 15px 30px rgba(0,0,0,0.1)', zIndex: 999
+                    }}>
+                        {menuItems.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => { setCurrentPage(item.id); setIsSidebarOpen(false); }}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '1rem',
+                                    padding: '1rem', borderRadius: '12px', border: 'none',
+                                    backgroundColor: currentPage === item.id ? 'rgba(46, 125, 50, 0.08)' : 'transparent',
+                                    color: currentPage === item.id ? 'var(--primary)' : 'var(--text-muted)',
+                                    fontWeight: '700', textAlign: 'left'
+                                }}
+                            >
+                                {item.icon}
+                                {item.label}
+                            </button>
+                        ))}
+                        <button
+                            onClick={() => {
+                                setIsAdminMode(!isAdminMode);
+                                setCurrentPage(isAdminMode ? 'launch' : 'dashboard');
+                                setIsSidebarOpen(false);
+                            }}
+                            className="btn"
+                            style={{ background: isAdminMode ? 'var(--secondary-gradient)' : '#f8fafc', width: '100%', marginTop: '0.5rem' }}
+                        >
+                            <Shield size={18} /> {isAdminMode ? 'Modo Usuário' : 'Painel ADM'}
+                        </button>
+                    </div>
+                )}
+            </header>
+
+            {/* Main Content */}
+            <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '1rem' : '2.5rem' }}>
+                <div className="container" style={{ maxWidth: '1400px', padding: 0 }}>
+                    <section>
                         {currentPage === 'launch' && <Launch />}
                         {currentPage === 'climate' && <Climate />}
                         {currentPage === 'calendar' && <SprayingCalendar />}
                         {currentPage === 'dashboard' && <Dashboard />}
                         {currentPage === 'settings' && <Settings logo={logo} onLogoChange={handleLogoChange} />}
-                    </div>
-                </section>
+                    </section>
+                </div>
             </main>
         </div>
     );

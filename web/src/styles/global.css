@@ -169,10 +169,11 @@ body {
 .action-btn {
   background: white;
   border: 1px solid var(--border);
-  padding: 0.6rem 1.2rem;
+  padding: 0.6rem;
   border-radius: 12px;
   display: flex !important;
   align-items: center !important;
+  justify-content: center;
   gap: 0.6rem;
   font-weight: 700;
   color: var(--text-muted);
@@ -180,6 +181,8 @@ body {
   transition: all 0.3s;
   font-family: var(--font-main);
   font-size: 0.85rem;
+  min-width: 40px;
+  min-height: 40px;
 }
 
 .action-btn:hover {
@@ -200,6 +203,7 @@ body {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   margin-bottom: 1rem;
+  border-radius: var(--radius-sm);
 }
 
 .hide-mobile {
@@ -220,12 +224,12 @@ body {
   }
 
   .premium-card {
-    padding: 1rem;
+    padding: 1.2rem;
     border-radius: 16px;
   }
 
   h2 {
-    font-size: 1.4rem !important;
+    font-size: 1.3rem !important;
   }
 
   h3 {
@@ -236,4 +240,23 @@ body {
     padding: 0.6rem 1rem;
     font-size: 0.8rem;
   }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

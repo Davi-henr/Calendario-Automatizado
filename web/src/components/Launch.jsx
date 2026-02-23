@@ -109,21 +109,36 @@ export default function Launch() {
         }
     };
 
-    const handleFinalize = async (reg) => {
-        const dataFinal = prompt('Informe a data de finalização (AAAA-MM-DD):', format(new Date(), 'yyyy-MM-dd'));
-        if (!dataFinal) return;
+    const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+    const [finalizingReg, setFinalizingReg] = useState(null);
+    const [finalizeData, setFinalizeData] = useState({
+        data_final: format(new Date(), 'yyyy-MM-dd'),
+        quantidade_bombas: '',
+        pes_tratados: ''
+    });
+
+    const handleFinalize = async (e) => {
+        e.preventDefault();
+        if (!finalizingReg) return;
 
         try {
             setLoading(true);
-            await registrosService.update(reg.id, {
-                situacao: 'Finalizada',
-                data_final: dataFinal
+            await registrosService.update(finalizingReg.id, {
+                ...finalizeData,
+                situacao: 'Finalizada'
+            });
+            setShowFinalizeModal(false);
+            setFinalizingReg(null);
+            setFinalizeData({
+                data_final: format(new Date(), 'yyyy-MM-dd'),
+                quantidade_bombas: '',
+                pes_tratados: ''
             });
             loadRegistros();
         } catch (error) {
             alert('Erro ao finalizar: ' + error.message);
         } finally {
-            setLoading(true);
+            setLoading(false);
         }
     };
 
@@ -227,10 +242,6 @@ export default function Launch() {
                             <input type="date" name="data_inicial" value={formData.data_inicial} onChange={handleInputChange} className="input-field" required />
                         </div>
                         <div className="form-group">
-                            <label>Data Final</label>
-                            <input type="date" name="data_final" value={formData.data_final} onChange={handleInputChange} className="input-field" />
-                        </div>
-                        <div className="form-group">
                             <label>Situação</label>
                             <select name="situacao" value={formData.situacao} onChange={handleInputChange} className="input-field">
                                 <option value="Iniciada">Iniciada</option>
@@ -284,6 +295,45 @@ export default function Launch() {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {showFinalizeModal && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                    background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)',
+                    zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
+                }}>
+                    <div className="premium-card glass" style={{ maxWidth: '500px', width: '100%', position: 'relative', border: '1px solid rgba(255,255,255,0.4)', padding: '2.5rem' }}>
+                        <button onClick={() => setShowFinalizeModal(false)} className="action-btn" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', padding: '0.4rem' }}>
+                            <X size={20} />
+                        </button>
+                        <h3 style={{ marginBottom: '0.5rem', color: 'var(--primary)', fontWeight: '900', fontFamily: 'var(--font-display)', fontSize: '1.6rem' }}>Finalizar Quadra</h3>
+                        <p style={{ marginBottom: '2rem', fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                            Confirme os dados de aplicação da quadra <span style={{ color: 'var(--secondary)' }}>{finalizingReg?.quadra}</span>
+                        </p>
+
+                        <form onSubmit={handleFinalize} style={{ display: 'grid', gap: '1.5rem' }}>
+                            <div className="form-group">
+                                <label>Data Final</label>
+                                <input type="date" value={finalizeData.data_final} onChange={e => setFinalizeData({ ...finalizeData, data_final: e.target.value })} className="input-field" required />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div className="form-group">
+                                    <label>Qtd Bombas</label>
+                                    <input type="number" value={finalizeData.quantidade_bombas} onChange={e => setFinalizeData({ ...finalizeData, quantidade_bombas: e.target.value })} className="input-field" required placeholder="Ex: 5" />
+                                </div>
+                                <div className="form-group">
+                                    <label>Pés Tratados</label>
+                                    <input type="number" value={finalizeData.pes_tratados} onChange={e => setFinalizeData({ ...finalizeData, pes_tratados: e.target.value })} className="input-field" required placeholder="Ex: 400" />
+                                </div>
+                            </div>
+
+                            <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', width: '100%', padding: '1rem', fontSize: '1rem' }}>
+                                <CheckCircle size={22} /> Confirmar e Finalizar
+                            </button>
+                        </form>
+                    </div>
                 </div>
             )}
 
@@ -383,7 +433,7 @@ export default function Launch() {
                                         <td style={{ padding: '1rem' }}>
                                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                 {reg.situacao !== 'Finalizada' && (
-                                                    <button onClick={() => handleFinalize(reg)} className="action-btn" style={{ color: '#2e7d32' }} title="Finalizar"><CheckCircle size={16} /></button>
+                                                    <button onClick={() => { setFinalizingReg(reg); setShowFinalizeModal(true); }} className="action-btn" style={{ color: '#2e7d32' }} title="Finalizar"><CheckCircle size={16} /></button>
                                                 )}
                                                 <button onClick={() => { setEditingId(reg.id); setFormData(reg); setShowForm(true); }} className="action-btn"><Edit2 size={16} /></button>
                                                 <button onClick={() => handleDelete(reg.id)} className="action-btn" style={{ color: '#ef5350' }}><Trash2 size={16} /></button>
