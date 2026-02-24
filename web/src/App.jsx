@@ -28,7 +28,8 @@ function App() {
     const [session, setSession] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState('launch');
-    const [currentRoute, setCurrentRoute] = useState('hub'); // hub | main | admin | inventory
+    const [currentRoute, setCurrentRoute] = useState('hub'); // hub | main | inventory
+    const [isAdminMode, setIsAdminMode] = useState(false);
     const [logo, setLogo] = useState(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -83,25 +84,13 @@ function App() {
     }
 
     if (currentRoute === 'hub') {
-        return <Hub session={session} onNavigate={(route) => {
-            // When navigating from Hub to main/admin, set default page
-            if (route === 'admin') setCurrentPage('dashboard');
-            else if (route === 'main') setCurrentPage('launch');
-            setCurrentRoute(route);
-        }} onLogout={handleLogout} />;
+        return <Hub session={session} onNavigate={setCurrentRoute} onLogout={handleLogout} />;
     }
 
     if (currentRoute === 'inventory') {
         return <Inventory onBack={() => setCurrentRoute('hub')} />;
     }
 
-    // Admin-only pages
-    const adminMenuItems = [
-        { id: 'dashboard', label: 'Dashboard', icon: <PieChart /> },
-        { id: 'calendar', label: 'Calendário', icon: <CalendarIcon /> },
-    ];
-
-    // Regular user pages
     const userMenuItems = [
         { id: 'launch', label: 'Lançamento', icon: <PlusSquare /> },
         { id: 'climate', label: 'Clima e Chuva', icon: <CloudSun /> },
@@ -110,7 +99,12 @@ function App() {
         { id: 'settings', label: 'Configurações', icon: <SettingsIcon /> },
     ];
 
-    const menuItems = currentRoute === 'admin' ? adminMenuItems : userMenuItems;
+    const adminMenuItems = [
+        { id: 'dashboard', label: 'Dashboard Resumo', icon: <PieChart /> },
+        { id: 'calendar', label: 'Calendário Pulverização', icon: <CalendarIcon /> },
+    ];
+
+    const menuItems = isAdminMode ? adminMenuItems : userMenuItems;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', backgroundColor: 'transparent', position: 'relative', overflow: 'hidden' }}>
