@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { registrosService } from '../lib/services';
 import PageHeader from './PageHeader';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -14,8 +13,10 @@ import {
     ChevronUp,
     Save,
     X,
-    FileDown
+    FileDown,
+    ClipboardList,
 } from 'lucide-react';
+import { osService, registrosService } from '../lib/services';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -25,6 +26,9 @@ export default function Launch({ logo }) {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [filters, setFilters] = useState({ block: 'Todos', recipe: 'Todos' });
+    const [showOSModal, setShowOSModal] = useState(false);
+    const [pendingOS, setPendingOS] = useState([]);
+    const [selectedOS, setSelectedOS] = useState(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -46,7 +50,17 @@ export default function Launch({ logo }) {
 
     useEffect(() => {
         loadRegistros();
+        loadPendingOS();
     }, []);
+
+    const loadPendingOS = async () => {
+        try {
+            const data = await osService.getAll();
+            setPendingOS(data.filter(os => os.situacao === 'Pendente' || os.situacao === 'Parcial'));
+        } catch (error) {
+            console.error('Error loading OS:', error);
+        }
+    };
 
     const loadRegistros = async () => {
         try {
@@ -80,9 +94,17 @@ export default function Launch({ logo }) {
                 await registrosService.update(editingId, sanitizedData);
                 setEditingId(null);
             } else {
-                await registrosService.create(sanitizedData);
+                const newReg = await registrosService.create({
+                    ...sanitizedData,
+                    os_id: selectedOS?.id
+                });
+
+                if (selectedOS) {
+                    await osService.update(selectedOS.id, { situacao: 'Iniciada' });
+                }
             }
             setShowForm(false);
+            setSelectedOS(null);
             setFormData({
                 quantidade_bombas: '',
                 pes_tratados: '',
@@ -96,6 +118,7 @@ export default function Launch({ logo }) {
                 situacao: 'Iniciada'
             });
             loadRegistros();
+            loadPendingOS();
         } catch (error) {
             alert('Erro ao salvar: ' + error.message);
         } finally {
@@ -139,6 +162,11 @@ export default function Launch({ logo }) {
                 pes_tratados: finalizeData.pes_tratados || 0,
                 situacao: 'Finalizada'
             });
+
+            if (finalizingReg.os_id) {
+                await osService.update(finalizingReg.os_id, { situacao: 'Finalizada' });
+            }
+
             setShowFinalizeModal(false);
             setFinalizingReg(null);
             setFinalizeData({
@@ -147,6 +175,7 @@ export default function Launch({ logo }) {
                 pes_tratados: ''
             });
             loadRegistros();
+            loadPendingOS();
         } catch (error) {
             alert('Erro ao finalizar: ' + error.message);
         } finally {
@@ -220,15 +249,22 @@ export default function Launch({ logo }) {
                             <FileDown size={18} /> Exportar PDF
                         </div>
                     </button>
-                    <button
-                        onClick={() => setShowForm(!showForm)}
-                        className="btn btn-secondary"
-                    >
-                        <div className="btn-inner">
-                            {showForm ? <X size={20} /> : <Plus size={20} />}
-                            {showForm ? 'Fechar' : 'Novo Lançamento'}
-                        </div>
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button onClick={() => setShowOSModal(true)} className="btn btn-mini" title="Puxar Receita Agronômica">
+                            <div className="btn-inner" style={{ padding: '0.5rem' }}>
+                                <Search size={20} />
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => { setShowForm(!showForm); if (!showForm) { setEditingId(null); setSelectedOS(null); } }}
+                            className="btn btn-primary"
+                        >
+                            <div className="btn-inner">
+                                {showForm ? <X size={20} /> : <Plus size={20} />}
+                                {showForm ? 'Cancelar' : 'Novo Lançamento'}
+                            </div>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -469,6 +505,70 @@ export default function Launch({ logo }) {
             <style>{`
                 input::placeholder { color: #94a3b8 !important; }
             `}</style>
+            {/* OS Selection Modal */}
+            {showOSModal && (
+                <div style={{
+                    position: 'fixed', inset: 0,
+                    background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
+                    zIndex: 2500, display: 'grid', placeItems: 'center', padding: '1rem'
+                }}>
+                    <div className="premium-card glass" style={{ maxWidth: '600px', width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ margin: 0, color: 'var(--primary)', fontWeight: '900' }}>Puxar Receita Agronômica</h3>
+                            <button onClick={() => setShowOSModal(false)} className="btn btn-mini">
+                                <div className="btn-inner" style={{ padding: '0.4rem' }}><X size={20} /></div>
+                            </button>
+                        </div>
+
+                        {pendingOS.length === 0 ? (
+                            <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                Nenhuma receita pendente encontrada.
+                            </div>
+                        ) : (
+                            <div style={{ overflowY: 'auto', flex: 1, display: 'grid', gap: '1rem' }}>
+                                {pendingOS.map(os => (
+                                    <button
+                                        key={os.id}
+                                        onClick={() => {
+                                            const insumosStr = os.insumos
+                                                ?.filter(i => i.material)
+                                                .map(i => `${i.material} (${i.dosagem || ''})`)
+                                                .join(', ');
+
+                                            setFormData({
+                                                ...formData,
+                                                quadra: os.quadra,
+                                                receita: os.operacao,
+                                                situacao: 'Iniciada',
+                                                observacao: insumosStr ? `Produtos da OS: ${insumosStr}` : formData.observacao
+                                            });
+                                            setSelectedOS(os);
+                                            setShowOSModal(false);
+                                            setShowForm(true);
+                                        }}
+                                        style={{
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                            padding: '1.25rem', borderRadius: '16px', border: '1.5px solid var(--border)',
+                                            background: 'white', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                        onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                    >
+                                        <div>
+                                            <div style={{ fontWeight: '900', color: 'var(--primary)', fontSize: '1.1rem' }}>OS Nº {String(os.numero_os).padStart(4, '0')}</div>
+                                            <div style={{ fontWeight: '700', color: 'var(--text)' }}>Q-{os.quadra} • {os.operacao}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{format(parseISO(os.data_prescricao), 'dd/MM/yyyy')}</div>
+                                        </div>
+                                        <div style={{ background: 'var(--primary-gradient)', color: 'white', padding: '0.5rem', borderRadius: '10px' }}>
+                                            <Plus size={20} />
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

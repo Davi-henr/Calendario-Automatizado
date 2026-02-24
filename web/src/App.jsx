@@ -10,15 +10,16 @@ import {
     X,
     User,
     Settings as SettingsIcon,
+    ClipboardList,
 } from 'lucide-react';
 
 import Launch from './components/Launch';
 import Climate from './components/Climate';
 import SprayingCalendar from './components/SprayingCalendar';
 import Dashboard from './components/Dashboard';
-import Settings from './components/Settings';
 import Hub from './components/Hub';
 import Inventory from './components/Inventory';
+import Prescriptions from './components/Prescriptions';
 import { settingsService } from './lib/services';
 
 function App() {
@@ -98,6 +99,7 @@ function App() {
     // Menus per route
     const adminMenuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: <PieChart /> },
+        { id: 'prescriptions', label: 'Receitas', icon: <ClipboardList /> },
         { id: 'calendar', label: 'Calendário', icon: <CalendarIcon /> },
     ];
 
@@ -256,6 +258,7 @@ function App() {
             <main style={{ padding: isMobile ? '1rem' : '2.5rem', flex: 1, position: 'relative', zIndex: 1 }}>
                 <div className="container" style={{ padding: 0 }}>
                     {currentPage === 'launch' && <Launch logo={logo} />}
+                    {currentPage === 'prescriptions' && <Prescriptions logo={logo} />}
                     {currentPage === 'dashboard' && <Dashboard logo={logo} />}
                     {currentPage === 'calendar' && <SprayingCalendar logo={logo} />}
                     {currentPage === 'climate' && <Climate logo={logo} />}

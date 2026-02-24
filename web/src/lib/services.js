@@ -113,3 +113,46 @@ export const settingsService = {
         return data[0];
     }
 };
+
+export const osService = {
+    async getAll() {
+        const { data, error } = await supabase
+            .from('ordens_servico')
+            .select('*')
+            .order('numero_os', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    async create(os) {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data, error } = await supabase
+            .from('ordens_servico')
+            .insert([{ ...os, user_id: user.id }])
+            .select();
+
+        if (error) throw error;
+        return data[0];
+    },
+
+    async update(id, updates) {
+        const { data, error } = await supabase
+            .from('ordens_servico')
+            .update(updates)
+            .eq('id', id)
+            .select();
+
+        if (error) throw error;
+        return data[0];
+    },
+
+    async delete(id) {
+        const { error } = await supabase
+            .from('ordens_servico')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+    }
+};

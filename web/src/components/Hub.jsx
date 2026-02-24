@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { settingsService } from '../lib/services';
-import { BarChart2, Shield, Package, X, Eye, EyeOff, LogIn, Sprout } from 'lucide-react';
+import { BarChart2, Shield, Package, X, Eye, EyeOff, LogIn, Sprout, ClipboardList } from 'lucide-react';
 
 const USER_MAP = {
     celso: 'celso@fazendavale.com',
