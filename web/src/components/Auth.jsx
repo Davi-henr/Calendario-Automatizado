@@ -153,29 +153,37 @@ export default function Auth({ onSession }) {
                         type="submit"
                         className="btn btn-primary"
                         disabled={loading}
-                        style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}
+                        style={{ width: '100%', marginTop: '0.5rem' }}
                     >
-                        {loading ? 'Carregando...' : view === 'login' ? 'Entrar' : view === 'signup' ? 'Cadastrar' : 'Enviar E-mail'}
+                        <div className="btn-inner">
+                            {loading ? 'Carregando...' : view === 'login' ? 'Entrar' : view === 'signup' ? 'Cadastrar' : 'Enviar E-mail'}
+                        </div>
                     </button>
                 </form>
 
                 <div style={{ marginTop: '1.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
                     {view === 'login' ? (
                         <>
-                            <button onClick={() => setView('signup')} className="btn" style={{ fontSize: '0.9rem', color: 'var(--primary)' }}>
-                                <UserPlus size={16} /> Criar Conta
+                            <button onClick={() => setView('signup')} className="btn btn-outline" style={{ flex: 1 }}>
+                                <div className="btn-inner">
+                                    <UserPlus size={16} /> Criar Conta
+                                </div>
                             </button>
-                            <button onClick={() => setView('reset')} className="btn" style={{ fontSize: '0.9rem', color: 'var(--primary)' }}>
-                                <KeyRound size={16} /> Esqueceu a Senha?
+                            <button onClick={() => setView('reset')} className="btn btn-outline" style={{ flex: 1 }}>
+                                <div className="btn-inner">
+                                    <KeyRound size={16} /> Esqueceu a Senha?
+                                </div>
                             </button>
                         </>
                     ) : (
-                        <button onClick={() => setView('login')} className="btn" style={{ fontSize: '0.9rem', color: 'var(--primary)' }}>
-                            <ArrowLeft size={16} /> Voltar ao Login
+                        <button onClick={() => setView('login')} className="btn btn-outline" style={{ width: '100%', marginTop: '1rem' }}>
+                            <div className="btn-inner">
+                                <ArrowLeft size={16} /> Voltar ao Login
+                            </div>
                         </button>
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

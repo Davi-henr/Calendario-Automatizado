@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { registrosService } from '../lib/services';
+import PageHeader from './PageHeader';
 import {
     Calendar as CalendarIcon,
     ChevronLeft,
@@ -25,7 +26,7 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export default function SprayingCalendar() {
+export default function SprayingCalendar({ logo }) {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [registros, setRegistros] = useState([]);
@@ -59,16 +60,26 @@ export default function SprayingCalendar() {
                     <select
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value)}
-                        style={{ padding: '0.6rem', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '0.85rem', fontWeight: '600' }}
+                        className="filter-select"
                     >
                         <option value="Todos">Todas Atividades</option>
                         {recipes.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="action-btn"><ChevronLeft size={18} /></button>
-                    <button onClick={() => setCurrentMonth(new Date())} className="action-btn" style={{ fontSize: '0.85rem', fontWeight: '700' }}>Hoje</button>
-                    <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="action-btn"><ChevronRight size={18} /></button>
+                <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center' }}>
+                    <button onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="btn btn-mini">
+                        <div className="btn-inner" style={{ padding: '0.4rem' }}>
+                            <ChevronLeft size={18} />
+                        </div>
+                    </button>
+                    <button onClick={() => setCurrentMonth(new Date())} className="btn btn-outline" style={{ height: '38px' }}>
+                        <div className="btn-inner" style={{ padding: '0 1.2rem' }}>Hoje</div>
+                    </button>
+                    <button onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="btn btn-mini">
+                        <div className="btn-inner" style={{ padding: '0.4rem' }}>
+                            <ChevronRight size={18} />
+                        </div>
+                    </button>
                 </div>
             </div>
         );
@@ -267,24 +278,7 @@ export default function SprayingCalendar() {
 
     return (
         <div className="premium-card glass" style={{ border: 'none', boxShadow: 'none', backgroundColor: 'transparent', padding: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2.5rem' }}>
-                <div style={{
-                    width: '50px',
-                    height: '50px',
-                    borderRadius: '16px',
-                    background: 'var(--primary-gradient)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 8px 15px rgba(46, 125, 50, 0.2)'
-                }}>
-                    <CalendarIcon color="white" size={24} />
-                </div>
-                <div>
-                    <h2 style={{ color: 'var(--text)', fontWeight: '900', letterSpacing: '-0.8px', fontFamily: 'var(--font-display)', fontSize: '1.8rem' }}>Calendário de Pulverização</h2>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '600' }}>Toque em uma data para ver o detalhamento completo</p>
-                </div>
-            </div>
+            <PageHeader title="Calendário de Pulverização" subtitle="Toque em uma data para ver o detalhamento completo" logo={logo} />
 
             {loading ? (
                 <div style={{ padding: '5rem', textAlign: 'center' }}>
@@ -330,24 +324,6 @@ export default function SprayingCalendar() {
             </div>
 
             <style>{`
-                .action-btn {
-                    background: white;
-                    border: 1px solid var(--border);
-                    padding: 0.6rem 1rem;
-                    border-radius: 14px;
-                    cursor: pointer;
-                    color: var(--text);
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    display: flex;
-                    alignItems: center;
-                    justifyContent: center;
-                }
-                .action-btn:hover {
-                    border-color: var(--primary);
-                    color: var(--primary);
-                    box-shadow: var(--shadow-sm);
-                    transform: translateY(-2px);
-                }
                 .spinner {
                     width: 40px;
                     height: 40px;

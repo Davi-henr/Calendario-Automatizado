@@ -1,59 +1,37 @@
 import React from 'react';
 import { Package, ArrowLeft, Wrench } from 'lucide-react';
+import PageHeader from './PageHeader';
 
-export default function Inventory({ onBack }) {
+export default function Inventory({ onBack, logo }) {
     return (
         <div style={{
             minHeight: '100vh',
             display: 'flex',
             flexDirection: 'column',
-            background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 40%, #fed7aa 100%)',
+            background: 'var(--bg)',
             position: 'relative'
         }}>
-            {/* Geometric Background */}
-            <div className="geometric-bg">
-                <div className="shape shape-1" style={{ background: 'rgba(245, 124, 0, 0.06)' }}></div>
-                <div className="shape shape-2" style={{ background: 'rgba(245, 124, 0, 0.04)' }}></div>
-            </div>
-
             {/* Header */}
             <header style={{
-                padding: '1rem 2rem',
-                backgroundColor: 'rgba(255,255,255,0.9)',
-                backdropFilter: 'blur(12px)',
-                borderBottom: '1px solid var(--border)',
+                padding: '1.5rem 2rem',
+                backgroundColor: '#0d1117',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '1rem',
+                justifyContent: 'space-between',
                 zIndex: 100
             }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+                    <PageHeader title="Estoque de Defensivos" subtitle="Área Restrita" logo={logo} />
+                </div>
                 <button
                     onClick={onBack}
-                    style={{
-                        background: 'white', border: '1px solid var(--border)', borderRadius: '12px',
-                        padding: '0.6rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                        gap: '0.5rem', fontWeight: '700', color: 'var(--text)', fontSize: '0.85rem',
-                        transition: 'all 0.2s'
-                    }}
+                    className="btn btn-outline"
                 >
-                    <ArrowLeft size={16} /> Voltar ao Menu
+                    <div className="btn-inner">
+                        <ArrowLeft size={16} /> Voltar ao Menu
+                    </div>
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{
-                        width: '40px', height: '40px', borderRadius: '12px',
-                        background: 'var(--secondary-gradient)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 6px 15px rgba(245,124,0,0.25)'
-                    }}>
-                        <Package size={20} color="white" />
-                    </div>
-                    <div>
-                        <h2 style={{ fontWeight: '900', fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--text)' }}>
-                            Estoque de Defensivos
-                        </h2>
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '600' }}>Área Restrita</p>
-                    </div>
-                </div>
             </header>
 
             {/* Main Content */}
@@ -80,7 +58,7 @@ export default function Inventory({ onBack }) {
                         {['Entradas', 'Saídas', 'Saldo Atual', 'Histórico'].map(item => (
                             <div key={item} style={{
                                 padding: '0.75rem', borderRadius: '12px',
-                                background: '#f8fafc', border: '1px solid var(--border)',
+                                background: 'white', border: '1px solid var(--border)',
                                 fontWeight: '700', fontSize: '0.8rem', color: 'var(--text-muted)'
                             }}>
                                 {item}

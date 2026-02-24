@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Camera, Trash2, Check } from 'lucide-react';
+import PageHeader from './PageHeader';
 
 export default function Settings({ logo, onLogoChange }) {
     const [preview, setPreview] = useState(logo);
@@ -23,20 +24,7 @@ export default function Settings({ logo, onLogoChange }) {
 
     return (
         <div className="premium-card glass" style={{ maxWidth: '600px', margin: '3rem auto', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-                <div style={{
-                    width: '44px',
-                    height: '44px',
-                    borderRadius: '12px',
-                    background: 'var(--primary-gradient)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}>
-                    <Camera color="white" size={22} />
-                </div>
-                <h3 style={{ color: 'var(--text)', fontWeight: '900', fontFamily: 'var(--font-display)', fontSize: '1.5rem', letterSpacing: '-0.5px' }}>Configurações do Sistema</h3>
-            </div>
+            <PageHeader title="Configurações do Sistema" subtitle="Gerencie a identidade visual e os parâmetros do sistema" />
 
             <div style={{ marginBottom: '2.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '1rem', fontWeight: '800', fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Logo Comercial da Fazenda</label>
@@ -111,8 +99,10 @@ export default function Settings({ logo, onLogoChange }) {
                                 zIndex: 2
                             }}
                         />
-                        <button className="btn btn-primary" style={{ padding: '0.8rem 2rem', borderRadius: '14px', fontWeight: '800' }}>
-                            {preview ? 'Trocar Logotipo' : 'Carregar Imagem'}
+                        <button className="btn btn-primary" style={{ width: '100%' }}>
+                            <div className="btn-inner">
+                                <Camera size={20} /> Alterar Logotipo
+                            </div>
                         </button>
                     </div>
                 </div>

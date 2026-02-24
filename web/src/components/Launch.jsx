@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { registrosService } from '../lib/services';
+import PageHeader from './PageHeader';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import {
@@ -18,7 +19,7 @@ import {
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export default function Launch() {
+export default function Launch({ logo }) {
     const [registros, setRegistros] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -212,35 +213,21 @@ export default function Launch() {
     return (
         <div className="premium-card glass" style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                    <div style={{
-                        width: '56px',
-                        height: '56px',
-                        borderRadius: '18px',
-                        background: 'var(--secondary-gradient)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 8px 15px rgba(251, 140, 0, 0.2)'
-                    }}>
-                        <Plus color="white" size={28} />
-                    </div>
-                    <div>
-                        <h2 style={{ color: 'var(--text)', fontWeight: '900', letterSpacing: '-0.8px', fontFamily: 'var(--font-display)', fontSize: '1.8rem' }}>Gestão de Lançamentos</h2>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '600' }}>Controle diário de pulverização e aplicações</p>
-                    </div>
-                </div>
+                <PageHeader title="Gestão de Lançamentos" subtitle="Controle diário de pulverização e aplicações" logo={logo} />
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                    <button onClick={exportToPDF} className="action-btn">
-                        <FileDown size={18} /> Exportar PDF
+                    <button onClick={exportToPDF} className="btn btn-secondary">
+                        <div className="btn-inner" style={{ padding: '0.6rem 1.2rem' }}>
+                            <FileDown size={18} /> Exportar PDF
+                        </div>
                     </button>
                     <button
                         onClick={() => setShowForm(!showForm)}
                         className="btn btn-secondary"
-                        style={{ padding: '0.75rem 1.5rem', borderRadius: '16px', fontWeight: '800' }}
                     >
-                        {showForm ? <X size={20} /> : <Plus size={20} />}
-                        {showForm ? 'Fechar' : 'Novo Lançamento'}
+                        <div className="btn-inner">
+                            {showForm ? <X size={20} /> : <Plus size={20} />}
+                            {showForm ? 'Fechar' : 'Novo Lançamento'}
+                        </div>
                     </button>
                 </div>
             </div>
@@ -254,7 +241,7 @@ export default function Launch() {
                         </div>
                         <div className="form-group">
                             <label>Situação</label>
-                            <select name="situacao" value={formData.situacao} onChange={handleInputChange} className="input-field">
+                            <select name="situacao" value={formData.situacao} onChange={handleInputChange} className="filter-select" style={{ width: '100%' }}>
                                 <option value="Iniciada">Iniciada</option>
                                 <option value="Finalizada">Finalizada</option>
                                 <option value="Pendente">Pendente</option>
@@ -262,14 +249,14 @@ export default function Launch() {
                         </div>
                         <div className="form-group">
                             <label>Quadra</label>
-                            <select name="quadra" value={formData.quadra} onChange={handleInputChange} className="input-field" required>
+                            <select name="quadra" value={formData.quadra} onChange={handleInputChange} className="filter-select" style={{ width: '100%' }} required>
                                 <option value="">Selecione</option>
                                 {blocks.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
                         </div>
                         <div className="form-group">
                             <label>Receita</label>
-                            <select name="receita" value={formData.receita} onChange={handleInputChange} className="input-field" required>
+                            <select name="receita" value={formData.receita} onChange={handleInputChange} className="filter-select" style={{ width: '100%' }} required>
                                 <option value="">Selecione</option>
                                 {recipes.map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
@@ -302,7 +289,9 @@ export default function Launch() {
                         </div>
                         <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
                             <button type="submit" className="btn btn-primary">
-                                <Save size={20} /> {editingId ? 'Salvar Alterações' : 'Salvar Registro'}
+                                <div className="btn-inner">
+                                    <Save size={20} /> {editingId ? 'Salvar Alterações' : 'Salvar Registro'}
+                                </div>
                             </button>
                         </div>
                     </form>
@@ -311,13 +300,16 @@ export default function Launch() {
 
             {showFinalizeModal && (
                 <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                    position: 'fixed', inset: 0,
                     background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)',
-                    zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem'
+                    zIndex: 2000, display: 'grid', placeItems: 'start center',
+                    padding: '2rem 1.5rem', overflowY: 'auto'
                 }}>
                     <div className="premium-card glass" style={{ maxWidth: '500px', width: '100%', position: 'relative', border: '1px solid rgba(255,255,255,0.4)', padding: '2.5rem' }}>
-                        <button onClick={() => setShowFinalizeModal(false)} className="action-btn" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', padding: '0.4rem' }}>
-                            <X size={20} />
+                        <button onClick={() => setShowFinalizeModal(false)} className="btn btn-mini" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', opacity: 0.8 }}>
+                            <div className="btn-inner" style={{ padding: '0.4rem' }}>
+                                <X size={20} />
+                            </div>
                         </button>
                         <h3 style={{ marginBottom: '0.5rem', color: 'var(--primary)', fontWeight: '900', fontFamily: 'var(--font-display)', fontSize: '1.6rem' }}>Finalizar Quadra</h3>
                         <p style={{ marginBottom: '2rem', fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: '600' }}>
@@ -340,8 +332,10 @@ export default function Launch() {
                                 </div>
                             </div>
 
-                            <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', width: '100%', padding: '1rem', fontSize: '1rem' }}>
-                                <CheckCircle size={22} /> Confirmar e Finalizar
+                            <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', width: '100%' }}>
+                                <div className="btn-inner">
+                                    <CheckCircle size={22} /> Confirmar e Finalizar
+                                </div>
                             </button>
                         </form>
                     </div>
@@ -350,7 +344,9 @@ export default function Launch() {
 
             {/* Filters */}
             <div className="premium-card glass" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
-                <Search size={20} color="var(--primary)" />
+                <div style={{ padding: '0.6rem', background: 'rgba(46, 125, 50, 0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center' }}>
+                    <Search size={20} color="var(--primary)" />
+                </div>
                 <select value={filters.block} onChange={(e) => setFilters(f => ({ ...f, block: e.target.value }))} className="filter-select">
                     <option value="Todos">Todas Quadras</option>
                     {blocks.map(b => <option key={b} value={b}>{b}</option>)}
@@ -442,12 +438,24 @@ export default function Launch() {
                                             })() : '-'}
                                         </td>
                                         <td style={{ padding: '1rem' }}>
-                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            <div style={{ display: 'flex', gap: '0.6rem' }}>
                                                 {reg.situacao !== 'Finalizada' && (
-                                                    <button onClick={() => { setFinalizingReg(reg); setShowFinalizeModal(true); }} className="action-btn" style={{ color: '#2e7d32' }} title="Finalizar"><CheckCircle size={16} /></button>
+                                                    <button onClick={() => { setFinalizingReg(reg); setShowFinalizeModal(true); }} className="btn btn-mini" style={{ color: '#2e7d32' }} title="Finalizar">
+                                                        <div className="btn-inner">
+                                                            <CheckCircle size={16} />
+                                                        </div>
+                                                    </button>
                                                 )}
-                                                <button onClick={() => { setEditingId(reg.id); setFormData(reg); setShowForm(true); }} className="action-btn"><Edit2 size={16} /></button>
-                                                <button onClick={() => handleDelete(reg.id)} className="action-btn" style={{ color: '#ef5350' }}><Trash2 size={16} /></button>
+                                                <button onClick={() => { setEditingId(reg.id); setFormData(reg); setShowForm(true); }} className="btn btn-mini" title="Editar">
+                                                    <div className="btn-inner">
+                                                        <Edit2 size={16} />
+                                                    </div>
+                                                </button>
+                                                <button onClick={() => handleDelete(reg.id)} className="btn btn-mini" style={{ color: '#ef5350' }} title="Excluir">
+                                                    <div className="btn-inner">
+                                                        <Trash2 size={16} />
+                                                    </div>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -459,40 +467,8 @@ export default function Launch() {
             </div>
 
             <style>{`
-        .input-field {
-          width: 100%;
-          padding: 0.6rem;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-          outline: none;
-        }
-        .filter-select {
-          padding: 0.5rem;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-          background: white;
-          color: var(--primary);
-          font-weight: 600;
-        }
-        .action-btn {
-          background: #f5f5f5;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          padding: 0.4rem;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-        .action-btn:hover {
-          background: #e0e0e0;
-        }
-        .form-group label {
-          display: block;
-          font-size: 0.85rem;
-          font-weight: 600;
-          margin-bottom: 0.25rem;
-          color: var(--text-muted);
-        }
-      `}</style>
+                input::placeholder { color: #94a3b8 !important; }
+            `}</style>
         </div>
     );
 }

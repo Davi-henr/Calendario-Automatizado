@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
-import Auth from './components/Auth';
 import {
     Sprout,
     PlusSquare,
     CloudSun,
     Calendar as CalendarIcon,
     PieChart,
-    LogOut,
     Menu,
     X,
     User,
     Settings as SettingsIcon,
-    Shield
 } from 'lucide-react';
 
 import Launch from './components/Launch';
@@ -28,8 +25,7 @@ function App() {
     const [session, setSession] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState('launch');
-    const [currentRoute, setCurrentRoute] = useState('hub'); // hub | main | inventory
-    const [isAdminMode, setIsAdminMode] = useState(false);
+    const [currentRoute, setCurrentRoute] = useState('hub'); // hub | main | admin | inventory
     const [logo, setLogo] = useState(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
@@ -42,14 +38,12 @@ function App() {
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
-            if (session) loadSettings();
         });
 
-        const {
-            data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        loadSettings(); // Always load logo regardless of session
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
-            if (session) loadSettings();
         });
 
         return () => subscription.unsubscribe();
@@ -58,9 +52,7 @@ function App() {
     const loadSettings = async () => {
         try {
             const settings = await settingsService.get();
-            if (settings?.logo_url) {
-                setLogo(settings.logo_url);
-            }
+            if (settings?.logo_url) setLogo(settings.logo_url);
         } catch (error) {
             console.error('Error loading settings:', error);
         }
@@ -68,6 +60,7 @@ function App() {
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
+        setCurrentRoute('hub');
     };
 
     const handleLogoChange = async (newLogo) => {
@@ -79,17 +72,34 @@ function App() {
         }
     };
 
-    if (!session) {
-        return <Auth />;
-    }
-
+    // Hub is PUBLIC — always show without requiring a session
     if (currentRoute === 'hub') {
-        return <Hub session={session} onNavigate={setCurrentRoute} onLogout={handleLogout} />;
+        return <Hub logo={logo} onNavigate={(route) => {
+            if (route === 'admin') setCurrentPage('dashboard');
+            else if (route === 'main') setCurrentPage('launch');
+            setCurrentRoute(route);
+        }} />;
     }
 
+    // Inventory
     if (currentRoute === 'inventory') {
-        return <Inventory onBack={() => setCurrentRoute('hub')} />;
+        return <Inventory logo={logo} onBack={async () => {
+            await supabase.auth.signOut();
+            setCurrentRoute('hub');
+        }} />;
     }
+
+    // If somehow no session on main/admin, go back to hub
+    if (!session) {
+        setCurrentRoute('hub');
+        return null;
+    }
+
+    // Menus per route
+    const adminMenuItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: <PieChart /> },
+        { id: 'calendar', label: 'Calendário', icon: <CalendarIcon /> },
+    ];
 
     const userMenuItems = [
         { id: 'launch', label: 'Lançamento', icon: <PlusSquare /> },
@@ -99,158 +109,130 @@ function App() {
         { id: 'settings', label: 'Configurações', icon: <SettingsIcon /> },
     ];
 
-    const adminMenuItems = [
-        { id: 'dashboard', label: 'Dashboard Resumo', icon: <PieChart /> },
-        { id: 'calendar', label: 'Calendário Pulverização', icon: <CalendarIcon /> },
-    ];
-
-    const menuItems = isAdminMode ? adminMenuItems : userMenuItems;
+    const menuItems = currentRoute === 'admin' ? adminMenuItems : userMenuItems;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100%', backgroundColor: 'transparent', position: 'relative', overflow: 'hidden' }}>
-            {/* Geometric Background Decorations */}
-            <div className="geometric-bg">
-                <div className="shape shape-1"></div>
-                <div className="shape shape-2"></div>
-            </div>
-
-            {/* Header / Top Navigation */}
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg)', position: 'relative' }}>
+            {/* Main Header */}
             <header style={{
-                padding: isMobile ? '0.75rem 1rem' : '0 1.5rem',
-                backgroundColor: 'rgba(255,255,255,0.9)',
+                height: isMobile ? '72px' : '88px',
+                backgroundColor: 'rgba(255,255,255,0.85)',
                 backdropFilter: 'blur(12px)',
-                borderBottom: '1px solid var(--border)',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
+                padding: isMobile ? '0 1rem' : '0 2.5rem',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                zIndex: 1000,
-                minHeight: '72px',
-                gap: '0.5rem',
-                position: 'relative'
+                position: 'sticky',
+                top: 0,
+                zIndex: 1000
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
+                {/* Accent Gradient Line at bottom of header */}
+                <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '2.5px', background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', opacity: 0.8 }} />
+                {/* Left: Logo & Brand */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                     {logo ? (
+                        <img src={logo} alt="Logo" style={{ height: isMobile ? '36px' : '48px', width: 'auto', borderRadius: '10px' }} />
+                    ) : (
                         <div style={{
-                            width: '45px',
-                            height: '45px',
-                            backgroundColor: 'white',
+                            width: isMobile ? '36px' : '42px',
+                            height: isMobile ? '36px' : '42px',
+                            backgroundColor: 'var(--primary)',
                             borderRadius: '12px',
-                            padding: '5px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            boxShadow: 'var(--shadow-sm)',
-                            border: '1px solid var(--border)'
+                            boxShadow: '0 8px 16px rgba(46, 125, 50, 0.15)'
                         }}>
-                            <img src={logo} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                        </div>
-                    ) : (
-                        <div style={{
-                            width: '45px',
-                            height: '45px',
-                            background: 'var(--primary-gradient)',
-                            borderRadius: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <Sprout size={24} color="#fff" />
+                            <Sprout size={isMobile ? 18 : 22} color="white" />
                         </div>
                     )}
-                    <div className="hide-mobile">
-                        <h2 style={{ fontSize: '1.2rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.5px', fontFamily: 'var(--font-display)' }}>Calendário Automatizado</h2>
-                        <p style={{ fontSize: '0.65rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '1px', fontWeight: '800', marginTop: '-2px' }}>por davi henrique</p>
-                    </div>
+                    {!isMobile && (
+                        <div style={{ borderLeft: '1.5px solid rgba(0,0,0,0.1)', paddingLeft: '1.25rem' }}>
+                            <h1 style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.3px', margin: 0, lineHeight: 1 }}>
+                                Calendário <span style={{ color: 'var(--primary)' }}>Automatizado</span>
+                            </h1>
+                            <p style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '2px' }}>Gestão Agrícola</p>
+                        </div>
+                    )}
                 </div>
-
-                {/* Desktop Menu */}
+                {/* Desktop Nav */}
                 {!isMobile && (
-                    <nav style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexShrink: 1, minWidth: 0, overflow: 'hidden' }}>
-                        {menuItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setCurrentPage(item.id)}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.4rem',
-                                    padding: '0.65rem 0.9rem',
-                                    borderRadius: '14px',
-                                    border: 'none',
-                                    backgroundColor: currentPage === item.id ? 'rgba(46, 125, 50, 0.08)' : 'transparent',
-                                    color: currentPage === item.id ? 'var(--primary)' : 'var(--text-muted)',
-                                    cursor: 'pointer',
-                                    fontWeight: '700',
-                                    fontSize: '0.82rem',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    whiteSpace: 'nowrap'
-                                }}
-                            >
-                                {React.cloneElement(item.icon, { size: 16 })}
-                                {item.label}
-                            </button>
+                    <nav style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f1f5f9', padding: '0.4rem', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                        {menuItems.map((item, index) => (
+                            <React.Fragment key={item.id}>
+                                {index > 0 && <div style={{ width: '1px', height: '16px', background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.1), transparent)', margin: '0 2px' }} />}
+                                <button
+                                    onClick={() => setCurrentPage(item.id)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.6rem',
+                                        padding: '0.6rem 1.1rem', borderRadius: '12px', border: 'none',
+                                        backgroundColor: 'transparent',
+                                        color: currentPage === item.id ? 'var(--text)' : 'var(--text-muted)',
+                                        fontWeight: '900', fontSize: '0.85rem', cursor: 'pointer',
+                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        position: 'relative'
+                                    }}
+                                >
+                                    {currentPage === item.id && (
+                                        <div style={{ position: 'absolute', bottom: '-4px', left: '1rem', right: '1rem', height: '3px', background: 'var(--accent-gradient)', borderRadius: '99px' }} />
+                                    )}
+                                    <div style={{ opacity: currentPage === item.id ? 1 : 0.7 }}>
+                                        {React.cloneElement(item.icon, { size: 18 })}
+                                    </div>
+                                    {item.label}
+                                </button>
+                            </React.Fragment>
                         ))}
-
-                        <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border)', margin: '0 0.5rem', flexShrink: 0 }}></div>
-
-                        <button
-                            onClick={() => setCurrentRoute('hub')}
-                            className="btn"
-                            style={{
-                                background: 'white',
-                                border: '1px solid var(--border)',
-                                color: 'var(--text)',
-                                padding: '0.55rem 1rem',
-                                fontSize: '0.8rem',
-                                whiteSpace: 'nowrap',
-                                flexShrink: 0
-                            }}
-                        >
-                            Menu Principal
-                        </button>
                     </nav>
                 )}
 
-                {/* Right Actions */}
+                {/* Right: User + Mobile Toggle */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.4rem', borderLeft: isMobile ? 'none' : '1px solid var(--border)', paddingLeft: isMobile ? 0 : '1rem' }}>
-                        <div className="hide-mobile" style={{ textAlign: 'right' }}>
-                            <p style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--text)' }}>{session.user.user_metadata?.username || 'Usuário'}</p>
-                            <button onClick={handleLogout} style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.7rem', color: '#ef4444', fontWeight: '700', cursor: 'pointer' }}>Sair</button>
-                        </div>
-                        <div style={{ width: '40px', height: '40px', backgroundColor: '#f1f5f9', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: isMobile ? 'none' : '1.5px solid rgba(0,0,0,0.1)', paddingLeft: isMobile ? 0 : '1.5rem' }}>
+                        {!isMobile && (
+                            <div style={{ textAlign: 'right' }}>
+                                <p style={{ fontSize: '0.85rem', fontWeight: '900', color: 'var(--text)', marginBottom: '-2px' }}>{session?.user?.user_metadata?.username || 'Usuário'}</p>
+                                <button onClick={handleLogout} className="btn btn-mini" style={{ color: '#ef4444', height: '24px' }} title="Sair">
+                                    <div className="btn-inner" style={{ padding: '0 0.5rem', fontSize: '0.65rem' }}>Sair</div>
+                                </button>
+                            </div>
+                        )}
+                        <div style={{ width: '42px', height: '42px', backgroundColor: '#f1f5f9', border: '1.5px solid var(--border)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 8px rgba(0,0,0,0.04)' }}>
                             <User size={20} color="var(--primary)" />
                         </div>
                     </div>
-
                     {isMobile && (
                         <button
                             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                            style={{ background: 'var(--primary-gradient)', border: 'none', color: 'white', padding: '0.6rem', borderRadius: '12px', display: 'flex' }}
+                            className="btn btn-primary btn-mini"
+                            style={{ width: '42px', height: '42px' }}
                         >
-                            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                            <div className="btn-inner">
+                                {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                            </div>
                         </button>
                     )}
                 </div>
 
-                {/* Mobile Dropdown Menu */}
+                {/* Mobile Dropdown */}
                 {isMobile && isSidebarOpen && (
                     <div style={{
                         position: 'absolute', top: '72px', left: 0, width: '100%',
                         backgroundColor: 'white', borderBottom: '1px solid var(--border)',
-                        padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem',
-                        boxShadow: '0 15px 30px rgba(0,0,0,0.1)', zIndex: 999
+                        padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.65rem',
+                        boxShadow: '0 20px 40px rgba(0,0,0,0.1)', zIndex: 999
                     }}>
                         {menuItems.map((item) => (
                             <button
                                 key={item.id}
                                 onClick={() => { setCurrentPage(item.id); setIsSidebarOpen(false); }}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: '1rem',
-                                    padding: '1rem', borderRadius: '12px', border: 'none',
-                                    backgroundColor: currentPage === item.id ? 'rgba(46, 125, 50, 0.08)' : 'transparent',
+                                    display: 'flex', alignItems: 'center', gap: '1.2rem',
+                                    padding: '1.1rem', borderRadius: '16px', border: 'none',
+                                    backgroundColor: currentPage === item.id ? '#f1f5f9' : 'transparent',
                                     color: currentPage === item.id ? 'var(--primary)' : 'var(--text-muted)',
-                                    fontWeight: '700', textAlign: 'left'
+                                    fontWeight: '800', textAlign: 'left', fontSize: '1rem'
                                 }}
                             >
                                 {item.icon}
@@ -258,26 +240,26 @@ function App() {
                             </button>
                         ))}
                         <button
-                            onClick={() => { setCurrentRoute('hub'); setIsSidebarOpen(false); }}
-                            className="btn"
-                            style={{ background: '#f8fafc', width: '100%', marginTop: '0.5rem' }}
+                            onClick={handleLogout}
+                            className="btn btn-outline"
+                            style={{ width: '100%', marginTop: '0.5rem' }}
                         >
-                            Menu Principal
+                            <div className="btn-inner">
+                                Menu Principal
+                            </div>
                         </button>
                     </div>
                 )}
             </header>
 
-            {/* Main Content */}
-            <main style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '1rem' : '2.5rem' }}>
-                <div className="container" style={{ maxWidth: '1400px', padding: 0 }}>
-                    <section>
-                        {currentPage === 'launch' && <Launch />}
-                        {currentPage === 'climate' && <Climate />}
-                        {currentPage === 'calendar' && <SprayingCalendar />}
-                        {currentPage === 'dashboard' && <Dashboard />}
-                        {currentPage === 'settings' && <Settings logo={logo} onLogoChange={handleLogoChange} />}
-                    </section>
+            {/* Pages */}
+            <main style={{ padding: isMobile ? '1rem' : '2.5rem', flex: 1, position: 'relative', zIndex: 1 }}>
+                <div className="container" style={{ padding: 0 }}>
+                    {currentPage === 'launch' && <Launch logo={logo} />}
+                    {currentPage === 'dashboard' && <Dashboard logo={logo} />}
+                    {currentPage === 'calendar' && <SprayingCalendar logo={logo} />}
+                    {currentPage === 'climate' && <Climate logo={logo} />}
+                    {currentPage === 'settings' && <Settings logo={logo} onLogoChange={handleLogoChange} />}
                 </div>
             </main>
         </div>

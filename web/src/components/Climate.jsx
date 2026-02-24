@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { chuvasService } from '../lib/services';
+import PageHeader from './PageHeader';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import {
@@ -13,7 +14,8 @@ import {
     Trash2,
     Calendar as CalendarIcon,
     Wind as AirIcon,
-    FileDown
+    FileDown,
+    X
 } from 'lucide-react';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -21,7 +23,7 @@ import { ptBR } from 'date-fns/locale';
 const API_KEY = "29f247c5a06de34f0992ec03ba8f0a12";
 const CIDADE = "Bariri, São Paulo, BR";
 
-export default function Climate() {
+export default function Climate({ logo }) {
     const [forecast, setForecast] = useState([]);
     const [chuvas, setChuvas] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -131,24 +133,7 @@ export default function Climate() {
     return (
         <div className="premium-card glass" style={{ border: 'none', boxShadow: 'none', background: 'transparent', padding: 0 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.2rem' }}>
-                    <div style={{
-                        width: '56px',
-                        height: '56px',
-                        borderRadius: '18px',
-                        background: 'var(--primary-gradient)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 8px 15px rgba(46, 125, 50, 0.2)'
-                    }}>
-                        <CloudRain color="white" size={28} />
-                    </div>
-                    <div>
-                        <h2 style={{ color: 'var(--text)', fontWeight: '900', letterSpacing: '-0.8px', fontFamily: 'var(--font-display)', fontSize: '1.8rem' }}>Previsão e Clima</h2>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '600' }}>Monitoramento meteorológico em tempo real</p>
-                    </div>
-                </div>
+                <PageHeader title="Previsão e Clima" subtitle="Monitoramento meteorológico em tempo real" logo={logo} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontWeight: '700', fontSize: '0.85rem' }}>
                     <Sun size={18} color="#fb8c00" /> {CIDADE}
                 </div>
@@ -194,12 +179,16 @@ export default function Climate() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h2 style={{ color: 'var(--text)', fontWeight: '900', letterSpacing: '-0.5px' }}>📋 Registros de Chuva</h2>
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button onClick={exportToPDF} className="action-btn">
-                            <FileDown size={18} /> Exportar PDF
+                        <button onClick={exportToPDF} className="btn btn-mini" title="Exportar PDF">
+                            <div className="btn-inner" style={{ padding: '0.4rem' }}>
+                                <FileDown size={18} />
+                            </div>
                         </button>
                         <button onClick={() => setShowAddChuva(!showAddChuva)} className="btn btn-secondary">
-                            {showAddChuva ? <X size={20} /> : <Plus size={20} />}
-                            {showAddChuva ? 'Cancelar' : 'Registrar Chuva'}
+                            <div className="btn-inner">
+                                {showAddChuva ? <X size={20} /> : <Plus size={20} />}
+                                {showAddChuva ? 'Cancelar' : 'Registrar Chuva'}
+                            </div>
                         </button>
                     </div>
                 </div>
@@ -213,7 +202,7 @@ export default function Climate() {
                             </div>
                             <div style={{ flex: 2, minWidth: '200px' }}>
                                 <label style={{ fontSize: '0.8rem', fontWeight: '600' }}>Pluviômetro</label>
-                                <select value={newChuva.local} onChange={e => setNewChuva({ ...newChuva, local: e.target.value })} className="input-field" required>
+                                <select value={newChuva.local} onChange={e => setNewChuva({ ...newChuva, local: e.target.value })} className="filter-select" style={{ width: '100%' }} required>
                                     {locais.map(l => <option key={l} value={l}>{l}</option>)}
                                 </select>
                             </div>
@@ -221,7 +210,9 @@ export default function Climate() {
                                 <label style={{ fontSize: '0.8rem', fontWeight: '600' }}>Milímetros (mm)</label>
                                 <input type="number" step="0.1" value={newChuva.mm} onChange={e => setNewChuva({ ...newChuva, mm: e.target.value })} className="input-field" required />
                             </div>
-                            <button type="submit" className="btn btn-primary">Salvar</button>
+                            <button type="submit" className="btn btn-primary">
+                                <div className="btn-inner">Salvar</div>
+                            </button>
                         </form>
                     </div>
                 )}
@@ -244,7 +235,11 @@ export default function Climate() {
                                         <td style={{ padding: '0.75rem' }}>{c.local}</td>
                                         <td style={{ padding: '0.75rem', fontWeight: '700', color: 'var(--secondary)' }}>{c.mm} mm</td>
                                         <td style={{ padding: '0.75rem' }}>
-                                            <button onClick={() => handleDeleteChuva(c.id)} className="action-btn" style={{ color: '#ef5350' }}><Trash2 size={16} /></button>
+                                            <button onClick={() => handleDeleteChuva(c.id)} className="btn btn-mini" style={{ color: '#ef5350' }} title="Excluir">
+                                                <div className="btn-inner" style={{ padding: '0.4rem' }}>
+                                                    <Trash2 size={16} />
+                                                </div>
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -255,21 +250,8 @@ export default function Climate() {
             </div>
 
             <style>{`
-        .input-field {
-          width: 100%;
-          padding: 0.6rem;
-          border-radius: 8px;
-          border: 1px solid var(--border);
-          outline: none;
-        }
-        .action-btn {
-          background: #f5f5f5;
-          border: 1px solid var(--border);
-          border-radius: 6px;
-          padding: 0.4rem;
-          cursor: pointer;
-        }
-      `}</style>
+                input::placeholder { color: #94a3b8 !important; }
+            `}</style>
         </div >
     );
 }

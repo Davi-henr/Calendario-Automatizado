@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { registrosService, chuvasService } from '../lib/services';
+import PageHeader from './PageHeader';
 import {
     BarChart3,
     TrendingUp,
@@ -60,7 +61,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineEleme
 const API_KEY = "29f247c5a06de34f0992ec03ba8f0a12";
 const CIDADE = "Bariri, São Paulo, BR";
 
-export default function Dashboard() {
+export default function Dashboard({ logo }) {
     const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
@@ -189,8 +190,10 @@ export default function Dashboard() {
                 {/* Rain Entry Button */}
                 <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                     <button onClick={() => setShowRainForm(!showRainForm)} className="btn btn-primary">
-                        {showRainForm ? <X size={18} /> : <Plus size={18} />}
-                        {showRainForm ? 'Cancelar' : 'Inserir Chuva'}
+                        <div className="btn-inner">
+                            {showRainForm ? <X size={18} /> : <Plus size={18} />}
+                            {showRainForm ? 'Cancelar' : 'Inserir Chuva'}
+                        </div>
                     </button>
                 </div>
 
@@ -210,7 +213,9 @@ export default function Dashboard() {
                                 <input type="text" value={rainFormData.local} onChange={e => setRainFormData({ ...rainFormData, local: e.target.value })} className="input-field" placeholder="Ex: Sede" />
                             </div>
                             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Gravar</button>
+                                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
+                                    <div className="btn-inner">Gravar</div>
+                                </button>
                             </div>
                         </form>
                     </div>
@@ -310,8 +315,15 @@ export default function Dashboard() {
                                             <td style={{ padding: '0.75rem' }}>{c.local}</td>
                                             <td style={{ padding: '0.75rem', fontWeight: 'bold', color: '#1976d2' }}>{c.mm} mm</td>
                                             <td style={{ padding: '0.75rem' }}>
-                                                <button onClick={async () => { if (confirm('Excluir?')) { await chuvasService.delete(c.id); fetchData(); } }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef5350' }}>
-                                                    <Trash2 size={16} />
+                                                <button
+                                                    onClick={async () => { if (confirm('Excluir?')) { await chuvasService.delete(c.id); fetchData(); } }}
+                                                    className="btn btn-mini"
+                                                    style={{ color: '#ef5350' }}
+                                                    title="Excluir"
+                                                >
+                                                    <div className="btn-inner" style={{ padding: '0.4rem' }}>
+                                                        <Trash2 size={16} />
+                                                    </div>
                                                 </button>
                                             </td>
                                         </tr>
@@ -406,14 +418,18 @@ export default function Dashboard() {
                         </select>
                         <button
                             onClick={() => setShowWeekly(!showWeekly)}
-                            className="btn"
-                            style={{ backgroundColor: showWeekly ? 'var(--secondary)' : '#f5f5f5', color: showWeekly ? 'white' : 'inherit' }}
+                            className="btn btn-outline"
+                            style={{ height: '38px', minWidth: '160px' }}
                         >
-                            <Clock size={16} /> Nesta Semana
+                            <div className="btn-inner" style={{ background: showWeekly ? 'var(--secondary)' : 'white', color: showWeekly ? 'white' : 'black', padding: '0 1rem' }}>
+                                <Clock size={16} /> Nesta Semana
+                            </div>
                         </button>
                     </div>
-                    <button onClick={exportPDF} className="action-btn">
-                        <Printer size={16} /> Imprimir Relatório
+                    <button onClick={exportPDF} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>
+                        <div className="btn-inner">
+                            <FileDown size={18} /> Exportar PDF (Planejamento)
+                        </div>
                     </button>
                 </div>
 
@@ -529,12 +545,14 @@ export default function Dashboard() {
 
                 <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flex: 1, minWidth: '300px' }}>
-                        <Search size={18} color="var(--primary)" />
-                        <select value={summaryFilters.quadra} onChange={(e) => setSummaryFilters(s => ({ ...s, quadra: e.target.value }))} className="filter-select" style={{ fontSize: '0.8rem', flex: 1 }}>
+                        <div style={{ padding: '0.6rem', background: 'rgba(46, 125, 50, 0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center' }}>
+                            <Search size={18} color="var(--primary)" />
+                        </div>
+                        <select value={summaryFilters.quadra} onChange={(e) => setSummaryFilters(s => ({ ...s, quadra: e.target.value }))} className="filter-select">
                             <option value="Todos">Todas Quadras</option>
                             {blocks.map(b => <option key={b} value={b}>{b}</option>)}
                         </select>
-                        <select value={summaryFilters.receita} onChange={(e) => setSummaryFilters(s => ({ ...s, receita: e.target.value }))} className="filter-select" style={{ fontSize: '0.8rem', flex: 1 }}>
+                        <select value={summaryFilters.receita} onChange={(e) => setSummaryFilters(s => ({ ...s, receita: e.target.value }))} className="filter-select">
                             <option value="Todos">Todas Receitas</option>
                             {recipes.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
@@ -621,11 +639,11 @@ export default function Dashboard() {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ color: 'var(--primary)', fontWeight: '800' }}>📊 Dashboard Estratégico</h2>
+                <PageHeader title="Dashboard Estratégico" subtitle="Análise e indicadores de desempenho" logo={logo} />
             </div>
 
             {/* Submenu Tabs */}
-            <div style={{ display: 'flex', gap: '0.8rem', paddingBottom: '0.8rem', marginBottom: '1rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <div style={{ display: 'flex', gap: '0.8rem', paddingBottom: '0.8rem', marginBottom: '1.5rem', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 {[
                     { id: 'chuva', label: 'Chuva', icon: <Droplets size={18} /> },
                     { id: 'planejamento', label: 'Planejamento', icon: <ClipboardList size={18} /> },
@@ -634,24 +652,34 @@ export default function Dashboard() {
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
+                        className={activeTab === tab.id ? 'selection-gradient' : ''}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.5rem',
-                            padding: '0.75rem 1.25rem',
-                            borderRadius: '12px',
-                            border: 'none',
-                            background: activeTab === tab.id ? 'var(--primary-gradient)' : 'white',
-                            color: activeTab === tab.id ? 'white' : 'var(--text-muted)',
+                            padding: activeTab === tab.id ? '2.5px' : '0.75rem 1.25rem',
+                            borderRadius: '14px',
+                            border: '1.5px solid var(--border)',
+                            background: activeTab === tab.id ? 'transparent' : 'white',
+                            color: activeTab === tab.id ? 'var(--text)' : 'var(--text-muted)',
                             cursor: 'pointer',
-                            fontWeight: '700',
+                            fontWeight: '900',
                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                            boxShadow: activeTab === tab.id ? '0 4px 15px rgba(46, 125, 50, 0.2)' : 'none',
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
+                            fontSize: '0.85rem'
                         }}
                     >
-                        {tab.icon}
-                        {tab.label}
+                        {activeTab === tab.id ? (
+                            <div className="selection-gradient-inner" style={{ padding: '0.65rem 1.1rem', gap: '0.5rem', borderRadius: '12px' }}>
+                                {tab.icon}
+                                {tab.label}
+                            </div>
+                        ) : (
+                            <>
+                                {tab.icon}
+                                {tab.label}
+                            </>
+                        )}
                     </button>
                 ))}
             </div>
