@@ -20,12 +20,15 @@ import Climate from './components/Climate';
 import SprayingCalendar from './components/SprayingCalendar';
 import Dashboard from './components/Dashboard';
 import Settings from './components/Settings';
+import Hub from './components/Hub';
+import Inventory from './components/Inventory';
 import { settingsService } from './lib/services';
 
 function App() {
     const [session, setSession] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [currentPage, setCurrentPage] = useState('launch'); // launch, climate, calendar, dashboard, settings
+    const [currentPage, setCurrentPage] = useState('launch');
+    const [currentRoute, setCurrentRoute] = useState('hub'); // hub | main | inventory
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [logo, setLogo] = useState(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -80,6 +83,14 @@ function App() {
         return <Auth />;
     }
 
+    if (currentRoute === 'hub') {
+        return <Hub session={session} onNavigate={setCurrentRoute} onLogout={handleLogout} />;
+    }
+
+    if (currentRoute === 'inventory') {
+        return <Inventory onBack={() => setCurrentRoute('hub')} />;
+    }
+
     const userMenuItems = [
         { id: 'launch', label: 'Lançamento', icon: <PlusSquare /> },
         { id: 'climate', label: 'Clima e Chuva', icon: <CloudSun /> },
@@ -105,7 +116,7 @@ function App() {
 
             {/* Header / Top Navigation */}
             <header style={{
-                padding: isMobile ? '0.75rem 1rem' : '0 2rem',
+                padding: isMobile ? '0.75rem 1rem' : '0 1.5rem',
                 backgroundColor: 'rgba(255,255,255,0.9)',
                 backdropFilter: 'blur(12px)',
                 borderBottom: '1px solid var(--border)',
@@ -113,10 +124,11 @@ function App() {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 zIndex: 1000,
-                minHeight: '80px',
+                minHeight: '72px',
+                gap: '0.5rem',
                 position: 'relative'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
                     {logo ? (
                         <div style={{
                             width: '45px',
@@ -153,7 +165,7 @@ function App() {
 
                 {/* Desktop Menu */}
                 {!isMobile && (
-                    <nav style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <nav style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexShrink: 1, minWidth: 0, overflow: 'hidden' }}>
                         {menuItems.map((item) => (
                             <button
                                 key={item.id}
@@ -161,41 +173,40 @@ function App() {
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '0.6rem',
-                                    padding: '0.75rem 1.2rem',
+                                    gap: '0.4rem',
+                                    padding: '0.65rem 0.9rem',
                                     borderRadius: '14px',
                                     border: 'none',
                                     backgroundColor: currentPage === item.id ? 'rgba(46, 125, 50, 0.08)' : 'transparent',
                                     color: currentPage === item.id ? 'var(--primary)' : 'var(--text-muted)',
                                     cursor: 'pointer',
                                     fontWeight: '700',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                    fontSize: '0.82rem',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    whiteSpace: 'nowrap'
                                 }}
                             >
-                                {React.cloneElement(item.icon, { size: 18 })}
+                                {React.cloneElement(item.icon, { size: 16 })}
                                 {item.label}
                             </button>
                         ))}
 
-                        <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border)', margin: '0 1rem' }}></div>
+                        <div style={{ width: '1px', height: '24px', backgroundColor: 'var(--border)', margin: '0 0.5rem', flexShrink: 0 }}></div>
 
                         <button
-                            onClick={() => {
-                                setIsAdminMode(!isAdminMode);
-                                setCurrentPage(isAdminMode ? 'launch' : 'dashboard');
-                            }}
+                            onClick={() => setCurrentRoute('hub')}
                             className="btn"
                             style={{
-                                background: isAdminMode ? 'var(--secondary-gradient)' : 'white',
+                                background: 'white',
                                 border: '1px solid var(--border)',
-                                color: isAdminMode ? 'white' : 'var(--text)',
-                                padding: '0.6rem 1.2rem',
-                                fontSize: '0.85rem'
+                                color: 'var(--text)',
+                                padding: '0.55rem 1rem',
+                                fontSize: '0.8rem',
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0
                             }}
                         >
-                            <Shield size={16} />
-                            {isAdminMode ? 'Sair ADM' : 'Painel ADM'}
+                            Menu Principal
                         </button>
                     </nav>
                 )}
@@ -225,7 +236,7 @@ function App() {
                 {/* Mobile Dropdown Menu */}
                 {isMobile && isSidebarOpen && (
                     <div style={{
-                        position: 'absolute', top: '80px', left: 0, width: '100%',
+                        position: 'absolute', top: '72px', left: 0, width: '100%',
                         backgroundColor: 'white', borderBottom: '1px solid var(--border)',
                         padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem',
                         boxShadow: '0 15px 30px rgba(0,0,0,0.1)', zIndex: 999
@@ -247,15 +258,11 @@ function App() {
                             </button>
                         ))}
                         <button
-                            onClick={() => {
-                                setIsAdminMode(!isAdminMode);
-                                setCurrentPage(isAdminMode ? 'launch' : 'dashboard');
-                                setIsSidebarOpen(false);
-                            }}
+                            onClick={() => { setCurrentRoute('hub'); setIsSidebarOpen(false); }}
                             className="btn"
-                            style={{ background: isAdminMode ? 'var(--secondary-gradient)' : '#f8fafc', width: '100%', marginTop: '0.5rem' }}
+                            style={{ background: '#f8fafc', width: '100%', marginTop: '0.5rem' }}
                         >
-                            <Shield size={18} /> {isAdminMode ? 'Modo Usuário' : 'Painel ADM'}
+                            Menu Principal
                         </button>
                     </div>
                 )}

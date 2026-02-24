@@ -160,8 +160,15 @@ export default function Dashboard() {
             isWithinInterval(parseISO(c.data), { start: parseISO(rainStartDate), end: parseISO(rainEndDate) })
         ).sort((a, b) => new Date(a.data) - new Date(b.data));
 
-        const rainChartLabels = filteredChuvas.map(c => format(parseISO(c.data), 'dd/MM'));
-        const rainChartValues = filteredChuvas.map(c => c.mm);
+        // Aggregate by month
+        const monthlyMap = {};
+        filteredChuvas.forEach(c => {
+            const key = format(parseISO(c.data), 'MM/yyyy');
+            monthlyMap[key] = (monthlyMap[key] || 0) + parseFloat(c.mm || 0);
+        });
+        const rainChartLabels = Object.keys(monthlyMap);
+        const rainChartValues = Object.values(monthlyMap);
+        const totalRain = filteredChuvas.reduce((acc, c) => acc + parseFloat(c.mm || 0), 0);
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -212,12 +219,18 @@ export default function Dashboard() {
                 {/* Chart and Table */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
                     <div className="premium-card glass" style={{ border: '1px solid rgba(255,255,255,0.4)', boxShadow: 'var(--shadow)' }}>
-                        <h4 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontFamily: 'var(--font-display)', fontWeight: '800', color: 'var(--text)' }}>
-                            <div style={{ padding: '0.4rem', background: 'rgba(25, 118, 210, 0.1)', borderRadius: '10px' }}>
-                                <BarChart3 size={20} color="#1976d2" />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                            <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontFamily: 'var(--font-display)', fontWeight: '800', color: 'var(--text)' }}>
+                                <div style={{ padding: '0.4rem', background: 'rgba(25, 118, 210, 0.1)', borderRadius: '10px' }}>
+                                    <BarChart3 size={20} color="#1976d2" />
+                                </div>
+                                Acumulado por Mês
+                            </h4>
+                            <div style={{ textAlign: 'right', padding: '0.6rem 1rem', background: 'rgba(25,118,210,0.08)', borderRadius: '12px' }}>
+                                <p style={{ fontSize: '0.65rem', fontWeight: '800', color: '#1976d2', textTransform: 'uppercase', marginBottom: '2px' }}>Total no Período</p>
+                                <p style={{ fontSize: '1.4rem', fontWeight: '900', color: '#1565c0', fontFamily: 'var(--font-display)', lineHeight: 1 }}>{totalRain.toFixed(1)} mm</p>
                             </div>
-                            Precipitação no Período
-                        </h4>
+                        </div>
                         <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '2rem' }}>
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>De:</label>
