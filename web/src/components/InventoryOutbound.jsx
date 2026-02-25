@@ -215,9 +215,10 @@ export default function InventoryOutbound({ logo }) {
     };
 
     const generatePDF = () => {
-        const doc = new jsPDF('l', 'mm', 'a4');
-        const pw = doc.internal.pageSize.getWidth();
-        const ph = doc.internal.pageSize.getHeight();
+        // Portrait orientation 'p', A4
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pw = doc.internal.pageSize.getWidth(); // 210mm
+        const ph = doc.internal.pageSize.getHeight(); // 297mm
 
         const q = quadras.find(q => q.id === header.quadra_id)?.nome || '';
         const a = atividades.find(at => at.id === header.atividade_id)?.nome || '';
@@ -225,100 +226,146 @@ export default function InventoryOutbound({ logo }) {
         doc.setFont('helvetica', 'bold');
         doc.setLineWidth(0.3);
 
-        // Header Title Box
-        doc.rect(5, 5, pw - 10, 8);
-        doc.setFontSize(11);
-        doc.text('ORDEM DE SAIDA DE DEFENSIVOS AGRICOLA', pw / 2, 10.5, { align: 'center' });
-
-        // Logo
+        // 1. TOP HEADER - LOGO & TITLE
+        doc.rect(5, 5, pw - 10, 12);
         if (logo) {
             try {
-                doc.addImage(logo, 'PNG', 7, 6, 20, 6);
+                doc.addImage(logo, 'PNG', 7, 6.5, 18, 9);
             } catch (e) {
                 console.error('Logo error:', e);
             }
         }
+        doc.setFontSize(14);
+        doc.text('ORDEM DE SAIDA DE DEFENSIVOS AGRICOLA', pw / 2 + 10, 12.5, { align: 'center' });
 
-        // Row 1: Data, Turno, Qtd Bombas
-        doc.rect(5, 13, 60, 6); doc.setFontSize(7); doc.text(' DATA . . . . . . . . . . . :', 7, 17); doc.setFontSize(9); doc.text(header.data ? format(new Date(header.data + 'T00:00:00'), 'dd/MM/yyyy') : '', 40, 17.5);
-        doc.rect(65, 13, 70, 6); doc.setFontSize(7); doc.text(' TURNO . . . . :', 67, 17); doc.setFontSize(9); doc.text(header.turno, 85, 17.5);
-        doc.rect(135, 13, 100, 6); doc.setFontSize(7); doc.text(' Qtd. Bombas :', 137, 17); doc.setFontSize(9); doc.text(header.quantidade_bombas?.toString() || '', 160, 17.5); doc.setFontSize(7); doc.text(' BOMBAS', 225, 17);
-        doc.rect(235, 13, pw - 240, 6);
+        // 2. INFORMATION GRID
+        doc.setFontSize(8);
+        let currentY = 17;
+        const rowH = 7;
 
-        // Row 2: Carreta, Quadra, Atividade, N Receita
-        doc.rect(5, 19, 60, 6); doc.setFontSize(7); doc.text(' CARRETA N° . . . . . . . . :', 7, 23); doc.setFontSize(9); doc.text(header.numero_carreta || '', 40, 23.5);
-        doc.rect(65, 19, 70, 6); doc.setFontSize(7); doc.text(' QUADRA . . :', 67, 23); doc.setFontSize(9); doc.text(q, 85, 23.5);
-        doc.rect(135, 19, 100, 6); doc.setFontSize(7); doc.text(' OPERAÇÃO :', 137, 23); doc.setFontSize(9); doc.text(a, 153, 23.5); doc.setFontSize(7); doc.text(' N° RECEITA:', 200, 23); doc.setFontSize(9); doc.text(header.numero_receita || '', 218, 23.5);
-        doc.rect(235, 19, pw - 240, 6);
+        // Row 1: DATA, TURNO, QTD BOMBAS
+        doc.rect(5, currentY, 50, rowH);
+        doc.text('DATA:', 7, currentY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(header.data ? format(new Date(header.data + 'T00:00:00'), 'dd/MM/yyyy') : '', 20, currentY + 4.5);
 
-        // SubHeader
+        doc.rect(55, currentY, 50, rowH);
+        doc.setFont('helvetica', 'bold');
+        doc.text('TURNO:', 57, currentY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(header.turno, 72, currentY + 4.5);
+
+        doc.rect(105, currentY, pw - 110, rowH);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Qtd. Bombas:', 107, currentY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${header.quantidade_bombas?.toString() || ''} BOMBAS`, 130, currentY + 4.5);
+
+        currentY += rowH;
+
+        // Row 2: CARRETA, QUADRA, OPERACAO, RECEITA
+        doc.rect(5, currentY, 40, rowH);
+        doc.setFont('helvetica', 'bold');
+        doc.text('CARRETA N°:', 7, currentY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(header.numero_carreta || '', 25, currentY + 4.5);
+
+        doc.rect(45, currentY, 40, rowH);
+        doc.setFont('helvetica', 'bold');
+        doc.text('QUADRA:', 47, currentY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(q, 62, currentY + 4.5);
+
+        doc.rect(85, currentY, 80, rowH);
+        doc.setFont('helvetica', 'bold');
+        doc.text('OPERAÇÃO:', 87, currentY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(a, 107, currentY + 4.5);
+
+        doc.rect(165, currentY, pw - 170, rowH);
+        doc.setFont('helvetica', 'bold');
+        doc.text('N° RECEITA:', 167, currentY + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(header.numero_receita || '', 188, currentY + 4.5);
+
+        currentY += rowH;
+
+        // SubHeader Note
+        doc.rect(5, currentY, pw - 10, 5);
         doc.setFontSize(6);
-        doc.rect(5, 25, pw - 10, 5);
-        doc.text('DEVOUÇÃO AO ESTOQUE | TRANSFERENCIA DE LOTE', 7, 28.5);
-        doc.text('ESTOQUE (      )  QUADRA: ______________  N° ______________', 150, 28.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text('DEVOUÇÃO AO ESTOQUE | TRANSFERENCIA DE LOTE', 7, currentY + 3.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text('ESTOQUE (  )  QUADRA: ___________  N° ___________', pw - 15, currentY + 3.5, { align: 'right' });
+
+        currentY += 5;
 
         const formatVal = (val) => {
             if (val === undefined || val === null || val === '') return '';
             const normalized = val.toString().replace(',', '.');
             const num = parseFloat(normalized);
             if (isNaN(num) || num === 0) return '';
-            return num.toFixed(2).replace('.', ','); // Volta para vírgula para manter o padrão visual
+            return num.toFixed(2).replace('.', ',');
         };
 
-        // Prepare 10 rows
         const tableBody = [];
-        const checkContent = '(  ) Conforme\n(  ) Não Conforme';
-
-        for (let i = 0; i < 10; i++) {
+        const checkContent = '( ) Conforme\n( ) Não Conforme';
+        for (let i = 0; i < 8; i++) {
             const item = items[i];
             tableBody.push([
                 item ? item.insumo_nome : '',
                 item ? formatVal(item.dosagem) : '',
                 item ? formatVal(item.quantidade) : '',
-                item ? formatVal(item.quantidade_sobra) : '',
+                '', // Second Qtd Lacrada (empty for manual filling)
                 checkContent,
-                '',
-                '',
+                '', // Second Qtd Lacrada 2
+                '', // Second Qtd Sobra 2
                 checkContent
             ]);
         }
 
         autoTable(doc, {
-            startY: 30,
+            startY: currentY,
             head: [['Insumo', 'Dosagem', 'Qtd Lacrada', 'Qtd Sobra', 'Conferido', 'Qtd Lacrada', 'Qtd Sobra', 'Situação']],
             body: tableBody,
             theme: 'grid',
-            styles: { fontSize: 7, halign: 'center', cellPadding: 1, lineWidth: 0.1, lineColor: 0, minCellHeight: 8 },
-            headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold', lineWidth: 0.1 },
+            styles: { fontSize: 9, halign: 'center', cellPadding: 1, lineWidth: 0.1, lineColor: 0, minCellHeight: 8 },
+            headStyles: { fillColor: 245, textColor: 0, fontStyle: 'bold', lineWidth: 0.1, fontSize: 8 },
             columnStyles: {
-                0: { halign: 'left', cellWidth: 60 },
+                0: { halign: 'left', cellWidth: 45 },
+                1: { cellWidth: 15 },
+                2: { cellWidth: 20 },
+                3: { cellWidth: 20 },
                 4: { cellWidth: 25, fontSize: 5, halign: 'left' },
+                5: { cellWidth: 20 },
+                6: { cellWidth: 20 },
                 7: { cellWidth: 25, fontSize: 5, halign: 'left' }
             },
             margin: { left: 5, right: 5 }
         });
 
-        const finalY = doc.lastAutoTable.finalY + 2;
+        const finalY = doc.lastAutoTable.finalY + 3;
 
         // Observation Area
-        doc.rect(5, finalY, 80, 25);
-        doc.setFontSize(7); doc.text('OBSERVAÇÃO:', 7, finalY + 5);
+        doc.rect(5, finalY, 70, 18);
+        doc.setFontSize(7); doc.setFont('helvetica', 'bold'); doc.text('OBSERVAÇÃO:', 7, finalY + 4);
         doc.setFont('helvetica', 'normal');
         if (header.observacao) {
-            doc.text(header.observacao || '', 7, finalY + 10, { maxWidth: 75 });
+            doc.text(header.observacao || '', 7, finalY + 8, { maxWidth: 65 });
         }
 
         // Signatures
-        const sigY = finalY + 20;
-        doc.line(90, sigY, 150, sigY); doc.setFontSize(6); doc.text('Administrador:', 90, sigY + 3);
-        doc.line(160, sigY, 220, sigY); doc.text('Encarregado:', 160, sigY + 3);
-        doc.line(230, sigY, pw - 5, sigY); doc.text('Almoxarife:', 230, sigY + 3);
+        const sigY = finalY + 14;
+        doc.setFontSize(7);
+        doc.line(80, sigY, 115, sigY); doc.text('Administrador:', 80, sigY + 3.5);
+        doc.line(120, sigY, 155, sigY); doc.text('Encarregado:', 120, sigY + 3.5);
+        doc.line(160, sigY, pw - 5, sigY); doc.text('Almoxarife:', 160, sigY + 3.5);
 
         // Footer note
-        doc.setFontSize(6);
-        doc.text('LEMBRETE: ESSA ORDEM DE SERVIÇO SÓ TERÁ DUAS VIAS, DEVERÁ SER GRAMPEADA JUNTO À RECEITA DE TRATAMENTO. NÃO PODENDO SER EXTRAVIADA, SENDO ENTREGUE JUNTO A RECEITA NO DIA POSTERIOR PARA CONFERÊNCIA E BAIXA DA MESMA, ATENCIOSAMENTE.', 5, ph - 6, { maxWidth: pw - 10 });
+        doc.setFontSize(5.5);
+        doc.text('LEMBRETE: ESSA ORDEM DE SERVIÇO SÓ TERÁ DUAS VIAS, DEVERÁ SER GRAMPEADA JUNTO À RECEITA DE TRATAMENTO. NÃO PODENDO SER EXTRAVIADA.', 5, finalY + 23, { maxWidth: pw - 10 });
 
-        doc.save(`Ficha_Saida_${header.data}.pdf`);
+        doc.save(`Ordem_Saida_${header.data}.pdf`);
     };
 
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Carregando dados...</div>;
@@ -390,7 +437,7 @@ export default function InventoryOutbound({ logo }) {
                     </div>
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block' }}>N° Receita</label>
-                        <input type="text" value={header.numero_receita} onChange={e => setHeader({ ...header, numero_receita: e.target.value })} className="input-field" placeholder="000.000" />
+                        <input type="text" value={header.numero_receita} onChange={e => setHeader({ ...header, numero_receita: e.target.value })} className="input-field" placeholder="YY/XXXXXX" />
                     </div>
 
                     <div className="form-group">

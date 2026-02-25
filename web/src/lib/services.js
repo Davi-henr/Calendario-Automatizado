@@ -111,6 +111,16 @@ export const settingsService = {
 
         if (error) throw error;
         return data[0];
+    },
+
+    async updateMapSvg(svgCode) {
+        const { data, error } = await supabase
+            .from('system_settings')
+            .upsert({ id: 1, map_svg: svgCode })
+            .select();
+
+        if (error) throw error;
+        return data[0];
     }
 };
 
@@ -168,7 +178,7 @@ export const osService = {
     async getPending() {
         const { data, error } = await supabase
             .from('ordens_servico')
-            .select('*')
+            .select('*, ordens_saida(id, situacao)')
             .or('situacao.is.null,situacao.eq.Pendente,situacao.eq.PENDENTE,situacao.eq.Iniciada,situacao.eq.Parcial')
             .order('data_prescricao', { ascending: false });
 

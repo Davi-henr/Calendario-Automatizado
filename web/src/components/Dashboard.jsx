@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { registrosService, chuvasService } from '../lib/services';
 import PageHeader from './PageHeader';
+import InteractiveMap from './InteractiveMap';
 import {
     BarChart3,
     TrendingUp,
@@ -62,7 +63,7 @@ const API_KEY = "29f247c5a06de34f0992ec03ba8f0a12";
 const CIDADE = "Bariri, São Paulo, BR";
 
 export default function Dashboard({ logo }) {
-    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo
+    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo, mapa
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
     const [forecast, setForecast] = useState([]);
@@ -648,6 +649,7 @@ export default function Dashboard({ logo }) {
                     { id: 'chuva', label: 'Chuva', icon: <Droplets size={18} /> },
                     { id: 'planejamento', label: 'Planejamento', icon: <ClipboardList size={18} /> },
                     { id: 'resumo', label: 'Resumo', icon: <FileSpreadsheet size={18} /> },
+                    { id: 'mapa', label: 'Mapa Interativo', icon: <Layers size={18} /> },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -691,6 +693,7 @@ export default function Dashboard({ logo }) {
                     {activeTab === 'chuva' && renderChuva()}
                     {activeTab === 'planejamento' && renderPlanejamento()}
                     {activeTab === 'resumo' && renderResumo()}
+                    {activeTab === 'mapa' && <InteractiveMap registros={registros} chuvas={chuvas} />}
                 </>
             )}
 
