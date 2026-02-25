@@ -16,7 +16,7 @@ import {
     FileDown,
     ClipboardList,
 } from 'lucide-react';
-import { osService, registrosService } from '../lib/services';
+import { osService, registrosService, ordensSaidaService } from '../lib/services';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -55,8 +55,8 @@ export default function Launch({ logo }) {
 
     const loadPendingOS = async () => {
         try {
-            const data = await osService.getAll();
-            setPendingOS(data.filter(os => os.situacao === 'Pendente' || os.situacao === 'Parcial'));
+            const data = await osService.getPending();
+            setPendingOS(data);
         } catch (error) {
             console.error('Error loading OS:', error);
         }
@@ -148,6 +148,20 @@ export default function Launch({ logo }) {
         quantidade_bombas: '',
         pes_tratados: ''
     });
+
+    useEffect(() => {
+        if (finalizingReg?.os_id) {
+            const fetchPumps = async () => {
+                try {
+                    const total = await ordensSaidaService.getPumpsSummary(finalizingReg.os_id);
+                    setFinalizeData(prev => ({ ...prev, quantidade_bombas: total > 0 ? total.toString() : '' }));
+                } catch (error) {
+                    console.error('Erro ao buscar resumo de bombas:', error);
+                }
+            };
+            fetchPumps();
+        }
+    }, [finalizingReg]);
 
     const handleFinalize = async (e) => {
         e.preventDefault();
