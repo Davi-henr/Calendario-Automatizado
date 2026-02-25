@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import PageHeader from './PageHeader';
 
-// Ordem e coordenadas oficiais enviadas por você
 const QUADRAS_DATA = [
   { id: "021", d: "M281.102 508L226.602 558L164.102 532.5L223.602 485L281.102 508Z" },
   { id: "026", d: "M289.602 498L282.102 507.5L262.602 501.5L313.602 432.5L323.602 439L293.102 485.5L289.602 498Z" },
@@ -76,15 +75,15 @@ export default function InteractiveMap({ logo }) {
   const filteredRegistros = useMemo(() => {
     return registros.filter(r => {
       const matchActivity = selectedActivity === 'Todos' || r.receita === selectedActivity;
-      // Busca o texto digitado (ex: MANCOZEBE) dentro das observações
       const matchInput = !selectedInput || (r.observacao && r.observacao.toLowerCase().includes(selectedInput.toLowerCase()));
       
       let matchDate = true;
       if (dateStart && dateEnd) {
-        const rDate = new Date(r.data_inicial);
-        matchDate = isWithinInterval(rDate, { start: new Date(dateStart), end: new Date(dateEnd) });
+        try {
+          const rDate = new Date(r.data_inicial);
+          matchDate = isWithinInterval(rDate, { start: new Date(dateStart), end: new Date(dateEnd) });
+        } catch (e) { matchDate = false; }
       }
-      
       return matchActivity && matchInput && matchDate;
     });
   }, [registros, selectedActivity, selectedInput, dateStart, dateEnd]);
@@ -101,11 +100,17 @@ export default function InteractiveMap({ logo }) {
     return latest.situacao === 'Iniciada' ? '#fef08a' : '#86efac';
   };
 
+  const formatDateSafe = (dateStr) => {
+    try {
+      return dateStr ? format(parseISO(dateStr), "dd/MM/yy", { locale: ptBR }) : '--';
+    } catch (e) { return '--'; }
+  };
+
   const latestSelected = selectedQuadraId ? getLatestRecord(selectedQuadraId) : null;
 
   const containerStyle = isFullScreen ? {
     position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', 
-    zIndex: 9999, background: '#f8fafc', padding: '1rem', display: 'flex', flexDirection: 'column'
+    zIndex: 9999, background: '#f8fafc', padding: '1.5rem', display: 'flex', flexDirection: 'column'
   } : { 
     display: 'flex', flexDirection: 'column', gap: '1rem', height: 'calc(100vh - 120px)' 
   };
@@ -120,10 +125,10 @@ export default function InteractiveMap({ logo }) {
         </button>
       </div>
 
-      {/* FILTROS AVANÇADOS */}
+      {/* FILTROS */}
       <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '1rem', flexWrap: 'wrap', alignItems: 'end' }}>
         <div style={{ flex: 1, minWidth: '150px' }}>
-          <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>ATIVIDADE</label>
+          <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>ATIVIDADE / DOENÇA</label>
           <select value={selectedActivity} onChange={(e) => setSelectedActivity(e.target.value)} className="filter-select">
             {activities.map(act => <option key={act} value={act}>{act}</option>)}
           </select>
@@ -142,9 +147,9 @@ export default function InteractiveMap({ logo }) {
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', flex: 1, overflow: 'hidden' }}>
-        {/* MAPA VISUAL */}
+        {/* MAPA */}
         <div className="premium-card" style={{ flex: 3, display: 'flex', justifyContent: 'center', background: '#fff', position: 'relative' }}>
-          <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: isFullScreen ? '80vh' : '600px' }}>
+          <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: isFullScreen ? '75vh' : '550px' }}>
             {QUADRAS_DATA.map((q) => (
               <path
                 key={q.id}
@@ -163,40 +168,47 @@ export default function InteractiveMap({ logo }) {
           </div>
         </div>
 
-        {/* DETALHES DA QUADRA SELECIONADA */}
-        <div className="premium-card" style={{ flex: 1.2, background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '5px solid var(--primary)' }}>
+        {/* DETALHES */}
+        <div className="premium-card" style={{ flex: 1.2, background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '5px solid var(--primary)', overflowY: 'auto' }}>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--primary)' }}>Quadra {selectedQuadraId || '...'}</h2>
           
           {latestSelected ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ padding: '10px', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold', background: latestSelected.situacao === 'Iniciada' ? '#fef08a' : '#86efac' }}>
-                {latestSelected.situacao.toUpperCase()}
+                {latestSelected.situacao ? latestSelected.situacao.toUpperCase() : 'SEM STATUS'}
               </div>
+              
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
-                  <small style={{ color: '#64748b' }}>INÍCIO</small>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{format(parseISO(latestSelected.data_initial), "dd/MM/yy")}</div>
+                  <small style={{ color: '#64748b' }}>DATA INÍCIO</small>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{formatDateSafe(latestSelected.data_inicial)}</div>
                 </div>
                 <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
-                  <small style={{ color: '#64748b' }}>TÉRMINO</small>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{latestSelected.data_final ? format(parseISO(latestSelected.data_final), "dd/MM/yy") : '--'}</div>
+                  <small style={{ color: '#64748b' }}>DATA TÉRMINO</small>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{formatDateSafe(latestSelected.data_final)}</div>
                 </div>
               </div>
+
               <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
                 <small style={{ color: '#64748b' }}>QUANTIDADE BOMBAS</small>
                 <div style={{ fontWeight: 'bold' }}>{latestSelected.bombas || '0'} Bombas</div>
               </div>
+
               <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
-                <small style={{ color: '#64748b' }}><Beaker size={12}/> INSUMOS UTILIZADOS</small>
-                <p style={{ fontSize: '0.85rem', margin: '5px 0' }}>{latestSelected.observacao || 'Nenhum registro.'}</p>
+                <small style={{ color: '#64748b' }}><Beaker size={12}/> INSUMOS / OBSERVAÇÃO</small>
+                <p style={{ fontSize: '0.85rem', margin: '5px 0', whiteSpace: 'pre-wrap' }}>{latestSelected.observacao || 'Nenhum registro.'}</p>
               </div>
+
               <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '10px', borderRadius: '8px', border: '1px solid #f59e0b' }}>
                 <small style={{ color: '#b45309', fontWeight: 'bold' }}>PRÓXIMA APLICAÇÃO</small>
                 <div style={{ fontWeight: 'bold' }}>{latestSelected.proxima_pulverizacao ? format(parseISO(latestSelected.proxima_pulverizacao), "dd/MM/yyyy") : 'Não definida'}</div>
               </div>
             </div>
           ) : (
-            <p style={{ color: '#64748b', textAlign: 'center', marginTop: '2rem' }}>Selecione uma quadra colorida para ver os dados detalhados.</p>
+            <div style={{ textAlign: 'center', marginTop: '2rem', color: '#94a3b8' }}>
+                <AlertCircle size={48} style={{ margin: '0 auto 1rem', opacity: 0.3 }}/>
+                <p>Nenhum lançamento encontrado para esta área.</p>
+            </div>
           )}
         </div>
       </div>
