@@ -52,7 +52,7 @@ export default function InteractiveMap({ logo }) {
   const [selectedActivity, setSelectedActivity] = useState('');
   const [selectedInput, setSelectedInput] = useState('');
   
-  // Define o período inicial como o mês atual
+  // Período padrão: Mês Atual
   const [dateStart, setDateStart] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [dateEnd, setDateEnd] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   
@@ -64,9 +64,7 @@ export default function InteractiveMap({ logo }) {
       try {
         const data = await registrosService.getAll();
         setRegistros(data || []);
-        
-        // Define uma atividade padrão ao carregar os dados se nada estiver selecionado
-        if (data && data.length > 0) {
+        if (data?.length > 0) {
           const uniqueActivities = [...new Set(data.map(r => r.receita).filter(Boolean))];
           if (uniqueActivities.length > 0) setSelectedActivity(uniqueActivities[0]);
         }
@@ -98,7 +96,6 @@ export default function InteractiveMap({ logo }) {
   }, [registros, selectedActivity, selectedInput, dateStart, dateEnd]);
 
   const getQuadraColor = (quadraId) => {
-    // 1. Verifica se há registro NO período selecionado
     const latestInPeriod = filteredRegistros
       .filter(r => String(r.quadra) === String(quadraId))
       .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0];
@@ -108,175 +105,151 @@ export default function InteractiveMap({ logo }) {
       if (latestInPeriod.situacao === 'Finalizada') return '#86efac'; // Verde
     }
 
-    // 2. Verifica se a quadra está aguardando carência (Azul) vindo de um registro anterior
     const latestEver = registros
       .filter(r => String(r.quadra) === String(quadraId) && r.receita === selectedActivity)
       .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0];
 
     if (latestEver && latestEver.proxima_pulverizacao) {
       const nextDate = parseISO(latestEver.proxima_pulverizacao);
-      const isWaitingInCurrentPeriod = isWithinInterval(nextDate, { 
-        start: new Date(dateStart), 
-        end: new Date(dateEnd) 
-      });
-      
-      if (isWaitingInCurrentPeriod) return '#bae6fd'; // Azul Claro (Aguardando carência)
+      const isWaiting = isWithinInterval(nextDate, { start: new Date(dateStart), end: new Date(dateEnd) });
+      if (isWaiting) return '#bae6fd'; // Azul (Aguardando)
     }
 
     return '#f1f5f9'; // Cinza
   };
 
-  const getLatestRecordForCard = (quadraId) => {
+  const getLatestForCard = (quadraId) => {
     if (!quadraId) return null;
     const records = filteredRegistros.filter(r => String(r.quadra) === String(quadraId));
     if (records.length > 0) {
-       records.sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial));
-       return records[0];
+       return records.sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0];
     }
-    // Se não houver no filtro, pega o último global para a atividade selecionada
     return registros
       .filter(r => String(r.quadra) === String(quadraId) && r.receita === selectedActivity)
-      .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0] || null;
+      .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0];
   };
 
-  const formatDateSafe = (dateStr) => {
-    if (!dateStr) return '--';
-    try { return format(parseISO(dateStr), "dd/MM/yy", { locale: ptBR }); } catch (e) { return '--'; }
-  };
-
-  const latestSelected = useMemo(() => getLatestRecordForCard(selectedQuadraId), [selectedQuadraId, filteredRegistros, registros, selectedActivity]);
+  const latestSelected = useMemo(() => getLatestForCard(selectedQuadraId), [selectedQuadraId, filteredRegistros, registros, selectedActivity]);
 
   const daysRemaining = useMemo(() => {
     if (latestSelected?.proxima_pulverizacao) {
-      const diff = differenceInDays(parseISO(latestSelected.proxima_pulverizacao), new Date());
-      return diff;
+      return differenceInDays(parseISO(latestSelected.proxima_pulverizacao), new Date());
     }
     return null;
   }, [latestSelected]);
 
-  const containerStyle = isFullScreen ? {
+  const layoutStyle = isFullScreen ? {
     position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', 
-    zIndex: 9999, background: '#f8fafc', padding: '1.5rem', display: 'flex', gap: '1rem',
-    overflow: 'hidden'
+    zIndex: 9999, background: '#f8fafc', padding: '1.5rem', display: 'flex', flexDirection: 'column'
   } : { 
     display: 'flex', flexDirection: 'column', gap: '1rem', height: 'calc(100vh - 120px)' 
   };
 
   return (
-    <div style={isFullScreen ? {} : { display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {!isFullScreen && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <PageHeader title="Mapa da Fazenda" subtitle="Monitoramento Inteligente" logo={logo} />
-          <button onClick={() => setIsFullScreen(true)} className="btn btn-primary"><div className="btn-inner"><Maximize2 size={18}/> Tela Cheia</div></button>
-        </div>
-      )}
-
-      <div style={containerStyle}>
-        {isFullScreen && (
-          <button onClick={() => setIsFullScreen(false)} style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 10001 }} className="btn btn-mini"><div className="btn-inner"><X size={20}/></div></button>
-        )}
-
-        {/* ÁREA DO MAPA E FILTROS */}
-        <div style={{ flex: 3, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '1rem', alignItems: 'end', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '150px' }}>
-              <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>ATIVIDADE</label>
-              <select value={selectedActivity} onChange={(e) => setSelectedActivity(e.target.value)} className="filter-select" style={{ width: '100%' }}>
-                {activities.map(act => <option key={act} value={act}>{act}</option>)}
-              </select>
-            </div>
-            <div style={{ flex: 1, minWidth: '150px' }}>
-              <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>BUSCAR INSUMO</label>
-              <input type="text" value={selectedInput} onChange={(e) => setSelectedInput(e.target.value)} className="filter-select" placeholder="Ex: MANCOZEBE..." style={{ width: '100%' }} />
-            </div>
-            <div style={{ flex: 1.5, minWidth: '250px' }}>
-              <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>FILTRAR PERÍODO</label>
-              <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} className="filter-select" />
-                <span style={{ fontSize: '0.8rem' }}>até</span>
-                <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} className="filter-select" />
-              </div>
-            </div>
+    <div style={layoutStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <PageHeader title={isFullScreen ? "Visão Panorâmica da Fazenda" : "Mapa Interativo"} subtitle="Situação de Quadras e Insumos" logo={logo} />
+        <button onClick={() => setIsFullscreen(!isFullScreen)} className="btn btn-primary">
+          <div className="btn-inner">
+            {isFullScreen ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}
+            {isFullScreen ? "Sair" : "Tela Cheia"}
           </div>
+        </button>
+      </div>
 
-          <div className="premium-card" style={{ flex: 1, display: 'flex', justifyContent: 'center', background: '#fff', position: 'relative' }}>
-            <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '600px' }}>
-              {QUADRAS_DATA.map((q) => (
-                <path
-                  key={q.id}
-                  d={q.d}
-                  fill={getQuadraColor(q.id)}
-                  stroke={selectedQuadraId === q.id ? "var(--primary)" : "#334155"}
-                  strokeWidth={selectedQuadraId === q.id ? "3" : "1"}
-                  onClick={() => setSelectedQuadraId(q.id)}
-                  style={{ cursor: 'pointer', transition: '0.2s' }}
-                >
-                  <title>Quadra {q.id}</title>
-                </path>
-              ))}
-            </svg>
-            
-            {/* LEGENDA ATUALIZADA */}
-            <div style={{ position: 'absolute', bottom: '15px', left: '15px', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.65rem', background: 'rgba(255,255,255,0.9)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '12px', height: '12px', background: '#fef08a' }}></div> Iniciada</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '12px', height: '12px', background: '#86efac' }}></div> Finalizada</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '12px', height: '12px', background: '#bae6fd' }}></div> Aguardando Carência</span>
-            </div>
+      {/* FILTROS SEMPRE VISÍVEIS */}
+      <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '0.8rem', alignItems: 'end', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '150px' }}>
+          <label style={{ fontSize: '0.65rem', fontWeight: '900' }}>ATIVIDADE</label>
+          <select value={selectedActivity} onChange={(e) => setSelectedActivity(e.target.value)} className="filter-select" style={{ width: '100%' }}>
+            {activities.map(act => <option key={act} value={act}>{act}</option>)}
+          </select>
+        </div>
+        <div style={{ flex: 1, minWidth: '150px' }}>
+          <label style={{ fontSize: '0.65rem', fontWeight: '900' }}>PESQUISAR INSUMO</label>
+          <input type="text" value={selectedInput} onChange={(e) => setSelectedInput(e.target.value)} className="filter-select" placeholder="Ex: MANCOZEBE" style={{ width: '100%' }} />
+        </div>
+        <div style={{ flex: 1.5, minWidth: '250px' }}>
+          <label style={{ fontSize: '0.65rem', fontWeight: '900' }}>PERÍODO</label>
+          <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+            <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} className="filter-select" />
+            <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} className="filter-select" />
+          </div>
+        </div>
+      </div>
+
+      {/* CONTEÚDO PRINCIPAL: MAPA + CARD (LADO A LADO) */}
+      <div style={{ display: 'flex', gap: '1rem', flex: 1, overflow: 'hidden' }}>
+        
+        {/* MAPA (ESQUERDA) */}
+        <div className="premium-card" style={{ flex: 3, display: 'flex', justifyContent: 'center', background: '#fff', position: 'relative' }}>
+          <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '100%' }}>
+            {QUADRAS_DATA.map((q) => (
+              <path
+                key={q.id}
+                d={q.d}
+                fill={getQuadraColor(q.id)}
+                stroke={selectedQuadraId === q.id ? "var(--primary)" : "#334155"}
+                strokeWidth={selectedQuadraId === q.id ? "3" : "1"}
+                onClick={() => setSelectedQuadraId(q.id)}
+                style={{ cursor: 'pointer', transition: '0.2s' }}
+              />
+            ))}
+          </svg>
+          <div style={{ position: 'absolute', bottom: '15px', left: '15px', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.6rem', background: 'rgba(255,255,255,0.9)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', background: '#fef08a' }}></div> Iniciada</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', background: '#86efac' }}></div> Finalizada</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', background: '#bae6fd' }}></div> Carência</span>
           </div>
         </div>
 
-        {/* CARD LATERAL DE DETALHES */}
-        <div className="premium-card" style={{ flex: 1, background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '5px solid var(--primary)', overflowY: 'auto' }}>
+        {/* CARD LATERAL (DIREITA) */}
+        <div className="premium-card" style={{ flex: 1.2, background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '5px solid var(--primary)', overflowY: 'auto' }}>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--primary)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem' }}>
-            <MapIcon size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }}/> Quadra {selectedQuadraId || '...'}
+            <MapIcon size={20} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Quadra {selectedQuadraId || '...'}
           </h2>
 
           {latestSelected ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ 
-                padding: '10px', borderRadius: '10px', textAlign: 'center', fontWeight: '900', 
-                background: latestSelected.situacao === 'Iniciada' ? '#fef08a' : '#86efac',
-                border: `1px solid ${latestSelected.situacao === 'Iniciada' ? '#ca8a04' : '#16a34a'}`
-              }}>
-                <div style={{ fontSize: '0.6rem', opacity: 0.7 }}>SITUAÇÃO DA ATIVIDADE</div>
-                {latestSelected.situacao.toUpperCase()}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <div style={{ padding: '10px', borderRadius: '8px', textAlign: 'center', fontWeight: '900', background: latestSelected.situacao === 'Iniciada' ? '#fef08a' : '#86efac' }}>
+                SITUAÇÃO: {latestSelected.situacao?.toUpperCase()}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px' }}>
                   <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}>INÍCIO</small>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>{formatDateSafe(latestSelected.data_inicial)}</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{latestSelected.data_inicial ? format(parseISO(latestSelected.data_inicial), 'dd/MM/yy') : '--'}</div>
                 </div>
-                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+                <div style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px' }}>
                   <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}>TÉRMINO</small>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>{formatDateSafe(latestSelected.data_final)}</div>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{latestSelected.data_final ? format(parseISO(latestSelected.data_final), 'dd/MM/yy') : '--'}</div>
                 </div>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
                 <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}>QUANTIDADE BOMBAS</small>
-                <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{latestSelected.quantidade_bombas || '0'} Bombas</div>
+                <div style={{ fontWeight: 'bold' }}>{latestSelected.quantidade_bombas || '0'} Bombas</div>
               </div>
 
               <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
-                <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}><Beaker size={14} color="#ef4444"/> INSUMOS UTILIZADOS</small>
-                <p style={{ fontSize: '0.8rem', marginTop: '5px', color: '#334155' }}>{latestSelected.observacao || 'Nenhum registro.'}</p>
+                <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}><Beaker size={12}/> INSUMOS / OBSERVAÇÃO</small>
+                <p style={{ fontSize: '0.75rem', margin: '4px 0', color: '#334155' }}>{latestSelected.observacao || 'Nenhum registro.'}</p>
               </div>
 
-              <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '12px', borderRadius: '10px', border: '1.5px solid #f59e0b' }}>
-                <small style={{ color: '#b45309', fontWeight: 'bold', fontSize: '0.65rem' }}>PRÓXIMA PULVERIZAÇÃO</small>
-                <div style={{ fontWeight: '900', fontSize: '1rem', color: '#b45309' }}>{formatDateSafe(latestSelected.proxima_pulverizacao)}</div>
+              <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '10px', borderRadius: '8px', border: '1px solid #f59e0b' }}>
+                <small style={{ color: '#b45309', fontWeight: 'bold', fontSize: '0.6rem' }}>PRÓXIMA PULVERIZAÇÃO</small>
+                <div style={{ fontWeight: '900', color: '#b45309' }}>{latestSelected.proxima_pulverizacao ? format(parseISO(latestSelected.proxima_pulverizacao), 'dd/MM/yyyy') : '--'}</div>
                 {daysRemaining !== null && (
-                  <div style={{ fontSize: '0.75rem', fontWeight: 'bold', marginTop: '4px', color: daysRemaining <= 0 ? '#ef4444' : '#b45309' }}>
-                    {daysRemaining <= 0 ? '⚠️ Prazo vencido!' : `Faltam ${daysRemaining} dias`}
+                  <div style={{ fontSize: '0.7rem', fontWeight: 'bold', marginTop: '3px', color: daysRemaining <= 0 ? '#ef4444' : '#b45309' }}>
+                    {daysRemaining <= 0 ? '⚠️ Aplicar Agora!' : `Faltam ${daysRemaining} dias`}
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', marginTop: '3rem', color: '#94a3b8' }}>
+            <div style={{ textAlign: 'center', marginTop: '2rem', color: '#94a3b8' }}>
                 <AlertCircle size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }}/>
-                <p style={{ fontSize: '0.85rem' }}>Nenhum lançamento para esta quadra no período selecionado.</p>
+                <p style={{ fontSize: '0.8rem' }}>Sem dados para este filtro.</p>
             </div>
           )}
         </div>
