@@ -5,12 +5,12 @@ import { ptBR } from 'date-fns/locale';
 import { Map as MapIcon, Calendar, Beaker, Activity, Clock, AlertCircle } from 'lucide-react';
 import PageHeader from './PageHeader';
 
-// Mapeamento oficial das quadras fornecido por você
+// Mapeamento das coordenadas extraídas do seu SVG com a Quadra 007 corrigida
 const QUADRAS_DATA = [
   { id: "021", d: "M281.102 508L226.602 558L164.102 532.5L223.602 485L281.102 508Z" },
   { id: "026", d: "M289.602 498L282.102 507.5L262.602 501.5L313.602 432.5L323.602 439L293.102 485.5L289.602 498Z" },
   { id: "027", d: "M272.102 425L222.102 484.5L224.102 486L264.602 500L305.602 441L272.102 425Z" },
-  { id: "007", d: "M5.10178 315L0.601776 302.5L13.1018 294L24.1018 283.5L28.1018 276" },
+  { id: "007", d: "M516.56 200.69C519.36 204.956 519.494 206.156 518.16 209.756C517.36 212.023 516.694 216.29 516.694 219.223C516.694 223.09 515.094 227.223 510.16 235.223C506.16 241.89 503.36 248.29 502.827 252.156C502.16 256.556 500.56 259.89 497.36 263.356L492.96 268.29L486.027 266.023C476.694 262.956 475.36 263.09 469.094 267.756C466.16 269.89 460.16 272.956 455.894 274.556C443.627 279.09 429.36 290.823 427.894 297.623C427.494 299.89 426.294 302.69 425.227 303.756C424.294 304.823 421.627 307.89 419.36 310.556C417.227 313.223 414.294 315.756 412.96 316.023C410.694 316.69 410.827 316.023 413.76 309.89C415.627 306.156 418.827 301.356 420.96 299.223C422.96 296.956 424.16 294.956 423.494 294.556C422.827 294.023 423.894 291.356 425.894 288.423C429.894 282.423 441.227 275.623 445.227 276.69C447.627 277.356 447.627 277.223 444.96 273.623C443.494 271.49 440.16 267.623 437.494 265.223C434.827 262.69 432.694 259.89 432.694 259.223C432.694 257.89 456.427 239.356 484.027 219.223C490.827 214.29 499.36 206.956 502.96 202.956C506.427 199.09 510.294 195.89 511.36 195.89C512.427 195.756 514.827 198.023 516.56 200.69Z" },
   { id: "033", d: "M319.102 421.5L305.602 441L272.602 426L273.602 423L276.102 389.5L272.602 366.5L273.602 360L321.602 396.5L324.602 402L319.102 421.5Z" },
   { id: "005C", d: "M322.602 396.5L325.602 398.5L333.602 393.5L382.102 326.5L330.102 303L291.102 372L325.602 398.5Z" },
   { id: "005B", d: "M281.602 278L328.602 302L291.102 368L288.102 369.5L248.102 338.5L281.602 278Z" },
@@ -77,13 +77,12 @@ export default function InteractiveMap({ logo }) {
 
     const getQuadraColor = (quadraId) => {
         const latest = getLatestRecord(quadraId);
-        if (!latest) return '#f1f5f9'; // Cinza: Sem aplicação
+        if (!latest) return '#f1f5f9';
 
         const daysAgo = differenceInDays(new Date(), parseISO(latest.data_inicial));
-
-        if (daysAgo <= 15) return '#86efac'; // Verde: < 15 dias
-        if (daysAgo <= 30) return '#fef08a'; // Amarelo: 15-30 dias
-        return '#fca5a5'; // Vermelho: > 30 dias
+        if (daysAgo <= 15) return '#86efac';
+        if (daysAgo <= 30) return '#fef08a';
+        return '#fca5a5';
     };
 
     const latestSelected = selectedQuadraId ? getLatestRecord(selectedQuadraId) : null;
@@ -91,10 +90,9 @@ export default function InteractiveMap({ logo }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: 'calc(100vh - 120px)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <PageHeader title="Mapa Interativo" subtitle="Controle de Pulverização por Quadra" logo={logo} />
-                
+                <PageHeader title="Mapa da Fazenda" subtitle="Gestão de Pulverização" logo={logo} />
                 <div className="premium-card glass" style={{ padding: '0.8rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ fontWeight: '800' }}>Atividade:</span>
+                    <strong>Filtro:</strong>
                     <select value={selectedActivity} onChange={(e) => setSelectedActivity(e.target.value)} className="filter-select">
                         {activities.map(act => <option key={act} value={act}>{act}</option>)}
                     </select>
@@ -102,76 +100,60 @@ export default function InteractiveMap({ logo }) {
             </div>
 
             <div style={{ display: 'flex', gap: '1.5rem', flex: 1, overflow: 'hidden' }}>
-                {/* ÁREA DO MAPA (Vetorizado conforme seu SVG) */}
-                <div className="premium-card" style={{ flex: 2, display: 'flex', justifyContent: 'center', background: '#fff', overflow: 'auto' }}>
-                    {loading ? <p>Carregando mapa da fazenda...</p> : (
-                        <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '600px' }}>
-                            {QUADRAS_DATA.map((quadra) => (
+                <div className="premium-card" style={{ flex: 2, display: 'flex', justifyContent: 'center', background: '#fff', padding: '20px' }}>
+                    {loading ? <p>Carregando dados...</p> : (
+                        <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%' }}>
+                            {QUADRAS_DATA.map((q) => (
                                 <path
-                                    key={quadra.id}
-                                    d={quadra.d}
-                                    fill={getQuadraColor(quadra.id)}
-                                    stroke={selectedQuadraId === quadra.id ? "#3b82f6" : "black"}
-                                    strokeWidth={selectedQuadraId === quadra.id ? "3" : "1"}
-                                    onClick={() => setSelectedQuadraId(quadra.id)}
-                                    style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                                    key={q.id}
+                                    d={q.d}
+                                    fill={getQuadraColor(q.id)}
+                                    stroke={selectedQuadraId === q.id ? "#3b82f6" : "black"}
+                                    strokeWidth={selectedQuadraId === q.id ? "3" : "1"}
+                                    onClick={() => setSelectedQuadraId(q.id)}
+                                    style={{ cursor: 'pointer', transition: '0.2s' }}
                                 >
-                                    <title>{`Quadra ${quadra.id}`}</title>
+                                    <title>{`Quadra ${q.id}`}</title>
                                 </path>
                             ))}
                         </svg>
                     )}
                 </div>
 
-                {/* PAINEL DE DETALHES À DIREITA */}
-                <div className="premium-card" style={{ flex: 1, background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem' }}>
-                        <h2 style={{ color: 'var(--primary)', margin: 0, fontSize: '1.2rem' }}>
-                            <MapIcon size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }}/>
-                            {selectedQuadraId ? `Quadra ${selectedQuadraId}` : 'Selecione uma área'}
-                        </h2>
-                    </div>
+                <div className="premium-card" style={{ flex: 1, background: 'white', borderLeft: '4px solid var(--primary)' }}>
+                    <h2 style={{ fontSize: '1.4rem', marginBottom: '1rem' }}>
+                        <MapIcon size={24} style={{ verticalAlign: 'middle', marginRight: '8px' }}/>
+                        {selectedQuadraId ? `Quadra ${selectedQuadraId}` : 'Selecione no mapa'}
+                    </h2>
 
-                    {!selectedQuadraId ? (
-                        <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '2rem' }}>
-                            <Activity size={40} opacity={0.2} style={{ margin: '0 auto 1rem' }}/>
-                            <p>Clique em uma quadra para ver o histórico de pulverização.</p>
-                        </div>
-                    ) : latestSelected ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                            <div style={{ background: 'var(--primary-gradient)', padding: '1rem', borderRadius: '12px', color: 'white' }}>
-                                <small style={{ opacity: 0.8, fontWeight: 'bold' }}>ÚLTIMA APLICAÇÃO</small>
-                                <div style={{ fontSize: '1.2rem', fontWeight: '900' }}>{latestSelected.receita}</div>
+                    {latestSelected ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div style={{ background: 'var(--primary-gradient)', color: 'white', padding: '1rem', borderRadius: '12px' }}>
+                                <small style={{ fontWeight: 'bold' }}>ÚLTIMA PULVERIZAÇÃO</small>
+                                <div style={{ fontSize: '1.3rem', fontWeight: '900' }}>{latestSelected.receita}</div>
                             </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                    <Calendar size={18} color="#64748b"/>
-                                    <div>
-                                        <small style={{ color: '#64748b', display: 'block' }}>Realizado em</small>
-                                        <strong>{format(parseISO(latestSelected.data_inicial), "dd 'de' MMMM", { locale: ptBR })}</strong>
-                                    </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <Calendar size={20} color="var(--primary)"/>
+                                    <div><small style={{ color: '#64748b' }}>DATA APLICADA</small><br/>
+                                    <strong>{format(parseISO(latestSelected.data_inicial), "dd 'de' MMMM, yyyy", { locale: ptBR })}</strong></div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', gap: '10px' }}>
                                     <Clock size={18} color="#f59e0b"/>
-                                    <div>
-                                        <small style={{ color: '#64748b', display: 'block' }}>Próxima (Prevista)</small>
-                                        <strong>{latestSelected.proxima_pulverizacao ? format(parseISO(latestSelected.proxima_pulverizacao), "dd/MM/yyyy") : 'Não agendada'}</strong>
-                                    </div>
+                                    <div><small style={{ color: '#64748b' }}>PRÓXIMA (ESTIMADA)</small><br/>
+                                    <strong>{latestSelected.proxima_pulverizacao ? format(parseISO(latestSelected.proxima_pulverizacao), "dd/MM/yyyy") : 'Não definida'}</strong></div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '10px', alignItems: 'start' }}>
-                                    <Beaker size={18} color="#ef4444" style={{ marginTop: '4px' }}/>
-                                    <div>
-                                        <small style={{ color: '#64748b', display: 'block' }}>Observações</small>
-                                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#334155' }}>{latestSelected.observacao || 'Nenhuma observação.'}</p>
-                                    </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <Beaker size={18} color="#ef4444"/>
+                                    <div><small style={{ color: '#64748b' }}>OBSERVAÇÕES / PRODUTOS</small>
+                                    <p style={{ margin: 0, fontSize: '0.9rem' }}>{latestSelected.observacao || 'Sem notas.'}</p></div>
                                 </div>
                             </div>
                         </div>
-                    ) : (
-                        <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '2rem' }}>
-                            <AlertCircle size={40} opacity={0.2} style={{ margin: '0 auto 1rem' }}/>
-                            <p>Sem registros para a <strong>Quadra {selectedQuadraId}</strong> com este filtro.</p>
+                    ) : selectedQuadraId && (
+                        <div style={{ textAlign: 'center', marginTop: '2rem', color: '#94a3b8' }}>
+                            <AlertCircle size={48} style={{ margin: '0 auto 1rem' }}/>
+                            <p>Sem registros recentes para a Quadra {selectedQuadraId}.</p>
                         </div>
                     )}
                 </div>
