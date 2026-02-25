@@ -95,26 +95,35 @@ export default function InteractiveMap({ logo }) {
     });
   }, [registros, selectedActivity, selectedInput, dateStart, dateEnd]);
 
-  const getQuadraColor = (quadraId) => {
+  const getQuadraState = (quadraId) => {
+    // 1. Verifica se há registro NO período selecionado
     const latestInPeriod = filteredRegistros
       .filter(r => String(r.quadra) === String(quadraId))
       .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0];
 
     if (latestInPeriod) {
-      if (latestInPeriod.situacao === 'Iniciada') return '#fef08a'; // Amarelo
-      if (latestInPeriod.situacao === 'Finalizada') return '#86efac'; // Verde
+      return latestInPeriod.situacao; // 'Iniciada' ou 'Finalizada'
     }
 
-    const latestEver = registros
+    // 2. Verifica se está pendente (azul) baseado na carência global
+    const latestGlobal = registros
       .filter(r => String(r.quadra) === String(quadraId) && r.receita === selectedActivity)
       .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0];
 
-    if (latestEver && latestEver.proxima_pulverizacao) {
-      const nextDate = parseISO(latestEver.proxima_pulverizacao);
+    if (latestGlobal?.proxima_pulverizacao) {
+      const nextDate = parseISO(latestGlobal.proxima_pulverizacao);
       const isWaiting = isWithinInterval(nextDate, { start: new Date(dateStart), end: new Date(dateEnd) });
-      if (isWaiting) return '#bae6fd'; // Azul (Aguardando)
+      if (isWaiting) return 'Pendente';
     }
 
+    return null;
+  };
+
+  const getQuadraColor = (quadraId) => {
+    const state = getQuadraState(quadraId);
+    if (state === 'Iniciada') return '#fef08a'; // Amarelo
+    if (state === 'Finalizada') return '#86efac'; // Verde
+    if (state === 'Pendente') return '#bae6fd'; // Azul
     return '#f1f5f9'; // Cinza
   };
 
@@ -149,7 +158,7 @@ export default function InteractiveMap({ logo }) {
     <div style={layoutStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <PageHeader title={isFullScreen ? "Visão Panorâmica da Fazenda" : "Mapa Interativo"} subtitle="Situação de Quadras e Insumos" logo={logo} />
-        <button onClick={() => setIsFullscreen(!isFullScreen)} className="btn btn-primary">
+        <button onClick={() => setIsFullScreen(!isFullScreen)} className="btn btn-primary">
           <div className="btn-inner">
             {isFullScreen ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}
             {isFullScreen ? "Sair" : "Tela Cheia"}
@@ -157,7 +166,6 @@ export default function InteractiveMap({ logo }) {
         </button>
       </div>
 
-      {/* FILTROS SEMPRE VISÍVEIS */}
       <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '0.8rem', alignItems: 'end', flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: '150px' }}>
           <label style={{ fontSize: '0.65rem', fontWeight: '900' }}>ATIVIDADE</label>
@@ -170,7 +178,7 @@ export default function InteractiveMap({ logo }) {
           <input type="text" value={selectedInput} onChange={(e) => setSelectedInput(e.target.value)} className="filter-select" placeholder="Ex: MANCOZEBE" style={{ width: '100%' }} />
         </div>
         <div style={{ flex: 1.5, minWidth: '250px' }}>
-          <label style={{ fontSize: '0.65rem', fontWeight: '900' }}>PERÍODO</label>
+          <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>PERÍODO</label>
           <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
             <input type="date" value={dateStart} onChange={(e) => setDateStart(e.target.value)} className="filter-select" />
             <input type="date" value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} className="filter-select" />
@@ -178,10 +186,7 @@ export default function InteractiveMap({ logo }) {
         </div>
       </div>
 
-      {/* CONTEÚDO PRINCIPAL: MAPA + CARD (LADO A LADO) */}
       <div style={{ display: 'flex', gap: '1rem', flex: 1, overflow: 'hidden' }}>
-        
-        {/* MAPA (ESQUERDA) */}
         <div className="premium-card" style={{ flex: 3, display: 'flex', justifyContent: 'center', background: '#fff', position: 'relative' }}>
           <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '100%' }}>
             {QUADRAS_DATA.map((q) => (
@@ -199,11 +204,10 @@ export default function InteractiveMap({ logo }) {
           <div style={{ position: 'absolute', bottom: '15px', left: '15px', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.6rem', background: 'rgba(255,255,255,0.9)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', background: '#fef08a' }}></div> Iniciada</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', background: '#86efac' }}></div> Finalizada</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', background: '#bae6fd' }}></div> Carência</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', background: '#bae6fd' }}></div> Pendente</span>
           </div>
         </div>
 
-        {/* CARD LATERAL (DIREITA) */}
         <div className="premium-card" style={{ flex: 1.2, background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '5px solid var(--primary)', overflowY: 'auto' }}>
           <h2 style={{ fontSize: '1.2rem', color: 'var(--primary)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem' }}>
             <MapIcon size={20} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Quadra {selectedQuadraId || '...'}
@@ -211,17 +215,20 @@ export default function InteractiveMap({ logo }) {
 
           {latestSelected ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              <div style={{ padding: '10px', borderRadius: '8px', textAlign: 'center', fontWeight: '900', background: latestSelected.situacao === 'Iniciada' ? '#fef08a' : '#86efac' }}>
-                SITUAÇÃO: {latestSelected.situacao?.toUpperCase()}
+              <div style={{ 
+                padding: '10px', borderRadius: '8px', textAlign: 'center', fontWeight: '900', 
+                background: getQuadraColor(selectedQuadraId) === '#bae6fd' ? '#bae6fd' : (latestSelected.situacao === 'Iniciada' ? '#fef08a' : '#86efac') 
+              }}>
+                SITUAÇÃO: {getQuadraColor(selectedQuadraId) === '#bae6fd' ? 'PENDENTE' : latestSelected.situacao?.toUpperCase()}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <div style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px' }}>
-                  <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}>INÍCIO</small>
+                  <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}>DATA INÍCIO</small>
                   <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{latestSelected.data_inicial ? format(parseISO(latestSelected.data_inicial), 'dd/MM/yy') : '--'}</div>
                 </div>
                 <div style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px' }}>
-                  <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}>TÉRMINO</small>
+                  <small style={{ color: '#64748b', fontSize: '0.6rem', fontWeight: 'bold' }}>DATA TÉRMINO</small>
                   <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{latestSelected.data_final ? format(parseISO(latestSelected.data_final), 'dd/MM/yy') : '--'}</div>
                 </div>
               </div>
