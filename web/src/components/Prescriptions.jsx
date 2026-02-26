@@ -12,7 +12,7 @@ import autoTable from 'jspdf-autotable';
 
 const Prescriptions = ({ logo }) => {
     const [ordens, setOrdens] = useState([]);
-    const [searchTerm, setSearchTerm] = useState(''); // NOVO: Estado do filtro
+    const [searchTerm, setSearchTerm] = useState(''); 
     const [insumosMeta, setInsumosMeta] = useState([]);
     const [quadrasMeta, setQuadrasMeta] = useState([]);
     const [entradasMeta, setEntradasMeta] = useState([]);
@@ -68,7 +68,6 @@ const Prescriptions = ({ logo }) => {
         }
     };
 
-    // NOVO: Filtragem e ordenação por número de OS
     const filteredOrdens = useMemo(() => {
         let filtered = ordens.filter(os => {
             const search = searchTerm.toLowerCase();
@@ -78,7 +77,6 @@ const Prescriptions = ({ logo }) => {
             return osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
         });
 
-        // Ordenar pela ordem de nº de receita (decrescente: mais recentes primeiro)
         filtered.sort((a, b) => (b.numero_os || 0) - (a.numero_os || 0));
 
         return filtered;
@@ -290,18 +288,18 @@ const Prescriptions = ({ logo }) => {
             if (logo) {
                 doc.addImage(logo, 'PNG', 6, 6, 23, 16);
             } else {
-                doc.setFontSize(10); // AUMENTADO +2
+                doc.setFontSize(10); 
                 doc.text('Fazenda', 17.5, 12, { align: 'center' });
                 doc.text('Vale dos Laranjais', 17.5, 16, { align: 'center' });
             }
 
             doc.rect(30, 5, pw - 85, 18);
-            doc.setFontSize(13); // AUMENTADO +2
+            doc.setFontSize(13); 
             doc.setFont('helvetica', 'bold');
             doc.text('ORDEM DE SERVIÇO - APLICAÇÃO DE INSUMOS', pw / 2 - 12.5, 14, { align: 'center' });
 
             doc.rect(pw - 55, 5, 50, 18);
-            doc.setFontSize(8); // AUMENTADO +2
+            doc.setFontSize(8); 
             doc.setFont('helvetica', 'normal');
             doc.text(`Identificação: RQ 05`, pw - 53, 9);
             doc.text(`Elaborador por: Administrativo`, pw - 53, 12);
@@ -426,6 +424,7 @@ const Prescriptions = ({ logo }) => {
                 ]);
             }
 
+            // AJUSTE: cellPadding reduzido para caber tudo na folha
             autoTable(doc, {
                 startY: tableY,
                 head: [[
@@ -436,7 +435,7 @@ const Prescriptions = ({ logo }) => {
                 ]],
                 body: insumosRows,
                 theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 1, overflow: 'linebreak', halign: 'left', lineColor: 0, lineWidth: 0.1 }, // AUMENTADO +2
+                styles: { fontSize: 8, cellPadding: 0.5, overflow: 'linebreak', halign: 'left', lineColor: 0, lineWidth: 0.1 }, 
                 headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold' },
                 columnStyles: {
                     0: { cellWidth: 15 }, 1: { cellWidth: 50 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 25 }, 5: { cellWidth: 15 },
@@ -473,31 +472,35 @@ const Prescriptions = ({ logo }) => {
                 ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', '']
             ];
 
+            // AJUSTE: cellPadding reduzido para caber tudo na folha
             autoTable(doc, {
                 startY: subY,
                 head: [['', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO']],
                 body: weatherData,
                 theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 1 }, // AUMENTADO +2
+                styles: { fontSize: 8, cellPadding: 0.5 }, 
                 headStyles: { fillColor: [240, 240, 240], textColor: 0 },
                 margin: { left: 25 },
                 tableWidth: pw - 30
             });
 
-            const shiftY = doc.lastAutoTable.finalY + 10;
+            // AJUSTE: Redução do espaço (gap) entre blocos para caber na folha
+            const shiftY = doc.lastAutoTable.finalY + 4;
             const shiftHead = ['N° Trator', 'N° Equip.', 'Operador', 'Qtd. Bombas'];
             const emptyShiftRows = [['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', '']];
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8); // AUMENTADO +2
+            doc.setFontSize(8); 
 
             const shiftTableMargin = 25; 
+            
+            // AJUSTE: cellPadding reduzido para caber tudo na folha
             autoTable(doc, {
                 startY: shiftY,
                 head: [[{ content: 'TURNO DO DIA', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
                 body: emptyShiftRows,
                 theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 1 }, // AUMENTADO +2
+                styles: { fontSize: 8, cellPadding: 0.5 }, 
                 margin: { left: shiftTableMargin },
                 tableWidth: 135
             });
@@ -507,7 +510,7 @@ const Prescriptions = ({ logo }) => {
                 head: [[{ content: 'TURNO DA NOITE', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
                 body: emptyShiftRows,
                 theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 1 }, // AUMENTADO +2
+                styles: { fontSize: 8, cellPadding: 0.5 }, 
                 margin: { left: shiftTableMargin + 135 + 2 },
                 tableWidth: 135
             });
@@ -521,28 +524,28 @@ const Prescriptions = ({ logo }) => {
             doc.rect(pw - 31, totalY, 26, 6); doc.text(totalBombas, pw - 29, totalY + 4.5);
             doc.setFont('helvetica', 'normal');
 
-            const sigStartY = totalY + 6;
+            // AJUSTE: Redução do espaço (gap) final
+            const sigStartY = totalY + 5;
             doc.rect(25, sigStartY, 135, 6); doc.text('Assinatura Preparador de Calda: ____________________________________________________________________', 27, sigStartY + 4.5);
             doc.rect(162, sigStartY, pw - 167, 6);
             doc.text('Assinatura Preparador de Calda: ____________________________________________________________________', 164, sigStartY + 4.5);
 
-            const lastRowY = sigStartY + 6;
+            const lastRowY = sigStartY + 5;
             doc.rect(25, lastRowY, 135, 6);
             doc.text('DIA:      (      ) PARCIAL  (      ) FECHADO', 50, lastRowY + 4.5);
             doc.rect(162, lastRowY, pw - 167, 6);
             doc.text('Noite:      (      ) PARCIAL  (      ) FECHADO', 185, lastRowY + 4.5);
 
-            const finalContentY = lastRowY + 6;
-            const labelBoxH = finalContentY - subY;
+            const labelBoxH = (lastRowY + 6) - subY;
             doc.rect(5, subY, 20, labelBoxH);
-            doc.setFontSize(10); // AUMENTADO +2
+            doc.setFontSize(10); 
             doc.setFont('helvetica', 'bold');
             doc.saveGraphicsState();
             doc.setTextColor(0);
             doc.text('APLICAÇÃO DE INSUMOS', 13, subY + (labelBoxH / 2), { angle: 90, align: 'center' });
             doc.restoreGraphicsState();
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8); // AUMENTADO +2
+            doc.setFontSize(8); 
 
             const footY = ph - 12;
             doc.setLineWidth(0.4);
@@ -713,7 +716,6 @@ const Prescriptions = ({ logo }) => {
             )}
 
             <div className="premium-card glass">
-                {/* NOVO: Filtro acima da tabela */}
                 {!showForm && ordens.length > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
                         <div style={{ position: 'relative', width: '300px' }}>
@@ -755,7 +757,6 @@ const Prescriptions = ({ logo }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {/* USANDO AS ORDENS FILTRADAS E ORDENADAS */}
                                 {filteredOrdens.map(os => {
                                     const status = getStatusStyle(os.situacao);
                                     return (
