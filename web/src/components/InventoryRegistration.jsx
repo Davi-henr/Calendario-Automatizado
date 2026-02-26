@@ -130,7 +130,7 @@ export default function InventoryRegistration({ subview }) {
     const [data, setData] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
-    const [isSeeding, setIsSeeding] = useState(false); // Flag to prevent duplicate seeding
+    const [isSeeding, setIsSeeding] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [selectedId, setSelectedId] = useState(null);
@@ -155,7 +155,6 @@ export default function InventoryRegistration({ subview }) {
             setLoading(true);
             let items = await currentService.getAll();
 
-            // Initial Seed if empty and not already seeding
             if (items.length === 0 && !isSeeding) {
                 setIsSeeding(true);
                 if (subview === 'insumos') {
@@ -172,7 +171,7 @@ export default function InventoryRegistration({ subview }) {
                     const initialData = INITIAL_ACTIVITIES.map(a => ({ nome: a }));
                     await currentService.bulkCreate(initialData);
                 } else if (subview === 'quadras') {
-                    const initialData = INITIAL_BLOCKS.map(b => ({ nome: b, variedade: '' }));
+                    const initialData = INITIAL_BLOCKS.map(b => ({ nome: b, variedade: '', hectares: null }));
                     await currentService.bulkCreate(initialData);
                 }
                 items = await currentService.getAll();
@@ -201,17 +200,29 @@ export default function InventoryRegistration({ subview }) {
         } else if (subview === 'atividade') {
             setFormData({ nome: '' });
         } else if (subview === 'quadras') {
-            setFormData({ nome: '', variedade: '' });
+            // ADICIONADO CAMPO HECTARES AQUI PARA LIMPAR O FORMULÁRIO
+            setFormData({ nome: '', variedade: '', hectares: '' });
         }
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
         try {
+            let dataToSave = { ...formData };
+            
+            // TRATAMENTO ESPECÍFICO PARA HECTARES (Garante que vai como número pro banco)
+            if (subview === 'quadras' && dataToSave.hectares !== undefined) {
+                if (dataToSave.hectares === '') {
+                    dataToSave.hectares = null;
+                } else {
+                    dataToSave.hectares = parseFloat(dataToSave.hectares.toString().replace(',', '.'));
+                }
+            }
+
             if (editingItem) {
-                await currentService.update(editingItem.id, formData);
+                await currentService.update(editingItem.id, dataToSave);
             } else {
-                await currentService.create(formData);
+                await currentService.create(dataToSave);
             }
             setShowForm(false);
             setEditingItem(null);
@@ -289,11 +300,11 @@ export default function InventoryRegistration({ subview }) {
         quadras: {
             title: 'Cadastro de Quadras',
             icon: <MapIcon size={24} style={{ margin: 'auto' }} />,
-            columns: ['Identificação da Quadra', 'Variedade', 'Hectares'], // Adicionado na tabela
+            columns: ['Identificação da Quadra', 'Variedade', 'Hectares'],
             fields: [
                 { name: 'nome', label: 'Nome/Número da Quadra *', required: true },
                 { name: 'variedade', label: 'Variedade (Cultura)', type: 'text' },
-                { name: 'hectares', label: 'Tamanho (Hectares)', type: 'number', step: '0.01' } // Adicionado no formulário
+                { name: 'hectares', label: 'Tamanho (Hectares)', type: 'number', step: '0.01' }
             ]
         }
     }[subview];
@@ -309,7 +320,6 @@ export default function InventoryRegistration({ subview }) {
             border: '1px solid rgba(0,0,0,0.05)',
             overflow: 'hidden'
         }}>
-            {/* Header Fixo Interno */}
             <div style={{
                 padding: '1.5rem 2rem',
                 borderBottom: '1px solid rgba(0,0,0,0.06)',
@@ -355,7 +365,6 @@ export default function InventoryRegistration({ subview }) {
                 </div>
             </div>
 
-            {/* Area de Tabela com Scroll */}
             <div style={{
                 flex: 1,
                 overflowY: 'auto',
@@ -430,8 +439,11 @@ export default function InventoryRegistration({ subview }) {
                                             <td style={{ padding: '1.2rem 1rem', fontWeight: '800', color: 'var(--text)', borderRadius: '12px 0 0 12px' }}>
                                                 {item.nome}
                                             </td>
-                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '700', color: 'var(--primary)', borderRadius: '0 12px 12px 0' }}>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '700', color: 'var(--primary)' }}>
                                                 {item.variedade || '-'}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '800', color: 'var(--text)', borderRadius: '0 12px 12px 0' }}>
+                                                {item.hectares ? `${item.hectares} ha` : '-'}
                                             </td>
                                         </>
                                     )}
@@ -442,7 +454,6 @@ export default function InventoryRegistration({ subview }) {
                 </table>
             </div>
 
-            {/* Footer Fixo com Ações */}
             <div style={{
                 padding: '1.5rem 2rem',
                 backgroundColor: 'white',
@@ -482,7 +493,6 @@ export default function InventoryRegistration({ subview }) {
                 )}
             </div>
 
-            {/* Modal de Formulário */}
             {showForm && (
                 <div style={{
                     position: 'fixed',
