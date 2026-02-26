@@ -22,7 +22,7 @@ const Prescriptions = ({ logo }) => {
         area_ha: '',
         equipamento: '',
         recomendacao: '',
-        carencia: '',
+        carencia: '7',
         data_prescricao: format(new Date(), 'yyyy-MM-dd'),
         insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '' }],
         dados_tecnicos: {
@@ -249,7 +249,7 @@ const Prescriptions = ({ logo }) => {
             // 4. INSUMOS TABLE WITH DYNAMIC PRINCIPIO E CARENCIA
             const tableY = row4Y + 6;
             const insumosRows = [];
-            let maxCarencia = 0; // Armazena a maior carencia encontrada
+            let maxCarencia = 0;
 
             for (let i = 0; i < 12; i++) {
                 const ins = os.insumos?.[i] || {};
@@ -259,12 +259,15 @@ const Prescriptions = ({ logo }) => {
                 const consByName = ins.material ? consumptionMap[ins.material.toLowerCase().trim()] : null;
                 const cons = consById || consByName || { retirada: 0, real: 0, devolucao: 0 };
 
-                // Busca o insumo no banco (insumosMeta) para extrair o principio e carencia
+                // Busca o insumo no banco de dados para extrair Principio e Carencia
                 const matchedMaterial = ins.material ? insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material.toLowerCase().trim()) : null;
                 const principioAtivo = matchedMaterial?.principio_ativo || matchedMaterial?.principio || ins.principio || '';
-                const carenciaDias = matchedMaterial?.carencia || ins.carencia || '';
+                
+                // Extrai a carência testando os nomes mais comuns que podem estar no seu banco
+                const carenciaRaw = matchedMaterial?.carencia_dias ?? matchedMaterial?.dias_carencia ?? matchedMaterial?.carencia ?? ins.carencia;
+                const carenciaDias = (carenciaRaw !== null && carenciaRaw !== undefined && carenciaRaw !== '') ? String(carenciaRaw) : '';
 
-                // Verifica a maior carência para o campo geral
+                // Registra qual é a maior carência do tanque
                 const parsedCarencia = parseInt(carenciaDias, 10);
                 if (!isNaN(parsedCarencia) && parsedCarencia > maxCarencia) {
                     maxCarencia = parsedCarencia;
@@ -276,7 +279,7 @@ const Prescriptions = ({ logo }) => {
                     formatVal(ins.dosagem),
                     ins.finalidade || '',
                     principioAtivo,
-                    carenciaDias,
+                    carenciaDias, // Aqui a carência aparece na tabela
                     cons.retirada > 0 ? 'TOTAL' : '',
                     formatVal(cons.retirada),
                     formatVal(cons.real),
@@ -303,24 +306,29 @@ const Prescriptions = ({ logo }) => {
                 margin: { left: 5, right: 5 }
             });
 
-            // 4. MIDDLE STRIP (Calculo Automático da Carência e Liberação)
+            // 4. MIDDLE STRIP (Cálculo Automático da Carência e Liberação)
             const midY = doc.lastAutoTable.finalY;
             doc.rect(5, midY, 85, 6); doc.text('Reentrada de Pessoas', 7, midY + 4.5);
             doc.rect(90, midY, 45, 6); doc.text('24 Horas após aplicação', 92, midY + 4.5);
             
-            // Define carência final a ser impressa (maior carência encontrada ou 0)
+            // Imprime a maior carência que foi encontrada
             const carenciaParaImprimir = maxCarencia > 0 ? maxCarencia : parseInt(os.carencia || 0, 10);
             doc.rect(135, midY, 75, 6); doc.text('Carencia (Dias):    ' + carenciaParaImprimir, 137, midY + 4.5);
             
-            // Lógica para Liberado Colheita: data_final + carencia
+            // Lógica para Liberado Colheita: APENAS se estiver FINALIZADA
             let liberadoColheitaText = 'LIBERADO COLHEITA:';
-            if (reg.data_final) {
+            if (os.situacao === 'Finalizada' && reg.data_final) {
                 const finalDate = parseISO(reg.data_final);
                 const releaseDate = addDays(finalDate, carenciaParaImprimir);
                 liberadoColheitaText += ' ' + format(releaseDate, 'dd/MM/yyyy');
+            } else {
+                liberadoColheitaText += ' (Aguardando Fim)';
             }
 
-            doc.rect(210, midY, 82, 6); doc.text(liberadoColheitaText, 212, midY + 4.5);
+            doc.rect(210, midY, 82, 6); 
+            doc.setFont('helvetica', 'bold');
+            doc.text(liberadoColheitaText, 212, midY + 4.5);
+            doc.setFont('helvetica', 'normal');
 
             // 5. WEATHER PARAMETERS & SHIFT TABLES
             const subY = midY + 6;
