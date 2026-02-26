@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { osService, insumosService, quadrasService, ordensSaidaService } from '../lib/services';
+import { osService, insumosService, quadrasService, ordensSaidaService, entradasService, saidasService } from '../lib/services';
 import {
     Plus, Search, FileText, Printer, Trash2, X,
     Save, ClipboardList, Package, Droplets, ChevronDown, ChevronUp,
-    AlertCircle, CheckCircle, Clock, Map as MapIcon // AQUI ESTÁ A CORREÇÃO: MapIcon adicionado
+    AlertCircle, CheckCircle, Clock, Map as MapIcon
 } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -14,17 +14,19 @@ const Prescriptions = ({ logo }) => {
     const [ordens, setOrdens] = useState([]);
     const [insumosMeta, setInsumosMeta] = useState([]);
     const [quadrasMeta, setQuadrasMeta] = useState([]);
+    const [entradasMeta, setEntradasMeta] = useState([]);
+    const [saidasMeta, setSaidasMeta] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState({
         quadra: '',
         operacao: '',
         area_ha: '',
-        equipamento: 'PULV. NATALI ALFA 4.000 LTS',
+        equipamento: '',
         recomendacao: '',
-        carencia: '',
+        carencia: '7',
         data_prescricao: format(new Date(), 'yyyy-MM-dd'),
-        insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '' }],
+        insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '', saldo_atual: '' }],
         dados_tecnicos: {
             pressao: '',
             pes: '',
@@ -45,19 +47,52 @@ const Prescriptions = ({ logo }) => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [osData, insData, quaData] = await Promise.all([
+            const [osData, insData, quaData, inData, outData] = await Promise.all([
                 osService.getAll(),
                 insumosService.getAll(),
-                quadrasService.getAll()
+                quadrasService.getAll(),
+                entradasService.getAll().catch(() => []), // Previne erro se o serviço não existir
+                saidasService.getAll().catch(() => [])    // Previne erro se o serviço não existir
             ]);
             setOrdens(osData);
             setInsumosMeta(insData);
             setQuadrasMeta(quaData || []);
+            setEntradasMeta(inData || []);
+            setSaidasMeta(outData || []);
         } catch (error) {
             console.error('Erro ao carregar dados:', error);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Função auxiliar para calcular o saldo atual de um insumo
+    const calcularSaldoInsumo = (insumoNome) => {
+        if (!insumoNome) return '';
+
+        const insumoBase = insumosMeta.find(i => i.insumo.toLowerCase() === insumoNome.toLowerCase());
+        if (!insumoBase) return '';
+
+        let saldo = parseFloat(insumoBase.saldo_inicial || 0);
+
+        // Soma as entradas
+        entradasMeta.forEach(e => {
+            if (e.insumo_id === insumoBase.id) {
+                saldo += parseFloat(e.quantidade || 0);
+            }
+        });
+
+        // Subtrai as saídas (Considerando apenas o consumo real: quantidade retirada - devolução)
+        saidasMeta.forEach(s => {
+            if (s.insumo_id === insumoBase.id) {
+                const retirada = parseFloat(s.quantidade || 0);
+                const devolucao = parseFloat(s.devolucao || 0);
+                saldo -= (retirada - devolucao);
+            }
+        });
+
+        // Formata para ter no máximo 2 casas decimais, se necessário
+        return saldo % 1 === 0 ? saldo.toString() : saldo.toFixed(2);
     };
 
     // Autopreenchimento da Área (Hectares) ao selecionar a Quadra
@@ -68,7 +103,6 @@ const Prescriptions = ({ logo }) => {
         setFormData({ 
             ...formData, 
             quadra: selectedQuadra,
-            // Se achar a quadra e ela tiver hectares, preenche automático. Se não, deixa vazio.
             area_ha: quadraInfo?.hectares ? String(quadraInfo.hectares) : formData.area_ha 
         });
     };
@@ -76,7 +110,7 @@ const Prescriptions = ({ logo }) => {
     const handleAddInsumo = () => {
         setFormData({
             ...formData,
-            insumos: [...formData.insumos, { material: '', dosagem: '' }]
+            insumos: [...formData.insumos, { material: '', dosagem: '', saldo_atual: '' }]
         });
     };
 
@@ -96,17 +130,51 @@ const Prescriptions = ({ logo }) => {
             if (matchedMaterial) {
                 newInsumos[index].codigo = matchedMaterial.codigo || '';
                 newInsumos[index].dosagem = matchedMaterial.dosagem || '';
+                newInsumos[index].saldo_atual = calcularSaldoInsumo(matchedMaterial.insumo);
+            } else {
+                newInsumos[index].codigo = '';
+                newInsumos[index].saldo_atual = '';
             }
         }
 
         setFormData({ ...formData, insumos: newInsumos });
     };
 
+    // Validação extra: Ao sair do campo Insumo, verifica se o que foi digitado existe na lista. Se não, limpa.
+    const handleInsumoBlur = (index) => {
+        const currentMaterial = formData.insumos[index].material;
+        if (currentMaterial) {
+            const exists = insumosMeta.some(m => m.insumo.toLowerCase() === currentMaterial.toLowerCase());
+            if (!exists) {
+                // Produto inválido, limpa a linha
+                const newInsumos = [...formData.insumos];
+                newInsumos[index].material = '';
+                newInsumos[index].codigo = '';
+                newInsumos[index].dosagem = '';
+                newInsumos[index].saldo_atual = '';
+                setFormData({ ...formData, insumos: newInsumos });
+                alert('Por favor, selecione um insumo válido da lista de cadastro.');
+            }
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // Verifica se há linhas de insumos vazias antes de salvar
+        const hasInvalidInsumo = formData.insumos.some(ins => !ins.material || ins.material.trim() === '');
+        if (hasInvalidInsumo) {
+            alert('Por favor, preencha corretamente todos os insumos selecionados ou remova as linhas vazias.');
+            return;
+        }
+
         try {
+            // Removemos o "saldo_atual" do array de insumos antes de salvar, pois é só informativo visual
+            const insumosToSave = formData.insumos.map(({ saldo_atual, ...rest }) => rest);
+
             const sanitizedData = {
                 ...formData,
+                insumos: insumosToSave,
                 area_ha: formData.area_ha === '' ? null : formData.area_ha,
                 carencia: formData.carencia === '' ? null : formData.carencia
             };
@@ -120,7 +188,7 @@ const Prescriptions = ({ logo }) => {
                 recomendacao: '',
                 carencia: '7',
                 data_prescricao: format(new Date(), 'yyyy-MM-dd'),
-                insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '' }],
+                insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '', saldo_atual: '' }],
                 dados_tecnicos: { pressao: '', pes: '', marcha: '', rpm: '', velocidade: '', pontas: '', volume_calda: '' }
             });
             fetchData();
@@ -197,7 +265,7 @@ const Prescriptions = ({ logo }) => {
 
             const row2Y = idStartY + 6;
             doc.rect(5, row2Y, 25, 6); doc.text('Área Ha:', 7, row2Y + 4.5);
-            doc.rect(30, row2Y, 60, 6); doc.text(areaHa, 32, row2Y + 4.5); // AQUI ENTRA OS HECTARES
+            doc.rect(30, row2Y, 60, 6); doc.text(areaHa, 32, row2Y + 4.5); 
             doc.rect(90, row2Y, 45, 6); doc.text('N° Recomendação:', 92, row2Y + 4.5);
             doc.rect(135, row2Y, 40, 6); doc.text(os.recomendacao || '', 137, row2Y + 4.5);
             doc.rect(175, row2Y, 35, 6); doc.text('Hora Inicial:', 177, row2Y + 4.5);
@@ -296,7 +364,7 @@ const Prescriptions = ({ logo }) => {
                     ins.codigo || '',
                     desc,
                     formatVal(ins.dosagem),
-                    finalidadeAlvo, // AQUI ENTRA A CLASSIFICAÇÃO
+                    finalidadeAlvo, 
                     principioAtivo,
                     carenciaDias,
                     cons.retirada > 0 ? 'TOTAL' : '',
@@ -516,14 +584,30 @@ const Prescriptions = ({ logo }) => {
                                 <Droplets size={18} /> Insumos & Produtos
                             </h4>
                             <div style={{ display: 'grid', gap: '1rem' }}>
+                                {/* LINHA DE CABEÇALHO PARA OS INSUMOS */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 100px 120px 40px', gap: '0.8rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Cód.</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Material / Insumo *</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Saldo Atual</label>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Dosagem *</label>
+                                    <label></label>
+                                </div>
+
                                 {formData.insumos.map((insumo, idx) => (
-                                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 150px 50px', gap: '0.8rem', alignItems: 'center' }}>
-                                        <input placeholder="Cod" value={insumo.codigo} onChange={e => handleInsumoChange(idx, 'codigo', e.target.value)} className="input-field" />
+                                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 100px 120px 40px', gap: '0.8rem', alignItems: 'center' }}>
+                                        <input 
+                                            placeholder="Cod" 
+                                            value={insumo.codigo} 
+                                            onChange={e => handleInsumoChange(idx, 'codigo', e.target.value)} 
+                                            className="input-field" 
+                                            disabled // Cód é gerado automático, melhor travar pra não dar erro no banco
+                                        />
                                         <input
-                                            placeholder="Material / Insumo"
+                                            placeholder="Busque o insumo..."
                                             list="materials-list"
                                             value={insumo.material}
                                             onChange={e => handleInsumoChange(idx, 'material', e.target.value)}
+                                            onBlur={() => handleInsumoBlur(idx)} // Validação ao sair do campo
                                             className="input-field"
                                             required
                                         />
@@ -532,22 +616,33 @@ const Prescriptions = ({ logo }) => {
                                                 <option key={i.id} value={i.insumo} />
                                             ))}
                                         </datalist>
+                                        
+                                        {/* NOVO CAMPO: SALDO ATUAL */}
+                                        <input 
+                                            placeholder="Saldo" 
+                                            value={insumo.saldo_atual || ''} 
+                                            className="input-field" 
+                                            style={{ backgroundColor: '#f8fafc', color: 'var(--primary)', fontWeight: 'bold' }}
+                                            disabled 
+                                        />
+
                                         <input
-                                            placeholder="Dosagem"
+                                            placeholder="L / Kg"
                                             value={insumo.dosagem}
                                             onChange={e => handleInsumoChange(idx, 'dosagem', e.target.value)}
                                             className="input-field"
                                             required
                                         />
-                                        {formData.insumos.length > 1 && (
+                                        
+                                        {formData.insumos.length > 1 ? (
                                             <button type="button" onClick={() => handleRemoveInsumo(idx)} className="btn btn-mini" style={{ color: '#ef5350' }}>
                                                 <div className="btn-inner"><Trash2 size={16} /></div>
                                             </button>
-                                        )}
+                                        ) : <div></div>}
                                     </div>
                                 ))}
                                 <button type="button" onClick={handleAddInsumo} className="btn btn-outline" style={{ marginTop: '0.5rem', alignSelf: 'flex-start' }}>
-                                    <div className="btn-inner" style={{ padding: '0.5rem 1rem' }}><Plus size={16} /> Add Produto</div>
+                                    <div className="btn-inner" style={{ padding: '0.5rem 1rem' }}><Plus size={16} /> Adicionar Produto</div>
                                 </button>
                             </div>
                         </div>
