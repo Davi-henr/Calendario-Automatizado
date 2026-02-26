@@ -3,7 +3,7 @@ import { osService, insumosService, quadrasService, ordensSaidaService } from '.
 import {
     Plus, Search, FileText, Printer, Trash2, X,
     Save, ClipboardList, Package, Droplets, ChevronDown, ChevronUp,
-    AlertCircle, CheckCircle, Clock
+    AlertCircle, CheckCircle, Clock, Map as MapIcon // AQUI ESTÁ A CORREÇÃO: MapIcon adicionado
 } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -118,6 +118,7 @@ const Prescriptions = ({ logo }) => {
                 area_ha: '',
                 equipamento: '',
                 recomendacao: '',
+                carencia: '7',
                 data_prescricao: format(new Date(), 'yyyy-MM-dd'),
                 insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '' }],
                 dados_tecnicos: { pressao: '', pes: '', marcha: '', rpm: '', velocidade: '', pontas: '', volume_calda: '' }
