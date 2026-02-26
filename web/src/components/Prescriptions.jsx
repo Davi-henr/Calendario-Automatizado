@@ -3,7 +3,7 @@ import { osService, insumosService, quadrasService, ordensSaidaService, entradas
 import {
     Plus, Search, FileText, Printer, Trash2, X,
     Save, ClipboardList, Package, Droplets, ChevronDown, ChevronUp,
-    AlertCircle, CheckCircle, Clock, Map as MapIcon
+    AlertCircle, CheckCircle, Clock, Map as MapIcon, Edit2, Copy
 } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -18,6 +18,7 @@ const Prescriptions = ({ logo }) => {
     const [saidasMeta, setSaidasMeta] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [editingId, setEditingId] = useState(null); // NOVO: Controla se estamos editando
     const [formData, setFormData] = useState({
         quadra: '',
         operacao: '',
@@ -51,8 +52,8 @@ const Prescriptions = ({ logo }) => {
                 osService.getAll(),
                 insumosService.getAll(),
                 quadrasService.getAll(),
-                entradasService.getAll().catch(() => []), // Previne erro se o serviço não existir
-                saidasService.getAll().catch(() => [])    // Previne erro se o serviço não existir
+                entradasService.getAll().catch(() => []), 
+                saidasService.getAll().catch(() => [])    
             ]);
             setOrdens(osData);
             setInsumosMeta(insData);
@@ -66,7 +67,6 @@ const Prescriptions = ({ logo }) => {
         }
     };
 
-    // Função auxiliar para calcular o saldo atual de um insumo
     const calcularSaldoInsumo = (insumoNome) => {
         if (!insumoNome) return '';
 
@@ -75,14 +75,12 @@ const Prescriptions = ({ logo }) => {
 
         let saldo = parseFloat(insumoBase.saldo_inicial || 0);
 
-        // Soma as entradas
         entradasMeta.forEach(e => {
             if (e.insumo_id === insumoBase.id) {
                 saldo += parseFloat(e.quantidade || 0);
             }
         });
 
-        // Subtrai as saídas (Considerando apenas o consumo real: quantidade retirada - devolução)
         saidasMeta.forEach(s => {
             if (s.insumo_id === insumoBase.id) {
                 const retirada = parseFloat(s.quantidade || 0);
@@ -91,11 +89,9 @@ const Prescriptions = ({ logo }) => {
             }
         });
 
-        // Formata para ter no máximo 2 casas decimais, se necessário
         return saldo % 1 === 0 ? saldo.toString() : saldo.toFixed(2);
     };
 
-    // Autopreenchimento da Área (Hectares) ao selecionar a Quadra
     const handleQuadraChange = (e) => {
         const selectedQuadra = e.target.value;
         const quadraInfo = quadrasMeta.find(q => q.nome === selectedQuadra);
@@ -124,7 +120,6 @@ const Prescriptions = ({ logo }) => {
         const newInsumos = [...formData.insumos];
         newInsumos[index][field] = value;
 
-        // Auto-complete if material is selected
         if (field === 'material') {
             const matchedMaterial = insumosMeta.find(m => m.insumo.toLowerCase() === value.toLowerCase());
             if (matchedMaterial) {
@@ -140,13 +135,11 @@ const Prescriptions = ({ logo }) => {
         setFormData({ ...formData, insumos: newInsumos });
     };
 
-    // Validação extra: Ao sair do campo Insumo, verifica se o que foi digitado existe na lista. Se não, limpa.
     const handleInsumoBlur = (index) => {
         const currentMaterial = formData.insumos[index].material;
         if (currentMaterial) {
             const exists = insumosMeta.some(m => m.insumo.toLowerCase() === currentMaterial.toLowerCase());
             if (!exists) {
-                // Produto inválido, limpa a linha
                 const newInsumos = [...formData.insumos];
                 newInsumos[index].material = '';
                 newInsumos[index].codigo = '';
@@ -158,18 +151,71 @@ const Prescriptions = ({ logo }) => {
         }
     };
 
+    // NOVO: Função para Carregar OS para Edição
+    const handleEdit = (os) => {
+        const insumosComSaldo = os.insumos.map(ins => ({
+            ...ins,
+            saldo_atual: calcularSaldoInsumo(ins.material)
+        }));
+
+        setFormData({
+            quadra: os.quadra || '',
+            operacao: os.operacao || '',
+            area_ha: os.area_ha || '',
+            equipamento: os.equipamento || '',
+            recomendacao: os.recomendacao || '',
+            carencia: os.carencia || '7',
+            data_prescricao: os.data_prescricao ? format(parseISO(os.data_prescricao), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+            insumos: insumosComSaldo.length > 0 ? insumosComSaldo : [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '', saldo_atual: '' }],
+            dados_tecnicos: os.dados_tecnicos || { pressao: '', pes: '', marcha: '', rpm: '', velocidade: '', pontas: '', volume_calda: '' }
+        });
+        setEditingId(os.id);
+        setShowForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // NOVO: Função para Duplicar Receita
+    const handleDuplicate = (os) => {
+        const insumosComSaldo = os.insumos.map(ins => ({
+            ...ins,
+            saldo_atual: calcularSaldoInsumo(ins.material)
+        }));
+
+        setFormData({
+            quadra: os.quadra || '',
+            operacao: os.operacao || '',
+            area_ha: os.area_ha || '',
+            equipamento: os.equipamento || '',
+            recomendacao: os.recomendacao || '',
+            carencia: os.carencia || '7',
+            data_prescricao: format(new Date(), 'yyyy-MM-dd'), // Data de hoje
+            insumos: insumosComSaldo.length > 0 ? insumosComSaldo : [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '', saldo_atual: '' }],
+            dados_tecnicos: os.dados_tecnicos || { pressao: '', pes: '', marcha: '', rpm: '', velocidade: '', pontas: '', volume_calda: '' }
+        });
+        setEditingId(null); // NULL significa que vai CRIAR UMA NOVA
+        setShowForm(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // Verifica se há linhas de insumos vazias antes de salvar
         const hasInvalidInsumo = formData.insumos.some(ins => !ins.material || ins.material.trim() === '');
         if (hasInvalidInsumo) {
             alert('Por favor, preencha corretamente todos os insumos selecionados ou remova as linhas vazias.');
             return;
         }
 
+        // NOVO: Pergunta de Confirmação
+        const confirmMessage = editingId 
+            ? "Deseja salvar as alterações nesta Receita Agronômica?" 
+            : "Deseja adicionar esta nova Receita Agronômica?";
+            
+        if (!window.confirm(confirmMessage)) {
+            return; // Se o usuário clicar em Cancelar, aborta o salvamento
+        }
+
         try {
-            // Removemos o "saldo_atual" do array de insumos antes de salvar, pois é só informativo visual
             const insumosToSave = formData.insumos.map(({ saldo_atual, ...rest }) => rest);
 
             const sanitizedData = {
@@ -178,15 +224,18 @@ const Prescriptions = ({ logo }) => {
                 area_ha: formData.area_ha === '' ? null : formData.area_ha,
                 carencia: formData.carencia === '' ? null : formData.carencia
             };
-            await osService.create(sanitizedData);
+
+            // Se tem ID, atualiza. Se não tem, cria nova.
+            if (editingId) {
+                await osService.update(editingId, sanitizedData);
+            } else {
+                await osService.create(sanitizedData);
+            }
+
             setShowForm(false);
+            setEditingId(null);
             setFormData({
-                quadra: '',
-                operacao: '',
-                area_ha: '',
-                equipamento: '',
-                recomendacao: '',
-                carencia: '7',
+                quadra: '', operacao: '', area_ha: '', equipamento: '', recomendacao: '', carencia: '7',
                 data_prescricao: format(new Date(), 'yyyy-MM-dd'),
                 insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '', saldo_atual: '' }],
                 dados_tecnicos: { pressao: '', pes: '', marcha: '', rpm: '', velocidade: '', pontas: '', volume_calda: '' }
@@ -198,7 +247,8 @@ const Prescriptions = ({ logo }) => {
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('Excluir esta Ordem de Serviço?')) {
+        // A pergunta de exclusão já estava presente aqui
+        if (window.confirm('Tem certeza que deseja EXCLUIR esta Ordem de Serviço permanentemente?')) {
             try {
                 await osService.delete(id);
                 fetchData();
@@ -216,17 +266,14 @@ const Prescriptions = ({ logo }) => {
             const pw = doc.internal.pageSize.getWidth();
             const ph = doc.internal.pageSize.getHeight();
 
-            // Busca os dados da Quadra para o PDF
             const quadraInfo = quadrasMeta.find(q => q.nome === os.quadra) || {};
             const areaHa = quadraInfo.hectares ? String(quadraInfo.hectares) : (os.area_ha || '');
             const variety = quadraInfo.variedade || '';
 
-            // Set Global Styles
             doc.setFont('helvetica', 'normal');
             doc.setDrawColor(0);
             doc.setLineWidth(0.4);
 
-            // 1. TOP HEADER - LOGO & TITLE & ID BOX
             doc.rect(5, 5, 25, 18);
             if (logo) {
                 doc.addImage(logo, 'PNG', 6, 6, 23, 16);
@@ -249,7 +296,6 @@ const Prescriptions = ({ logo }) => {
             doc.text(`Aprovado: Gabriel Fortes`, pw - 53, 15);
             doc.text(`Aprovado em: 01/09/2020`, pw - 53, 18);
 
-            // 2. IDENTIFICATION GRID
             const idStartY = 23;
             let osYear = format(parseISO(os.data_prescricao), 'yy');
             let osFullNum = `${osYear}/${String(os.numero_os || '').padStart(6, '0')}`;
@@ -304,7 +350,6 @@ const Prescriptions = ({ logo }) => {
                 return num.toFixed(2).replace('.', ',');
             };
 
-            // 3. CONSUMO DATA AGGREGATION
             const consumptionMap = {};
             outbounds.forEach(out => {
                 out.saidas?.forEach(s => {
@@ -331,7 +376,6 @@ const Prescriptions = ({ logo }) => {
                 });
             });
 
-            // 4. INSUMOS TABLE WITH DYNAMIC PRINCIPIO E CARENCIA E FINALIDADE
             const tableY = row4Y + 6;
             const insumosRows = [];
             let maxCarencia = 0;
@@ -344,12 +388,8 @@ const Prescriptions = ({ logo }) => {
                 const consByName = ins.material ? consumptionMap[ins.material.toLowerCase().trim()] : null;
                 const cons = consById || consByName || { retirada: 0, real: 0, devolucao: 0 };
 
-                // Busca o insumo no banco de dados
                 const matchedMaterial = ins.material ? insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material.toLowerCase().trim()) : null;
-                
                 const principioAtivo = matchedMaterial?.principio_ativo || matchedMaterial?.principio || ins.principio || '';
-                
-                // Finalidade/Alvo sendo puxada da "classificacao" (ex: Herbicida, etc)
                 const finalidadeAlvo = matchedMaterial?.classificacao || ins.finalidade || '';
 
                 const carenciaRaw = matchedMaterial?.carencia_dias ?? matchedMaterial?.dias_carencia ?? matchedMaterial?.carencia ?? ins.carencia;
@@ -393,7 +433,6 @@ const Prescriptions = ({ logo }) => {
                 margin: { left: 5, right: 5 }
             });
 
-            // 4. MIDDLE STRIP (Calculo Automático da Carência e Liberação)
             const midY = doc.lastAutoTable.finalY;
             doc.rect(5, midY, 85, 6); doc.text('Reentrada de Pessoas', 7, midY + 4.5);
             doc.rect(90, midY, 45, 6); doc.text('24 Horas após aplicação', 92, midY + 4.5);
@@ -415,7 +454,6 @@ const Prescriptions = ({ logo }) => {
             doc.text(liberadoColheitaText, 212, midY + 4.5);
             doc.setFont('helvetica', 'normal');
 
-            // 5. WEATHER PARAMETERS & SHIFT TABLES
             const subY = midY + 6;
             const weatherData = [
                 ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', ''],
@@ -471,7 +509,6 @@ const Prescriptions = ({ logo }) => {
             doc.rect(pw - 31, totalY, 26, 6); doc.text(totalBombas, pw - 29, totalY + 4.5);
             doc.setFont('helvetica', 'normal');
 
-            // 6. BOTTOM SECTIONS
             const sigStartY = totalY + 6;
             doc.rect(25, sigStartY, 135, 6); doc.text('Assinatura Preparador de Calda: ____________________________________________________________________', 27, sigStartY + 4.5);
             doc.rect(162, sigStartY, pw - 167, 6);
@@ -495,7 +532,6 @@ const Prescriptions = ({ logo }) => {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6);
 
-            // 7. FINAL FOOTER SIGNATURES
             const footY = ph - 12;
             doc.setLineWidth(0.4);
 
@@ -530,7 +566,10 @@ const Prescriptions = ({ logo }) => {
                         <h2 style={{ color: 'var(--text)', fontWeight: '900', letterSpacing: '-0.5px' }}>📋 Receitas Agronômicas</h2>
                         <p style={{ color: 'var(--text-muted)', fontWeight: '600' }}>Gestão de Ordens de Serviço (OS)</p>
                     </div>
-                    <button onClick={() => setShowForm(!showForm)} className="btn btn-primary">
+                    <button onClick={() => {
+                        setShowForm(!showForm);
+                        if(showForm) setEditingId(null); // Limpa edição se fechar form
+                    }} className="btn btn-primary">
                         <div className="btn-inner">
                             {showForm ? <X size={18} /> : <Plus size={18} />}
                             {showForm ? 'Cancelar' : 'Nova Receita'}
@@ -542,6 +581,14 @@ const Prescriptions = ({ logo }) => {
             {showForm && (
                 <div className="premium-card glass" style={{ marginBottom: '2rem', border: '1px solid var(--primary-light)' }}>
                     <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '2rem' }}>
+                        
+                        {/* Se estiver editando mostra aviso */}
+                        {editingId && (
+                            <div style={{ padding: '10px 15px', background: '#e0f2fe', color: '#0369a1', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <Edit2 size={18} /> Você está EDITANDO uma receita já existente.
+                            </div>
+                        )}
+
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                             <div className="form-group">
                                 <label><Search size={14} /> Quadra</label>
@@ -600,14 +647,14 @@ const Prescriptions = ({ logo }) => {
                                             value={insumo.codigo} 
                                             onChange={e => handleInsumoChange(idx, 'codigo', e.target.value)} 
                                             className="input-field" 
-                                            disabled // Cód é gerado automático, melhor travar pra não dar erro no banco
+                                            disabled 
                                         />
                                         <input
                                             placeholder="Busque o insumo..."
                                             list="materials-list"
                                             value={insumo.material}
                                             onChange={e => handleInsumoChange(idx, 'material', e.target.value)}
-                                            onBlur={() => handleInsumoBlur(idx)} // Validação ao sair do campo
+                                            onBlur={() => handleInsumoBlur(idx)}
                                             className="input-field"
                                             required
                                         />
@@ -617,7 +664,6 @@ const Prescriptions = ({ logo }) => {
                                             ))}
                                         </datalist>
                                         
-                                        {/* NOVO CAMPO: SALDO ATUAL */}
                                         <input 
                                             placeholder="Saldo" 
                                             value={insumo.saldo_atual || ''} 
@@ -649,7 +695,7 @@ const Prescriptions = ({ logo }) => {
 
                         <button type="submit" className="btn btn-primary" style={{ height: '50px' }}>
                             <div className="btn-inner" style={{ fontSize: '1rem' }}>
-                                <Save size={20} /> Salvar Receita Agronômica
+                                <Save size={20} /> {editingId ? 'Atualizar Receita Agronômica' : 'Salvar Receita Agronômica'}
                             </div>
                         </button>
                     </form>
@@ -712,10 +758,16 @@ const Prescriptions = ({ logo }) => {
                                             </td>
                                             <td style={{ padding: '1rem' }}>
                                                 <div style={{ display: 'flex', gap: '0.6rem' }}>
+                                                    <button onClick={() => handleEdit(os)} className="btn btn-mini" title="Editar Receita" style={{ color: 'var(--primary)', borderColor: '#bfdbfe' }}>
+                                                        <div className="btn-inner"><Edit2 size={16} /></div>
+                                                    </button>
+                                                    <button onClick={() => handleDuplicate(os)} className="btn btn-mini" title="Fazer uma igual (Duplicar)" style={{ color: '#f59e0b', borderColor: '#fef3c7' }}>
+                                                        <div className="btn-inner"><Copy size={16} /></div>
+                                                    </button>
                                                     <button onClick={() => exportToPDF(os)} className="btn btn-mini" title="Imprimir PDF">
                                                         <div className="btn-inner"><Printer size={16} /></div>
                                                     </button>
-                                                    <button onClick={() => handleDelete(os.id)} className="btn btn-mini" style={{ color: '#ef5350' }} title="Excluir">
+                                                    <button onClick={() => handleDelete(os.id)} className="btn btn-mini" style={{ color: '#ef5350', borderColor: '#fee2e2' }} title="Excluir">
                                                         <div className="btn-inner"><Trash2 size={16} /></div>
                                                     </button>
                                                 </div>
