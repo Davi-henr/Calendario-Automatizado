@@ -24,9 +24,9 @@ const Prescriptions = ({ logo }) => {
         quadra: '',
         operacao: '',
         area_ha: '',
-        equipamento: '',
+        equipamento: 'PULVERIZADOR NATALI ALFA 4.000',
         recomendacao: '',
-        carencia: '7',
+        carencia: '',
         data_prescricao: format(new Date(), 'yyyy-MM-dd'),
         insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '', saldo_atual: '' }],
         dados_tecnicos: {
