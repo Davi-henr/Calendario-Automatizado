@@ -289,10 +289,11 @@ export default function InventoryRegistration({ subview }) {
         quadras: {
             title: 'Cadastro de Quadras',
             icon: <MapIcon size={24} style={{ margin: 'auto' }} />,
-            columns: ['Identificação da Quadra', 'Variedade'],
+            columns: ['Identificação da Quadra', 'Variedade', 'Hectares'], // Adicionado na tabela
             fields: [
                 { name: 'nome', label: 'Nome/Número da Quadra *', required: true },
                 { name: 'variedade', label: 'Variedade (Cultura)', type: 'text' },
+                { name: 'hectares', label: 'Tamanho (Hectares)', type: 'number', step: '0.01' } // Adicionado no formulário
             ]
         }
     }[subview];
