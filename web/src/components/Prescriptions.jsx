@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { osService, insumosService, quadrasService, ordensSaidaService, entradasService, saidasService } from '../lib/services';
 import {
     Plus, Search, FileText, Printer, Trash2, X,
@@ -12,13 +12,14 @@ import autoTable from 'jspdf-autotable';
 
 const Prescriptions = ({ logo }) => {
     const [ordens, setOrdens] = useState([]);
+    const [searchTerm, setSearchTerm] = useState(''); // NOVO: Estado do filtro
     const [insumosMeta, setInsumosMeta] = useState([]);
     const [quadrasMeta, setQuadrasMeta] = useState([]);
     const [entradasMeta, setEntradasMeta] = useState([]);
     const [saidasMeta, setSaidasMeta] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [editingId, setEditingId] = useState(null); // NOVO: Controla se estamos editando
+    const [editingId, setEditingId] = useState(null); 
     const [formData, setFormData] = useState({
         quadra: '',
         operacao: '',
@@ -66,6 +67,22 @@ const Prescriptions = ({ logo }) => {
             setLoading(false);
         }
     };
+
+    // NOVO: Filtragem e ordenação por número de OS
+    const filteredOrdens = useMemo(() => {
+        let filtered = ordens.filter(os => {
+            const search = searchTerm.toLowerCase();
+            const osNum = String(os.numero_os || '').padStart(6, '0');
+            const quadra = (os.quadra || '').toLowerCase();
+            const operacao = (os.operacao || '').toLowerCase();
+            return osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
+        });
+
+        // Ordenar pela ordem de nº de receita (decrescente: mais recentes primeiro)
+        filtered.sort((a, b) => (b.numero_os || 0) - (a.numero_os || 0));
+
+        return filtered;
+    }, [ordens, searchTerm]);
 
     const calcularSaldoInsumo = (insumoNome) => {
         if (!insumoNome) return '';
@@ -151,7 +168,6 @@ const Prescriptions = ({ logo }) => {
         }
     };
 
-    // NOVO: Função para Carregar OS para Edição
     const handleEdit = (os) => {
         const insumosComSaldo = os.insumos.map(ins => ({
             ...ins,
@@ -174,7 +190,6 @@ const Prescriptions = ({ logo }) => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // NOVO: Função para Duplicar Receita
     const handleDuplicate = (os) => {
         const insumosComSaldo = os.insumos.map(ins => ({
             ...ins,
@@ -188,11 +203,11 @@ const Prescriptions = ({ logo }) => {
             equipamento: os.equipamento || '',
             recomendacao: os.recomendacao || '',
             carencia: os.carencia || '7',
-            data_prescricao: format(new Date(), 'yyyy-MM-dd'), // Data de hoje
+            data_prescricao: format(new Date(), 'yyyy-MM-dd'), 
             insumos: insumosComSaldo.length > 0 ? insumosComSaldo : [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '', saldo_atual: '' }],
             dados_tecnicos: os.dados_tecnicos || { pressao: '', pes: '', marcha: '', rpm: '', velocidade: '', pontas: '', volume_calda: '' }
         });
-        setEditingId(null); // NULL significa que vai CRIAR UMA NOVA
+        setEditingId(null); 
         setShowForm(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
@@ -206,13 +221,12 @@ const Prescriptions = ({ logo }) => {
             return;
         }
 
-        // NOVO: Pergunta de Confirmação
         const confirmMessage = editingId 
             ? "Deseja salvar as alterações nesta Receita Agronômica?" 
             : "Deseja adicionar esta nova Receita Agronômica?";
             
         if (!window.confirm(confirmMessage)) {
-            return; // Se o usuário clicar em Cancelar, aborta o salvamento
+            return; 
         }
 
         try {
@@ -225,7 +239,6 @@ const Prescriptions = ({ logo }) => {
                 carencia: formData.carencia === '' ? null : formData.carencia
             };
 
-            // Se tem ID, atualiza. Se não tem, cria nova.
             if (editingId) {
                 await osService.update(editingId, sanitizedData);
             } else {
@@ -247,7 +260,6 @@ const Prescriptions = ({ logo }) => {
     };
 
     const handleDelete = async (id) => {
-        // A pergunta de exclusão já estava presente aqui
         if (window.confirm('Tem certeza que deseja EXCLUIR esta Ordem de Serviço permanentemente?')) {
             try {
                 await osService.delete(id);
@@ -278,18 +290,18 @@ const Prescriptions = ({ logo }) => {
             if (logo) {
                 doc.addImage(logo, 'PNG', 6, 6, 23, 16);
             } else {
-                doc.setFontSize(8);
+                doc.setFontSize(10); // AUMENTADO +2
                 doc.text('Fazenda', 17.5, 12, { align: 'center' });
                 doc.text('Vale dos Laranjais', 17.5, 16, { align: 'center' });
             }
 
             doc.rect(30, 5, pw - 85, 18);
-            doc.setFontSize(11);
+            doc.setFontSize(13); // AUMENTADO +2
             doc.setFont('helvetica', 'bold');
             doc.text('ORDEM DE SERVIÇO - APLICAÇÃO DE INSUMOS', pw / 2 - 12.5, 14, { align: 'center' });
 
             doc.rect(pw - 55, 5, 50, 18);
-            doc.setFontSize(6);
+            doc.setFontSize(8); // AUMENTADO +2
             doc.setFont('helvetica', 'normal');
             doc.text(`Identificação: RQ 05`, pw - 53, 9);
             doc.text(`Elaborador por: Administrativo`, pw - 53, 12);
@@ -424,7 +436,7 @@ const Prescriptions = ({ logo }) => {
                 ]],
                 body: insumosRows,
                 theme: 'grid',
-                styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak', halign: 'left', lineColor: 0, lineWidth: 0.1 },
+                styles: { fontSize: 8, cellPadding: 1, overflow: 'linebreak', halign: 'left', lineColor: 0, lineWidth: 0.1 }, // AUMENTADO +2
                 headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold' },
                 columnStyles: {
                     0: { cellWidth: 15 }, 1: { cellWidth: 50 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 25 }, 5: { cellWidth: 15 },
@@ -466,7 +478,7 @@ const Prescriptions = ({ logo }) => {
                 head: [['', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO']],
                 body: weatherData,
                 theme: 'grid',
-                styles: { fontSize: 6, cellPadding: 1 },
+                styles: { fontSize: 8, cellPadding: 1 }, // AUMENTADO +2
                 headStyles: { fillColor: [240, 240, 240], textColor: 0 },
                 margin: { left: 25 },
                 tableWidth: pw - 30
@@ -477,7 +489,7 @@ const Prescriptions = ({ logo }) => {
             const emptyShiftRows = [['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', '']];
 
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6);
+            doc.setFontSize(8); // AUMENTADO +2
 
             const shiftTableMargin = 25; 
             autoTable(doc, {
@@ -485,7 +497,7 @@ const Prescriptions = ({ logo }) => {
                 head: [[{ content: 'TURNO DO DIA', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
                 body: emptyShiftRows,
                 theme: 'grid',
-                styles: { fontSize: 6, cellPadding: 1 },
+                styles: { fontSize: 8, cellPadding: 1 }, // AUMENTADO +2
                 margin: { left: shiftTableMargin },
                 tableWidth: 135
             });
@@ -495,7 +507,7 @@ const Prescriptions = ({ logo }) => {
                 head: [[{ content: 'TURNO DA NOITE', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
                 body: emptyShiftRows,
                 theme: 'grid',
-                styles: { fontSize: 6, cellPadding: 1 },
+                styles: { fontSize: 8, cellPadding: 1 }, // AUMENTADO +2
                 margin: { left: shiftTableMargin + 135 + 2 },
                 tableWidth: 135
             });
@@ -523,14 +535,14 @@ const Prescriptions = ({ logo }) => {
             const finalContentY = lastRowY + 6;
             const labelBoxH = finalContentY - subY;
             doc.rect(5, subY, 20, labelBoxH);
-            doc.setFontSize(8);
+            doc.setFontSize(10); // AUMENTADO +2
             doc.setFont('helvetica', 'bold');
             doc.saveGraphicsState();
             doc.setTextColor(0);
             doc.text('APLICAÇÃO DE INSUMOS', 13, subY + (labelBoxH / 2), { angle: 90, align: 'center' });
             doc.restoreGraphicsState();
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(6);
+            doc.setFontSize(8); // AUMENTADO +2
 
             const footY = ph - 12;
             doc.setLineWidth(0.4);
@@ -568,7 +580,7 @@ const Prescriptions = ({ logo }) => {
                     </div>
                     <button onClick={() => {
                         setShowForm(!showForm);
-                        if(showForm) setEditingId(null); // Limpa edição se fechar form
+                        if(showForm) setEditingId(null); 
                     }} className="btn btn-primary">
                         <div className="btn-inner">
                             {showForm ? <X size={18} /> : <Plus size={18} />}
@@ -582,7 +594,6 @@ const Prescriptions = ({ logo }) => {
                 <div className="premium-card glass" style={{ marginBottom: '2rem', border: '1px solid var(--primary-light)' }}>
                     <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '2rem' }}>
                         
-                        {/* Se estiver editando mostra aviso */}
                         {editingId && (
                             <div style={{ padding: '10px 15px', background: '#e0f2fe', color: '#0369a1', borderRadius: '8px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '10px' }}>
                                 <Edit2 size={18} /> Você está EDITANDO uma receita já existente.
@@ -631,7 +642,6 @@ const Prescriptions = ({ logo }) => {
                                 <Droplets size={18} /> Insumos & Produtos
                             </h4>
                             <div style={{ display: 'grid', gap: '1rem' }}>
-                                {/* LINHA DE CABEÇALHO PARA OS INSUMOS */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 100px 120px 40px', gap: '0.8rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border)' }}>
                                     <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Cód.</label>
                                     <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)' }}>Material / Insumo *</label>
@@ -703,12 +713,32 @@ const Prescriptions = ({ logo }) => {
             )}
 
             <div className="premium-card glass">
+                {/* NOVO: Filtro acima da tabela */}
+                {!showForm && ordens.length > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                        <div style={{ position: 'relative', width: '300px' }}>
+                            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                            <input 
+                                type="text" 
+                                placeholder="Buscar por OS, Quadra ou Operação..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.2rem', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none' }}
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {loading ? (
                     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>Buscando receitas...</div>
                 ) : ordens.length === 0 ? (
                     <div style={{ padding: '3rem', textAlign: 'center' }}>
                         <div style={{ opacity: 0.3, marginBottom: '1rem' }}><ClipboardList size={48} style={{ margin: '0 auto' }} /></div>
                         <p style={{ color: 'var(--text-muted)', fontWeight: '600' }}>Nenhuma receita cadastrada.</p>
+                    </div>
+                ) : filteredOrdens.length === 0 ? (
+                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                        <p>Nenhum resultado encontrado para "{searchTerm}".</p>
                     </div>
                 ) : (
                     <div className="table-responsive">
@@ -725,7 +755,8 @@ const Prescriptions = ({ logo }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {ordens.map(os => {
+                                {/* USANDO AS ORDENS FILTRADAS E ORDENADAS */}
+                                {filteredOrdens.map(os => {
                                     const status = getStatusStyle(os.situacao);
                                     return (
                                         <tr key={os.id} style={{ borderBottom: '1px solid var(--border)', fontSize: '0.88rem' }}>
