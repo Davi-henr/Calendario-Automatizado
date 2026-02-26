@@ -60,6 +60,19 @@ const Prescriptions = ({ logo }) => {
         }
     };
 
+    // Autopreenchimento da Área (Hectares) ao selecionar a Quadra
+    const handleQuadraChange = (e) => {
+        const selectedQuadra = e.target.value;
+        const quadraInfo = quadrasMeta.find(q => q.nome === selectedQuadra);
+        
+        setFormData({ 
+            ...formData, 
+            quadra: selectedQuadra,
+            // Se achar a quadra e ela tiver hectares, preenche automático. Se não, deixa vazio.
+            area_ha: quadraInfo?.hectares ? String(quadraInfo.hectares) : formData.area_ha 
+        });
+    };
+
     const handleAddInsumo = () => {
         setFormData({
             ...formData,
@@ -134,6 +147,11 @@ const Prescriptions = ({ logo }) => {
             const pw = doc.internal.pageSize.getWidth();
             const ph = doc.internal.pageSize.getHeight();
 
+            // Busca os dados da Quadra para o PDF
+            const quadraInfo = quadrasMeta.find(q => q.nome === os.quadra) || {};
+            const areaHa = quadraInfo.hectares ? String(quadraInfo.hectares) : (os.area_ha || '');
+            const variety = quadraInfo.variedade || '';
+
             // Set Global Styles
             doc.setFont('helvetica', 'normal');
             doc.setDrawColor(0);
@@ -178,7 +196,7 @@ const Prescriptions = ({ logo }) => {
 
             const row2Y = idStartY + 6;
             doc.rect(5, row2Y, 25, 6); doc.text('Área Ha:', 7, row2Y + 4.5);
-            doc.rect(30, row2Y, 60, 6); doc.text(os.area_ha || '', 32, row2Y + 4.5);
+            doc.rect(30, row2Y, 60, 6); doc.text(areaHa, 32, row2Y + 4.5); // AQUI ENTRA OS HECTARES
             doc.rect(90, row2Y, 45, 6); doc.text('N° Recomendação:', 92, row2Y + 4.5);
             doc.rect(135, row2Y, 40, 6); doc.text(os.recomendacao || '', 137, row2Y + 4.5);
             doc.rect(175, row2Y, 35, 6); doc.text('Hora Inicial:', 177, row2Y + 4.5);
@@ -200,8 +218,6 @@ const Prescriptions = ({ logo }) => {
             doc.rect(270, row3Y, 22, 6); doc.text(os.dados_tecnicos?.marcha || '', 272, row3Y + 4.5);
 
             const row4Y = row3Y + 6;
-            const variety = quadrasMeta.find(q => q.nome === os.quadra)?.variedade || '';
-
             doc.rect(5, row4Y, 25, 6); doc.text('Equipamento:', 7, row4Y + 4.5);
             doc.rect(30, row4Y, 60, 6); doc.text(os.equipamento || '', 32, row4Y + 4.5);
             doc.rect(90, row4Y, 45, 6); doc.text('VARIEDADE:', 92, row4Y + 4.5);
@@ -246,7 +262,7 @@ const Prescriptions = ({ logo }) => {
                 });
             });
 
-            // 4. INSUMOS TABLE WITH DYNAMIC PRINCIPIO E CARENCIA
+            // 4. INSUMOS TABLE WITH DYNAMIC PRINCIPIO E CARENCIA E FINALIDADE
             const tableY = row4Y + 6;
             const insumosRows = [];
             let maxCarencia = 0;
@@ -259,15 +275,17 @@ const Prescriptions = ({ logo }) => {
                 const consByName = ins.material ? consumptionMap[ins.material.toLowerCase().trim()] : null;
                 const cons = consById || consByName || { retirada: 0, real: 0, devolucao: 0 };
 
-                // Busca o insumo no banco de dados para extrair Principio e Carencia
+                // Busca o insumo no banco de dados
                 const matchedMaterial = ins.material ? insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material.toLowerCase().trim()) : null;
+                
                 const principioAtivo = matchedMaterial?.principio_ativo || matchedMaterial?.principio || ins.principio || '';
                 
-                // Extrai a carência testando os nomes mais comuns que podem estar no seu banco
+                // Finalidade/Alvo sendo puxada da "classificacao" (ex: Herbicida, etc)
+                const finalidadeAlvo = matchedMaterial?.classificacao || ins.finalidade || '';
+
                 const carenciaRaw = matchedMaterial?.carencia_dias ?? matchedMaterial?.dias_carencia ?? matchedMaterial?.carencia ?? ins.carencia;
                 const carenciaDias = (carenciaRaw !== null && carenciaRaw !== undefined && carenciaRaw !== '') ? String(carenciaRaw) : '';
 
-                // Registra qual é a maior carência do tanque
                 const parsedCarencia = parseInt(carenciaDias, 10);
                 if (!isNaN(parsedCarencia) && parsedCarencia > maxCarencia) {
                     maxCarencia = parsedCarencia;
@@ -277,9 +295,9 @@ const Prescriptions = ({ logo }) => {
                     ins.codigo || '',
                     desc,
                     formatVal(ins.dosagem),
-                    ins.finalidade || '',
+                    finalidadeAlvo, // AQUI ENTRA A CLASSIFICAÇÃO
                     principioAtivo,
-                    carenciaDias, // Aqui a carência aparece na tabela
+                    carenciaDias,
                     cons.retirada > 0 ? 'TOTAL' : '',
                     formatVal(cons.retirada),
                     formatVal(cons.real),
@@ -306,16 +324,14 @@ const Prescriptions = ({ logo }) => {
                 margin: { left: 5, right: 5 }
             });
 
-            // 4. MIDDLE STRIP (Cálculo Automático da Carência e Liberação)
+            // 4. MIDDLE STRIP (Calculo Automático da Carência e Liberação)
             const midY = doc.lastAutoTable.finalY;
             doc.rect(5, midY, 85, 6); doc.text('Reentrada de Pessoas', 7, midY + 4.5);
             doc.rect(90, midY, 45, 6); doc.text('24 Horas após aplicação', 92, midY + 4.5);
             
-            // Imprime a maior carência que foi encontrada
             const carenciaParaImprimir = maxCarencia > 0 ? maxCarencia : parseInt(os.carencia || 0, 10);
             doc.rect(135, midY, 75, 6); doc.text('Carencia (Dias):    ' + carenciaParaImprimir, 137, midY + 4.5);
             
-            // Lógica para Liberado Colheita: APENAS se estiver FINALIZADA
             let liberadoColheitaText = 'LIBERADO COLHEITA:';
             if (os.situacao === 'Finalizada' && reg.data_final) {
                 const finalDate = parseISO(reg.data_final);
@@ -460,10 +476,26 @@ const Prescriptions = ({ logo }) => {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                             <div className="form-group">
                                 <label><Search size={14} /> Quadra</label>
-                                <select value={formData.quadra} onChange={e => setFormData({ ...formData, quadra: e.target.value })} className="filter-select" style={{ width: '100%' }} required>
+                                <select 
+                                    value={formData.quadra} 
+                                    onChange={handleQuadraChange} 
+                                    className="filter-select" 
+                                    style={{ width: '100%' }} 
+                                    required
+                                >
                                     <option value="">Selecione...</option>
                                     {quadrasMeta.map(q => <option key={q.id} value={q.nome}>{q.nome}</option>)}
                                 </select>
+                            </div>
+                            <div className="form-group">
+                                <label><MapIcon size={14} /> Área (Hectares)</label>
+                                <input 
+                                    type="text" 
+                                    value={formData.area_ha || ''} 
+                                    onChange={e => setFormData({ ...formData, area_ha: e.target.value })} 
+                                    className="input-field" 
+                                    placeholder="Ex: 12.5"
+                                />
                             </div>
                             <div className="form-group">
                                 <label><ClipboardList size={14} /> Operação</label>
