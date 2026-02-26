@@ -5,7 +5,7 @@ import {
     Save, ClipboardList, Package, Droplets, ChevronDown, ChevronUp,
     AlertCircle, CheckCircle, Clock
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -22,7 +22,7 @@ const Prescriptions = ({ logo }) => {
         area_ha: '',
         equipamento: '',
         recomendacao: '',
-        carencia: '7',
+        carencia: '',
         data_prescricao: format(new Date(), 'yyyy-MM-dd'),
         insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '' }],
         dados_tecnicos: {
@@ -37,7 +37,6 @@ const Prescriptions = ({ logo }) => {
     });
 
     const operations = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
-
 
     useEffect(() => {
         fetchData();
@@ -141,10 +140,8 @@ const Prescriptions = ({ logo }) => {
             doc.setLineWidth(0.4);
 
             // 1. TOP HEADER - LOGO & TITLE & ID BOX
-            // Logo placeholder box (left)
             doc.rect(5, 5, 25, 18);
             if (logo) {
-                // Determine image type (assuming data URL or standard format)
                 doc.addImage(logo, 'PNG', 6, 6, 23, 16);
             } else {
                 doc.setFontSize(8);
@@ -152,13 +149,11 @@ const Prescriptions = ({ logo }) => {
                 doc.text('Vale dos Laranjais', 17.5, 16, { align: 'center' });
             }
 
-            // Title box (center)
             doc.rect(30, 5, pw - 85, 18);
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
             doc.text('ORDEM DE SERVIÇO - APLICAÇÃO DE INSUMOS', pw / 2 - 12.5, 14, { align: 'center' });
 
-            // ID Box (Right)
             doc.rect(pw - 55, 5, 50, 18);
             doc.setFontSize(6);
             doc.setFont('helvetica', 'normal');
@@ -167,12 +162,11 @@ const Prescriptions = ({ logo }) => {
             doc.text(`Aprovado: Gabriel Fortes`, pw - 53, 15);
             doc.text(`Aprovado em: 01/09/2020`, pw - 53, 18);
 
-            // 2. IDENTIFICATION GRID (4 rows)
+            // 2. IDENTIFICATION GRID
             const idStartY = 23;
             let osYear = format(parseISO(os.data_prescricao), 'yy');
             let osFullNum = `${osYear}/${String(os.numero_os || '').padStart(6, '0')}`;
 
-            // Row 1
             doc.rect(5, idStartY, 25, 6); doc.text('Quadra:', 7, idStartY + 4.5);
             doc.rect(30, idStartY, 60, 6); doc.setFont('helvetica', 'bold'); doc.text(os.quadra || '', 32, idStartY + 4.5); doc.setFont('helvetica', 'normal');
             doc.rect(90, idStartY, 45, 6); doc.text('N° Ordem Serviço:', 92, idStartY + 4.5);
@@ -182,7 +176,6 @@ const Prescriptions = ({ logo }) => {
             doc.rect(245, idStartY, 25, 6); doc.text('Pressão PSI:', 247, idStartY + 4.5);
             doc.rect(270, idStartY, 22, 6); doc.text(os.dados_tecnicos?.pressao || '', 272, idStartY + 4.5);
 
-            // Row 2
             const row2Y = idStartY + 6;
             doc.rect(5, row2Y, 25, 6); doc.text('Área Ha:', 7, row2Y + 4.5);
             doc.rect(30, row2Y, 60, 6); doc.text(os.area_ha || '', 32, row2Y + 4.5);
@@ -194,7 +187,6 @@ const Prescriptions = ({ logo }) => {
             const rawPes = reg.pes_tratados || os.dados_tecnicos?.pes || '';
             doc.rect(270, row2Y, 22, 6); doc.setFont('helvetica', 'bold'); doc.text(rawPes.toString(), 272, row2Y + 4.5); doc.setFont('helvetica', 'normal');
 
-            // Row 3
             const row3Y = row2Y + 6;
             doc.rect(5, row3Y, 25, 6); doc.text('Operação:', 7, row3Y + 4.5);
             doc.rect(30, row3Y, 60, 6); doc.text(os.operacao || '', 32, row3Y + 4.5);
@@ -207,7 +199,6 @@ const Prescriptions = ({ logo }) => {
             doc.rect(245, row3Y, 25, 6); doc.text('Marcha:', 247, row3Y + 4.5);
             doc.rect(270, row3Y, 22, 6); doc.text(os.dados_tecnicos?.marcha || '', 272, row3Y + 4.5);
 
-            // Row 4
             const row4Y = row3Y + 6;
             const variety = quadrasMeta.find(q => q.nome === os.quadra)?.variedade || '';
 
@@ -225,14 +216,13 @@ const Prescriptions = ({ logo }) => {
                 const normalized = val.toString().replace(',', '.');
                 const num = parseFloat(normalized);
                 if (isNaN(num) || num === 0) return '';
-                return num.toFixed(2).replace('.', ','); // Volta para vírgula para manter o padrão visual
+                return num.toFixed(2).replace('.', ',');
             };
 
             // 3. CONSUMO DATA AGGREGATION
             const consumptionMap = {};
             outbounds.forEach(out => {
                 out.saidas?.forEach(s => {
-                    // Try to match by ID first, then by normalized name
                     const idKey = s.insumo_id;
                     const nameKey = s.insumos?.insumo?.toLowerCase().trim();
 
@@ -256,25 +246,37 @@ const Prescriptions = ({ logo }) => {
                 });
             });
 
-            // 4. INSUMOS TABLE
+            // 4. INSUMOS TABLE WITH DYNAMIC PRINCIPIO E CARENCIA
             const tableY = row4Y + 6;
             const insumosRows = [];
+            let maxCarencia = 0; // Armazena a maior carencia encontrada
+
             for (let i = 0; i < 12; i++) {
                 const ins = os.insumos?.[i] || {};
                 const desc = ins.sequencia ? `${ins.sequencia} - ${ins.material || ''}` : (ins.material || '');
 
-                // Seek match in map using ID or Name
                 const consById = ins.insumo_id ? consumptionMap[ins.insumo_id] : null;
                 const consByName = ins.material ? consumptionMap[ins.material.toLowerCase().trim()] : null;
                 const cons = consById || consByName || { retirada: 0, real: 0, devolucao: 0 };
+
+                // Busca o insumo no banco (insumosMeta) para extrair o principio e carencia
+                const matchedMaterial = ins.material ? insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material.toLowerCase().trim()) : null;
+                const principioAtivo = matchedMaterial?.principio_ativo || matchedMaterial?.principio || ins.principio || '';
+                const carenciaDias = matchedMaterial?.carencia || ins.carencia || '';
+
+                // Verifica a maior carência para o campo geral
+                const parsedCarencia = parseInt(carenciaDias, 10);
+                if (!isNaN(parsedCarencia) && parsedCarencia > maxCarencia) {
+                    maxCarencia = parsedCarencia;
+                }
 
                 insumosRows.push([
                     ins.codigo || '',
                     desc,
                     formatVal(ins.dosagem),
                     ins.finalidade || '',
-                    ins.principio || '',
-                    ins.carencia || '',
+                    principioAtivo,
+                    carenciaDias,
                     cons.retirada > 0 ? 'TOTAL' : '',
                     formatVal(cons.retirada),
                     formatVal(cons.real),
@@ -301,17 +303,27 @@ const Prescriptions = ({ logo }) => {
                 margin: { left: 5, right: 5 }
             });
 
-            // 4. MIDDLE STRIP
+            // 4. MIDDLE STRIP (Calculo Automático da Carência e Liberação)
             const midY = doc.lastAutoTable.finalY;
             doc.rect(5, midY, 85, 6); doc.text('Reentrada de Pessoas', 7, midY + 4.5);
             doc.rect(90, midY, 45, 6); doc.text('24 Horas após aplicação', 92, midY + 4.5);
-            doc.rect(135, midY, 75, 6); doc.text('Carencia (Dias):    ' + (os.carencia || '7'), 137, midY + 4.5);
-            doc.rect(210, midY, 82, 6); doc.text('LIBERADO COLHEITA:', 212, midY + 4.5);
+            
+            // Define carência final a ser impressa (maior carência encontrada ou 0)
+            const carenciaParaImprimir = maxCarencia > 0 ? maxCarencia : parseInt(os.carencia || 0, 10);
+            doc.rect(135, midY, 75, 6); doc.text('Carencia (Dias):    ' + carenciaParaImprimir, 137, midY + 4.5);
+            
+            // Lógica para Liberado Colheita: data_final + carencia
+            let liberadoColheitaText = 'LIBERADO COLHEITA:';
+            if (reg.data_final) {
+                const finalDate = parseISO(reg.data_final);
+                const releaseDate = addDays(finalDate, carenciaParaImprimir);
+                liberadoColheitaText += ' ' + format(releaseDate, 'dd/MM/yyyy');
+            }
+
+            doc.rect(210, midY, 82, 6); doc.text(liberadoColheitaText, 212, midY + 4.5);
 
             // 5. WEATHER PARAMETERS & SHIFT TABLES
             const subY = midY + 6;
-
-            // Weather Table (Combined with shift headers)
             const weatherData = [
                 ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', ''],
                 ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', ''],
@@ -329,7 +341,6 @@ const Prescriptions = ({ logo }) => {
                 tableWidth: pw - 30
             });
 
-            // Shift Tables
             const shiftY = doc.lastAutoTable.finalY + 10;
             const shiftHead = ['N° Trator', 'N° Equip.', 'Operador', 'Qtd. Bombas'];
             const emptyShiftRows = [['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', '']];
@@ -337,8 +348,7 @@ const Prescriptions = ({ logo }) => {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(6);
 
-            // Shift Tables
-            const shiftTableMargin = 25; // Adjusted to leave space for the corrected vertical label
+            const shiftTableMargin = 25; 
             autoTable(doc, {
                 startY: shiftY,
                 head: [[{ content: 'TURNO DO DIA', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
@@ -359,7 +369,6 @@ const Prescriptions = ({ logo }) => {
                 tableWidth: 135
             });
 
-            // Total rows
             const totalY = doc.lastAutoTable.finalY;
             doc.rect(25, totalY, 110, 6); doc.setFont('helvetica', 'bold'); doc.text('TOTAL DE BOMBAS', 105, totalY + 4.5, { align: 'right' });
             doc.rect(shiftTableMargin + 135 + 2, totalY, 109, 6); doc.text('TOTAL DE BOMBAS', 236, totalY + 4.5, { align: 'right' });
@@ -369,11 +378,8 @@ const Prescriptions = ({ logo }) => {
             doc.rect(pw - 31, totalY, 26, 6); doc.text(totalBombas, pw - 29, totalY + 4.5);
             doc.setFont('helvetica', 'normal');
 
-
             // 6. BOTTOM SECTIONS
             const sigStartY = totalY + 6;
-
-            // Signature boxes
             doc.rect(25, sigStartY, 135, 6); doc.text('Assinatura Preparador de Calda: ____________________________________________________________________', 27, sigStartY + 4.5);
             doc.rect(162, sigStartY, pw - 167, 6);
             doc.text('Assinatura Preparador de Calda: ____________________________________________________________________', 164, sigStartY + 4.5);
@@ -384,7 +390,6 @@ const Prescriptions = ({ logo }) => {
             doc.rect(162, lastRowY, pw - 167, 6);
             doc.text('Noite:      (      ) PARCIAL  (      ) FECHADO', 185, lastRowY + 4.5);
 
-            // Draw final vertical box and label now that we have the final height
             const finalContentY = lastRowY + 6;
             const labelBoxH = finalContentY - subY;
             doc.rect(5, subY, 20, labelBoxH);
