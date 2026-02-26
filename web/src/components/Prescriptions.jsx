@@ -20,9 +20,9 @@ const Prescriptions = ({ logo }) => {
         quadra: '',
         operacao: '',
         area_ha: '',
-        equipamento: '',
+        equipamento: 'PULV. NATALI ALFA 4.000 LTS',
         recomendacao: '',
-        carencia: '7',
+        carencia: '',
         data_prescricao: format(new Date(), 'yyyy-MM-dd'),
         insumos: [{ material: '', dosagem: '', sequencia: '', finalidade: '', principio: '' }],
         dados_tecnicos: {
