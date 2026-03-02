@@ -30,19 +30,29 @@ export const registrosService = {
     },
 
     async update(id, updates) {
-        // If we are finalizing, calculate the next spraying date
-        if (updates.situacao === 'Finalizada' && updates.data_final) {
-            const { data: current } = await supabase.from('registros').select('dias_carencia').eq('id', id).single();
-            const carencia = updates.dias_carencia || current?.dias_carencia || 0;
+        // 1. Extraímos o comando "nao_agendar" para não ser enviado ao Supabase
+        const { nao_agendar, ...dadosParaSalvar } = updates;
 
-            const dateInput = parse(updates.data_final, 'yyyy-MM-dd', new Date());
-            const nextSprayingDate = addDays(dateInput, parseInt(carencia));
-            updates.proxima_pulverizacao = format(nextSprayingDate, 'yyyy-MM-dd');
+        // 2. Se estamos finalizando, calculamos a próxima data de pulverização
+        if (dadosParaSalvar.situacao === 'Finalizada' && dadosParaSalvar.data_final) {
+            // Se o utilizador marcou a checkbox para NÃO agendar
+            if (nao_agendar) {
+                dadosParaSalvar.proxima_pulverizacao = null; 
+            } else {
+                // Comportamento normal: busca a carência e soma à data final
+                const { data: current } = await supabase.from('registros').select('dias_carencia').eq('id', id).single();
+                const carencia = dadosParaSalvar.dias_carencia || current?.dias_carencia || 0;
+
+                const dateInput = parse(dadosParaSalvar.data_final, 'yyyy-MM-dd', new Date());
+                const nextSprayingDate = addDays(dateInput, parseInt(carencia));
+                dadosParaSalvar.proxima_pulverizacao = format(nextSprayingDate, 'yyyy-MM-dd');
+            }
         }
 
+        // 3. Enviamos para o banco apenas os 'dadosParaSalvar', sem a coluna que não existe
         const { data, error } = await supabase
             .from('registros')
-            .update(updates)
+            .update(dadosParaSalvar)
             .eq('id', id)
             .select();
 
