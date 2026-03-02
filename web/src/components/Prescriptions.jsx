@@ -3,7 +3,7 @@ import { osService, insumosService, quadrasService, ordensSaidaService, entradas
 import {
     Plus, Search, FileText, Printer, Trash2, X,
     Save, ClipboardList, Package, Droplets, ChevronDown, ChevronUp,
-    AlertCircle, CheckCircle, Clock, Map as MapIcon, Edit2, Copy
+    AlertCircle, CheckCircle, Clock, Map as MapIcon, Edit2, Copy, Filter
 } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,6 +13,7 @@ import autoTable from 'jspdf-autotable';
 const Prescriptions = ({ logo }) => {
     const [ordens, setOrdens] = useState([]);
     const [searchTerm, setSearchTerm] = useState(''); 
+    const [statusFilter, setStatusFilter] = useState('Pendente'); // NOVO: Filtro de Situação iniciando em Pendente
     const [insumosMeta, setInsumosMeta] = useState([]);
     const [quadrasMeta, setQuadrasMeta] = useState([]);
     const [entradasMeta, setEntradasMeta] = useState([]);
@@ -74,13 +75,18 @@ const Prescriptions = ({ logo }) => {
             const osNum = String(os.numero_os || '').padStart(6, '0');
             const quadra = (os.quadra || '').toLowerCase();
             const operacao = (os.operacao || '').toLowerCase();
-            return osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
+            
+            const matchSearch = osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
+            // NOVO: Adicionada a lógica para filtrar pelo Status Selecionado
+            const matchStatus = statusFilter === 'Todos' || os.situacao === statusFilter;
+
+            return matchSearch && matchStatus;
         });
 
         filtered.sort((a, b) => (b.numero_os || 0) - (a.numero_os || 0));
 
         return filtered;
-    }, [ordens, searchTerm]);
+    }, [ordens, searchTerm, statusFilter]);
 
     const calcularSaldoInsumo = (insumoNome) => {
         if (!insumoNome) return '';
@@ -424,7 +430,6 @@ const Prescriptions = ({ logo }) => {
                 ]);
             }
 
-            // AJUSTE: cellPadding reduzido para caber tudo na folha
             autoTable(doc, {
                 startY: tableY,
                 head: [[
@@ -472,7 +477,6 @@ const Prescriptions = ({ logo }) => {
                 ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', '']
             ];
 
-            // AJUSTE: cellPadding reduzido para caber tudo na folha
             autoTable(doc, {
                 startY: subY,
                 head: [['', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO']],
@@ -484,7 +488,6 @@ const Prescriptions = ({ logo }) => {
                 tableWidth: pw - 30
             });
 
-            // AJUSTE: Redução do espaço (gap) entre blocos para caber na folha
             const shiftY = doc.lastAutoTable.finalY + 4;
             const shiftHead = ['N° Trator', 'N° Equip.', 'Operador', 'Qtd. Bombas'];
             const emptyShiftRows = [['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', '']];
@@ -494,7 +497,6 @@ const Prescriptions = ({ logo }) => {
 
             const shiftTableMargin = 25; 
             
-            // AJUSTE: cellPadding reduzido para caber tudo na folha
             autoTable(doc, {
                 startY: shiftY,
                 head: [[{ content: 'TURNO DO DIA', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
@@ -524,7 +526,6 @@ const Prescriptions = ({ logo }) => {
             doc.rect(pw - 31, totalY, 26, 6); doc.text(totalBombas, pw - 29, totalY + 4.5);
             doc.setFont('helvetica', 'normal');
 
-            // AJUSTE: Redução do espaço (gap) final
             const sigStartY = totalY + 5;
             doc.rect(25, sigStartY, 135, 6); doc.text('Assinatura Preparador de Calda: ____________________________________________________________________', 27, sigStartY + 4.5);
             doc.rect(162, sigStartY, pw - 167, 6);
@@ -717,7 +718,23 @@ const Prescriptions = ({ logo }) => {
 
             <div className="premium-card glass">
                 {!showForm && ordens.length > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', gap: '1rem' }}>
+                        {/* NOVO FILTRO AQUI */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Filter size={16} style={{ color: '#94a3b8' }} />
+                            <select 
+                                value={statusFilter} 
+                                onChange={(e) => setStatusFilter(e.target.value)} 
+                                className="filter-select"
+                                style={{ minWidth: '150px' }}
+                            >
+                                <option value="Todos">Todas as Situações</option>
+                                <option value="Pendente">Pendentes</option>
+                                <option value="Iniciada">Iniciadas</option>
+                                <option value="Finalizada">Finalizadas</option>
+                            </select>
+                        </div>
+                        
                         <div style={{ position: 'relative', width: '300px' }}>
                             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                             <input 
@@ -740,7 +757,7 @@ const Prescriptions = ({ logo }) => {
                     </div>
                 ) : filteredOrdens.length === 0 ? (
                     <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-                        <p>Nenhum resultado encontrado para "{searchTerm}".</p>
+                        <p>Nenhum resultado encontrado para os filtros atuais.</p>
                     </div>
                 ) : (
                     <div className="table-responsive">
