@@ -25,7 +25,6 @@ export default function Launch({ logo }) {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    // MELHORIA: O filtro agora inicia com 'Iniciada' por padrão para melhorar a performance
     const [filters, setFilters] = useState({ block: 'Todos', recipe: 'Todos', status: 'Iniciada' });
     const [showOSModal, setShowOSModal] = useState(false);
     const [pendingOS, setPendingOS] = useState([]);
@@ -45,7 +44,7 @@ export default function Launch({ logo }) {
         situacao: 'Iniciada'
     });
 
-    const blocks = ["001", "002", "003", "004", "005A", "005B", "005C", "006A", "006B", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "024", "026", "027", "028", "029", "030", "031", "032", "033", "034","BORDAS", "LIMÃO", "CENTRAL"];
+    const blocks = ["001", "002", "003", "004", "005A", "005B", "005C", "006A", "006B", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "024", "026", "027", "028", "029", "030", "031", "032", "033", "034"];
     const recipes = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
     const gears = ["1ªA", "1ªRA", "2ªA", "2ªRA", "3ªA", "3ªRA", "4ªA", "4ªRA"];
 
@@ -151,7 +150,6 @@ export default function Launch({ logo }) {
         nao_agendar: false 
     });
 
-    // Esta é a função que busca as bombas no estoque
     useEffect(() => {
         if (finalizingReg?.os_id) {
             const fetchPumps = async () => {
@@ -201,13 +199,23 @@ export default function Launch({ logo }) {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Excluir este registro?')) {
+    // AQUI ESTÁ A CORREÇÃO NA EXCLUSÃO
+    const handleDelete = async (reg) => {
+        if (window.confirm('Excluir este lançamento? Se ele estiver vinculado a uma Receita, ela voltará para Pendente.')) {
             try {
-                await registrosService.delete(id);
+                // 1. Apaga o lançamento do calendário
+                await registrosService.delete(reg.id);
+                
+                // 2. Se tinha uma Receita (OS) vinculada, devolve ela para o status "Pendente"
+                if (reg.os_id) {
+                    await osService.update(reg.os_id, { situacao: 'Pendente' });
+                }
+                
+                // 3. Atualiza as listas na tela
                 loadRegistros();
+                loadPendingOS();
             } catch (error) {
-                alert('Erro ao excluir');
+                alert('Erro ao excluir: ' + error.message);
             }
         }
     };
@@ -361,7 +369,7 @@ export default function Launch({ logo }) {
                     <div className="premium-card glass" style={{ maxWidth: '500px', width: '100%', position: 'relative', border: '1px solid rgba(255,255,255,0.4)', padding: '2.5rem' }}>
                         <button onClick={() => {
                             setShowFinalizeModal(false);
-                            setFinalizingReg(null); // CORREÇÃO: Limpa a memória para forçar nova busca na próxima vez
+                            setFinalizingReg(null); 
                         }} className="btn btn-mini" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', opacity: 0.8 }}>
                             <div className="btn-inner" style={{ padding: '0.4rem' }}>
                                 <X size={20} />
@@ -510,7 +518,6 @@ export default function Launch({ logo }) {
                                             <div style={{ display: 'flex', gap: '0.6rem' }}>
                                                 {reg.situacao !== 'Finalizada' && (
                                                     <button onClick={() => { 
-                                                        // CORREÇÃO: Limpa e recria o estado antes de abrir para acionar o UseEffect
                                                         setFinalizeData({
                                                             data_final: format(new Date(), 'yyyy-MM-dd'),
                                                             quantidade_bombas: '',
@@ -530,7 +537,9 @@ export default function Launch({ logo }) {
                                                         <Edit2 size={16} />
                                                     </div>
                                                 </button>
-                                                <button onClick={() => handleDelete(reg.id)} className="btn btn-mini" style={{ color: '#ef5350' }} title="Excluir">
+                                                
+                                                {/* O BOTÃO QUE FOI ALTERADO PARA PASSAR O 'reg' INTEIRO ESTÁ AQUI */}
+                                                <button onClick={() => handleDelete(reg)} className="btn btn-mini" style={{ color: '#ef5350' }} title="Excluir">
                                                     <div className="btn-inner">
                                                         <Trash2 size={16} />
                                                     </div>
