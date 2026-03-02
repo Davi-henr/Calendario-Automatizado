@@ -56,7 +56,9 @@ export default function Launch({ logo }) {
     const loadPendingOS = async () => {
         try {
             const data = await osService.getPending();
-            setPendingOS(data);
+            // AQUI: Filtramos localmente para ter certeza que Iniciadas não aparecem
+            const strictlyPending = data.filter(os => os.situacao !== 'Iniciada');
+            setPendingOS(strictlyPending);
         } catch (error) {
             console.error('Error loading OS:', error);
         }
@@ -82,7 +84,6 @@ export default function Launch({ logo }) {
         e.preventDefault();
         setLoading(true);
         try {
-            // Sanitize data before sending
             const sanitizedData = {
                 ...formData,
                 data_final: formData.data_final || null,
@@ -146,7 +147,8 @@ export default function Launch({ logo }) {
     const [finalizeData, setFinalizeData] = useState({
         data_final: format(new Date(), 'yyyy-MM-dd'),
         quantidade_bombas: '',
-        pes_tratados: ''
+        pes_tratados: '',
+        nao_agendar: false // NOVO: Controle da checkbox
     });
 
     useEffect(() => {
@@ -170,11 +172,11 @@ export default function Launch({ logo }) {
         try {
             setLoading(true);
             await registrosService.update(finalizingReg.id, {
-                ...finalizeData,
                 data_final: finalizeData.data_final || null,
                 quantidade_bombas: finalizeData.quantidade_bombas || 0,
                 pes_tratados: finalizeData.pes_tratados || 0,
-                situacao: 'Finalizada'
+                situacao: 'Finalizada',
+                nao_agendar: finalizeData.nao_agendar // NOVO: Manda a instrução para o services.js
             });
 
             if (finalizingReg.os_id) {
@@ -186,7 +188,8 @@ export default function Launch({ logo }) {
             setFinalizeData({
                 data_final: format(new Date(), 'yyyy-MM-dd'),
                 quantidade_bombas: '',
-                pes_tratados: ''
+                pes_tratados: '',
+                nao_agendar: false // NOVO: Reseta a checkbox
             });
             loadRegistros();
             loadPendingOS();
@@ -221,7 +224,6 @@ export default function Launch({ logo }) {
     };
 
     const findSuccessor = (reg) => {
-        // Find if there is a record of same quadra/receita that started AFTER this one was defined
         return registros.find(r =>
             r.quadra === reg.quadra &&
             r.receita === reg.receita &&
@@ -382,6 +384,20 @@ export default function Launch({ logo }) {
                                 </div>
                             </div>
 
+                            {/* NOVO: CHECKBOX NÃO AGENDAR */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                <input 
+                                    type="checkbox" 
+                                    id="nao_agendar" 
+                                    checked={finalizeData.nao_agendar}
+                                    onChange={e => setFinalizeData({ ...finalizeData, nao_agendar: e.target.checked })}
+                                    style={{ width: '18px', height: '18px', accentColor: 'var(--primary)', cursor: 'pointer' }}
+                                />
+                                <label htmlFor="nao_agendar" style={{ fontSize: '0.9rem', color: 'var(--text)', cursor: 'pointer', fontWeight: '600' }}>
+                                    Atividade sem carência (Não exibir no calendário)
+                                </label>
+                            </div>
+
                             <button type="submit" className="btn btn-primary" style={{ marginTop: '1rem', width: '100%' }}>
                                 <div className="btn-inner">
                                     <CheckCircle size={22} /> Confirmar e Finalizar
@@ -519,7 +535,7 @@ export default function Launch({ logo }) {
             <style>{`
                 input::placeholder { color: #94a3b8 !important; }
             `}</style>
-            {/* OS Selection Modal */}
+            
             {showOSModal && (
                 <div style={{
                     position: 'fixed', inset: 0,
