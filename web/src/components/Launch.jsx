@@ -25,7 +25,8 @@ export default function Launch({ logo }) {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
-    const [filters, setFilters] = useState({ block: 'Todos', recipe: 'Todos' });
+    // MELHORIA: O filtro agora inicia com 'Iniciada' por padrão para melhorar a performance
+    const [filters, setFilters] = useState({ block: 'Todos', recipe: 'Todos', status: 'Iniciada' });
     const [showOSModal, setShowOSModal] = useState(false);
     const [pendingOS, setPendingOS] = useState([]);
     const [selectedOS, setSelectedOS] = useState(null);
@@ -56,7 +57,6 @@ export default function Launch({ logo }) {
     const loadPendingOS = async () => {
         try {
             const data = await osService.getPending();
-            // AQUI: Filtramos localmente para ter certeza que Iniciadas não aparecem
             const strictlyPending = data.filter(os => os.situacao !== 'Iniciada');
             setPendingOS(strictlyPending);
         } catch (error) {
@@ -148,9 +148,10 @@ export default function Launch({ logo }) {
         data_final: format(new Date(), 'yyyy-MM-dd'),
         quantidade_bombas: '',
         pes_tratados: '',
-        nao_agendar: false // NOVO: Controle da checkbox
+        nao_agendar: false 
     });
 
+    // Esta é a função que busca as bombas no estoque
     useEffect(() => {
         if (finalizingReg?.os_id) {
             const fetchPumps = async () => {
@@ -176,7 +177,7 @@ export default function Launch({ logo }) {
                 quantidade_bombas: finalizeData.quantidade_bombas || 0,
                 pes_tratados: finalizeData.pes_tratados || 0,
                 situacao: 'Finalizada',
-                nao_agendar: finalizeData.nao_agendar // NOVO: Manda a instrução para o services.js
+                nao_agendar: finalizeData.nao_agendar
             });
 
             if (finalizingReg.os_id) {
@@ -189,7 +190,7 @@ export default function Launch({ logo }) {
                 data_final: format(new Date(), 'yyyy-MM-dd'),
                 quantidade_bombas: '',
                 pes_tratados: '',
-                nao_agendar: false // NOVO: Reseta a checkbox
+                nao_agendar: false 
             });
             loadRegistros();
             loadPendingOS();
@@ -358,7 +359,10 @@ export default function Launch({ logo }) {
                     padding: '2rem 1.5rem', overflowY: 'auto'
                 }}>
                     <div className="premium-card glass" style={{ maxWidth: '500px', width: '100%', position: 'relative', border: '1px solid rgba(255,255,255,0.4)', padding: '2.5rem' }}>
-                        <button onClick={() => setShowFinalizeModal(false)} className="btn btn-mini" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', opacity: 0.8 }}>
+                        <button onClick={() => {
+                            setShowFinalizeModal(false);
+                            setFinalizingReg(null); // CORREÇÃO: Limpa a memória para forçar nova busca na próxima vez
+                        }} className="btn btn-mini" style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', opacity: 0.8 }}>
                             <div className="btn-inner" style={{ padding: '0.4rem' }}>
                                 <X size={20} />
                             </div>
@@ -384,7 +388,6 @@ export default function Launch({ logo }) {
                                 </div>
                             </div>
 
-                            {/* NOVO: CHECKBOX NÃO AGENDAR */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
                                 <input 
                                     type="checkbox" 
@@ -421,7 +424,7 @@ export default function Launch({ logo }) {
                     <option value="Todos">Todas Receitas</option>
                     {recipes.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
-                <select value={filters.status || 'Todos'} onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))} className="filter-select">
+                <select value={filters.status} onChange={(e) => setFilters(f => ({ ...f, status: e.target.value }))} className="filter-select">
                     <option value="Todos">Todas Situações</option>
                     <option value="Iniciada">Iniciada</option>
                     <option value="Finalizada">Finalizada</option>
@@ -506,7 +509,17 @@ export default function Launch({ logo }) {
                                         <td style={{ padding: '1rem' }}>
                                             <div style={{ display: 'flex', gap: '0.6rem' }}>
                                                 {reg.situacao !== 'Finalizada' && (
-                                                    <button onClick={() => { setFinalizingReg(reg); setShowFinalizeModal(true); }} className="btn btn-mini" style={{ color: '#2e7d32' }} title="Finalizar">
+                                                    <button onClick={() => { 
+                                                        // CORREÇÃO: Limpa e recria o estado antes de abrir para acionar o UseEffect
+                                                        setFinalizeData({
+                                                            data_final: format(new Date(), 'yyyy-MM-dd'),
+                                                            quantidade_bombas: '',
+                                                            pes_tratados: '',
+                                                            nao_agendar: false
+                                                        });
+                                                        setFinalizingReg(reg); 
+                                                        setShowFinalizeModal(true); 
+                                                    }} className="btn btn-mini" style={{ color: '#2e7d32' }} title="Finalizar">
                                                         <div className="btn-inner">
                                                             <CheckCircle size={16} />
                                                         </div>
