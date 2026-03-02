@@ -4,9 +4,11 @@ import { parseISO, format, isWithinInterval, startOfMonth, endOfMonth, differenc
 import { ptBR } from 'date-fns/locale';
 import { 
   Map as MapIcon, Calendar, Beaker, Activity, Clock, 
-  AlertCircle, Maximize2, Minimize2, CheckCircle2, PlayCircle, Filter, X 
+  AlertCircle, Maximize2, Minimize2, CheckCircle2, PlayCircle, Filter, X, Printer 
 } from 'lucide-react';
 import PageHeader from './PageHeader';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const QUADRAS_DATA = [
   { id: "021", d: "M281.102 508L226.602 558L164.102 532.5L223.602 485L281.102 508Z" },
@@ -46,7 +48,6 @@ const QUADRAS_DATA = [
   { id: "030", d: "M149.602 369.5L171.602 378L186.602 361.5L218.102 346.5L242.602 352.5L248.602 339L186.602 289L149.602 343.5V369.5Z" }
 ];
 
-// OVERRIDES PARA AS QUADRAS QUE ESTAVAM FLUTUANDO!
 const MANUAL_CENTERS = {
   "003": { x: 130, y: 220 },
   "004": { x: 135, y: 310 },
@@ -62,7 +63,6 @@ const MANUAL_CENTERS = {
   "034": { x: 239, y: 86 }
 };
 
-// Helper para calcular o centro do SVG
 const getPathCenter = (id, d) => {
   if (MANUAL_CENTERS[id]) {
     return MANUAL_CENTERS[id];
@@ -95,6 +95,7 @@ export default function InteractiveMap({ logo }) {
   
   const [selectedQuadraId, setSelectedQuadraId] = useState(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false); // NOVO: Controle de carregamento do PDF
 
   useEffect(() => {
     const fetchRegistros = async () => {
@@ -182,6 +183,147 @@ export default function InteractiveMap({ logo }) {
     return null;
   }, [latestSelected]);
 
+  // NOVO: Função para Exportar PDF
+  const exportMapToPDF = async () => {
+    setIsExporting(true);
+    try {
+      const svgElement = document.getElementById('fazenda-map-svg');
+      if (!svgElement) throw new Error("Mapa não encontrado na tela.");
+
+      // Converte o SVG para uma imagem Base64 (Técnica segura)
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      
+      // Remove variáveis CSS que o Canvas não entende e troca por cores reais
+      const safeSvgData = svgData.replace(/var\(--primary\)/g, '#2563eb').replace(/var\(--border\)/g, '#e2e8f0');
+      
+      const img = new Image();
+      const svgBlob = new Blob([safeSvgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          // Aumenta a resolução para não ficar borrado no PDF
+          canvas.width = svgElement.clientWidth * 2; 
+          canvas.height = svgElement.clientHeight * 2;
+          ctx.fillStyle = "#ffffff"; // Fundo branco
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.onerror = reject;
+        img.src = url;
+      });
+
+      const mapBase64 = canvas.toDataURL('image/png');
+
+      // ----------------------------------------------------
+      // MONTAGEM DO PDF
+      // ----------------------------------------------------
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pw = doc.internal.pageSize.getWidth();
+
+      // Cabeçalho
+      if (logo) {
+        doc.addImage(logo, 'PNG', 14, 10, 25, 15);
+      }
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Relatório do Mapa Interativo', pw / 2, 16, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Período: ${format(parseISO(dateStart), 'dd/MM/yyyy')} a ${format(parseISO(dateEnd), 'dd/MM/yyyy')}`, pw / 2, 22, { align: 'center' });
+      doc.text(`Atividade: ${selectedActivity || 'Todas'}`, pw / 2, 27, { align: 'center' });
+
+      // Inserção da Imagem do Mapa
+      const mapW = 120; // Largura boa para visualização
+      const mapH = mapW * (646 / 522); // Mantém a proporção real do seu SVG (height/width)
+      const mapX = (pw - mapW) / 2; // Centraliza
+      doc.addImage(mapBase64, 'PNG', mapX, 32, mapW, mapH);
+
+      let currentY = 32 + mapH + 15;
+
+      // Separação de Dados para as Tabelas
+      const emAndamento = [];
+      const finalizadas = [];
+
+      QUADRAS_DATA.forEach(q => {
+        const state = getQuadraState(q.id);
+        if (!state) return; // Só lista quadras que estão no mapa com cor
+
+        const data = getLatestForCard(q.id);
+        
+        const row = [
+          `Q-${formatQuadraLabel(q.id)}`,
+          state.toUpperCase(),
+          data?.data_inicial ? format(parseISO(data.data_inicial), 'dd/MM/yyyy') : '--',
+          data?.data_final ? format(parseISO(data.data_final), 'dd/MM/yyyy') : '--',
+          data?.quantidade_bombas || '0',
+          data?.proxima_pulverizacao ? format(parseISO(data.proxima_pulverizacao), 'dd/MM/yyyy') : '--',
+          data?.observacao || '--'
+        ];
+
+        if (state === 'Finalizada') finalizadas.push(row);
+        else emAndamento.push(row); // Iniciada ou Pendente
+      });
+
+      // Tabela 1: Em Andamento
+      if (emAndamento.length > 0) {
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Pulverizações em Andamento / Pendentes', 14, currentY);
+          autoTable(doc, {
+              startY: currentY + 3,
+              head: [['Quadra', 'Status', 'Início', 'Fim', 'Bombas', 'Próxima', 'Obs / Insumos']],
+              body: emAndamento,
+              theme: 'grid',
+              styles: { fontSize: 8, cellPadding: 1.5 },
+              headStyles: { fillColor: [245, 158, 11] }, // Laranja
+              columnStyles: { 6: { cellWidth: 50 } }
+          });
+          currentY = doc.lastAutoTable.finalY + 12;
+      }
+
+      // Tabela 2: Finalizadas
+      if (finalizadas.length > 0) {
+          // Se a tabela 1 empurrou muito para baixo, cria página nova
+          if (currentY > 260) {
+              doc.addPage();
+              currentY = 20;
+          }
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Pulverizações Finalizadas', 14, currentY);
+          autoTable(doc, {
+              startY: currentY + 3,
+              head: [['Quadra', 'Status', 'Início', 'Fim', 'Bombas', 'Próxima', 'Obs / Insumos']],
+              body: finalizadas,
+              theme: 'grid',
+              styles: { fontSize: 8, cellPadding: 1.5 },
+              headStyles: { fillColor: [34, 197, 94] }, // Verde
+              columnStyles: { 6: { cellWidth: 50 } }
+          });
+      }
+
+      // Se ambas estiverem vazias
+      if (emAndamento.length === 0 && finalizadas.length === 0) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'italic');
+        doc.text('Nenhum dado encontrado para o filtro selecionado.', pw / 2, currentY, { align: 'center' });
+      }
+
+      doc.save(`mapa_interativo_${format(new Date(), 'ddMMyyyy')}.pdf`);
+    } catch (err) {
+        console.error("Erro ao gerar PDF do mapa", err);
+        alert("Erro ao gerar PDF. Verifique se os dados estão completos.");
+    } finally {
+        setIsExporting(false);
+    }
+  };
+
   const layoutStyle = isFullScreen ? {
     position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', 
     zIndex: 9999, background: '#f8fafc', padding: '1.5rem', display: 'flex', flexDirection: 'column'
@@ -194,22 +336,31 @@ export default function InteractiveMap({ logo }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
         <PageHeader title={isFullScreen ? "Visão Panorâmica da Fazenda" : "Mapa Interativo"} subtitle="Situação de Quadras e Insumos" logo={logo} />
         
-        <button 
-          onClick={() => setIsFullScreen(!isFullScreen)} 
-          className="btn btn-primary"
-          style={{ 
-            position: 'absolute', 
-            top: 0, 
-            right: 0, 
-            zIndex: 10001, 
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)' 
-          }}
-        >
-          <div className="btn-inner">
-            {isFullScreen ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}
-            {isFullScreen ? "Sair" : "Tela Cheia"}
-          </div>
-        </button>
+        <div style={{ display: 'flex', gap: '0.8rem', position: 'absolute', top: 0, right: 0, zIndex: 10001 }}>
+          {/* NOVO: BOTÃO IMPRIMIR RELATÓRIO */}
+          <button 
+            onClick={exportMapToPDF} 
+            disabled={isExporting}
+            className="btn btn-outline"
+            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.1)', background: 'white' }}
+          >
+            <div className="btn-inner">
+              <Printer size={18}/>
+              {isExporting ? "Gerando..." : "Imprimir Relatório"}
+            </div>
+          </button>
+          
+          <button 
+            onClick={() => setIsFullScreen(!isFullScreen)} 
+            className="btn btn-primary"
+            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+          >
+            <div className="btn-inner">
+              {isFullScreen ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}
+              {isFullScreen ? "Sair" : "Tela Cheia"}
+            </div>
+          </button>
+        </div>
       </div>
 
       <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '0.8rem', alignItems: 'end', flexWrap: 'wrap', position: 'relative', zIndex: 100 }}>
@@ -234,9 +385,10 @@ export default function InteractiveMap({ logo }) {
 
       <div style={{ display: 'flex', gap: '1rem', flex: 1, overflow: 'hidden' }}>
         <div className="premium-card" style={{ flex: 3, display: 'flex', justifyContent: 'center', background: '#fff', position: 'relative' }}>
-          <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '100%' }}>
+          {/* ID ADICIONADO AQUI PARA A CAPTURA DO PDF FUNCIONAR */}
+          <svg id="fazenda-map-svg" viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '100%' }}>
             {QUADRAS_DATA.map((q) => {
-              const center = getPathCenter(q.id, q.d);
+              const center = getPathCenter(q.id, q.d); 
               const label = formatQuadraLabel(q.id);
               return (
                 <g key={q.id}>
