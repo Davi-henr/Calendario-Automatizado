@@ -46,6 +46,25 @@ const QUADRAS_DATA = [
   { id: "030", d: "M149.602 369.5L171.602 378L186.602 361.5L218.102 346.5L242.602 352.5L248.602 339L186.602 289L149.602 343.5V369.5Z" }
 ];
 
+// Helper para calcular o centro do SVG path para colocar o número
+const getPathCenter = (d) => {
+  const points = d.match(/([0-9.]+)/g);
+  if (!points || points.length < 2) return { x: 0, y: 0 };
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let i = 0; i < points.length; i += 2) {
+    const x = parseFloat(points[i]);
+    const y = parseFloat(points[i + 1]);
+    if (!isNaN(x)) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+    if (!isNaN(y)) { minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+  }
+  return { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2 };
+};
+
+// Transforma "005A" em "5A", "021" em "21"
+const formatQuadraLabel = (id) => {
+  return id.replace(/^0+/, '');
+};
+
 export default function InteractiveMap({ logo }) {
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -96,16 +115,14 @@ export default function InteractiveMap({ logo }) {
   }, [registros, selectedActivity, selectedInput, dateStart, dateEnd]);
 
   const getQuadraState = (quadraId) => {
-    // 1. Verifica se há registro NO período selecionado
     const latestInPeriod = filteredRegistros
       .filter(r => String(r.quadra) === String(quadraId))
       .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0];
 
     if (latestInPeriod) {
-      return latestInPeriod.situacao; // 'Iniciada' ou 'Finalizada'
+      return latestInPeriod.situacao; 
     }
 
-    // 2. Verifica se está pendente (azul) baseado na carência global
     const latestGlobal = registros
       .filter(r => String(r.quadra) === String(quadraId) && r.receita === selectedActivity)
       .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial))[0];
@@ -151,14 +168,19 @@ export default function InteractiveMap({ logo }) {
     position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', 
     zIndex: 9999, background: '#f8fafc', padding: '1.5rem', display: 'flex', flexDirection: 'column'
   } : { 
-    display: 'flex', flexDirection: 'column', gap: '1rem', height: 'calc(100vh - 120px)' 
+    display: 'flex', flexDirection: 'column', gap: '1rem', height: 'calc(100vh - 120px)', position: 'relative' 
   };
 
   return (
     <div style={layoutStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 10000 }}>
         <PageHeader title={isFullScreen ? "Visão Panorâmica da Fazenda" : "Mapa Interativo"} subtitle="Situação de Quadras e Insumos" logo={logo} />
-        <button onClick={() => setIsFullScreen(!isFullScreen)} className="btn btn-primary">
+        {/* BOTÃO TELA CHEIA FIXADO NO TOPO E COM Z-INDEX ALTO */}
+        <button 
+          onClick={() => setIsFullScreen(!isFullScreen)} 
+          className="btn btn-primary"
+          style={{ position: 'relative', zIndex: 10001, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+        >
           <div className="btn-inner">
             {isFullScreen ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}
             {isFullScreen ? "Sair" : "Tela Cheia"}
@@ -166,7 +188,7 @@ export default function InteractiveMap({ logo }) {
         </button>
       </div>
 
-      <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '0.8rem', alignItems: 'end', flexWrap: 'wrap' }}>
+      <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '0.8rem', alignItems: 'end', flexWrap: 'wrap', position: 'relative', zIndex: 10000 }}>
         <div style={{ flex: 1, minWidth: '150px' }}>
           <label style={{ fontSize: '0.65rem', fontWeight: '900' }}>ATIVIDADE</label>
           <select value={selectedActivity} onChange={(e) => setSelectedActivity(e.target.value)} className="filter-select" style={{ width: '100%' }}>
@@ -189,17 +211,35 @@ export default function InteractiveMap({ logo }) {
       <div style={{ display: 'flex', gap: '1rem', flex: 1, overflow: 'hidden' }}>
         <div className="premium-card" style={{ flex: 3, display: 'flex', justifyContent: 'center', background: '#fff', position: 'relative' }}>
           <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '100%' }}>
-            {QUADRAS_DATA.map((q) => (
-              <path
-                key={q.id}
-                d={q.d}
-                fill={getQuadraColor(q.id)}
-                stroke={selectedQuadraId === q.id ? "var(--primary)" : "#334155"}
-                strokeWidth={selectedQuadraId === q.id ? "3" : "1"}
-                onClick={() => setSelectedQuadraId(q.id)}
-                style={{ cursor: 'pointer', transition: '0.2s' }}
-              />
-            ))}
+            {QUADRAS_DATA.map((q) => {
+              const center = getPathCenter(q.d);
+              const label = formatQuadraLabel(q.id);
+              return (
+                <g key={q.id}>
+                  <path
+                    d={q.d}
+                    fill={getQuadraColor(q.id)}
+                    stroke={selectedQuadraId === q.id ? "var(--primary)" : "#334155"}
+                    strokeWidth={selectedQuadraId === q.id ? "3" : "1"}
+                    onClick={() => setSelectedQuadraId(q.id)}
+                    style={{ cursor: 'pointer', transition: '0.2s' }}
+                  />
+                  {/* NUMERAÇÃO DA QUADRA */}
+                  <text 
+                    x={center.x} 
+                    y={center.y + 4} 
+                    textAnchor="middle" 
+                    fill="#334155" 
+                    fontSize="11" 
+                    fontWeight="800" 
+                    pointerEvents="none"
+                    style={{ opacity: 0.8 }}
+                  >
+                    {label}
+                  </text>
+                </g>
+              );
+            })}
           </svg>
           <div style={{ position: 'absolute', bottom: '15px', left: '15px', display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '0.6rem', background: 'rgba(255,255,255,0.9)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', background: '#fef08a' }}></div> Iniciada</span>
