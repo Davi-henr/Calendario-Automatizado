@@ -46,8 +46,28 @@ const QUADRAS_DATA = [
   { id: "030", d: "M149.602 369.5L171.602 378L186.602 361.5L218.102 346.5L242.602 352.5L248.602 339L186.602 289L149.602 343.5V369.5Z" }
 ];
 
-// Helper para calcular o centro do SVG path para colocar o número
-const getPathCenter = (d) => {
+// OVERRIDES PARA AS QUADRAS QUE ESTAVAM FLUTUANDO!
+const MANUAL_CENTERS = {
+  "003": { x: 130, y: 220 },
+  "004": { x: 135, y: 310 },
+  "032": { x: 250, y: 385 },
+  "017": { x: 480, y: 235 },
+  "024": { x: 428, y: 295 },
+  "015": { x: 145, y: 580 },
+  "016": { x: 185, y: 590 },
+  "020": { x: 188, y: 500 },
+  "012": { x: 95,  y: 455 },
+  "030": { x: 195, y: 340 },
+  "013": { x: 95,  y: 520 },
+  "034": { x: 239, y: 86 }
+};
+
+// Helper para calcular o centro do SVG
+const getPathCenter = (id, d) => {
+  if (MANUAL_CENTERS[id]) {
+    return MANUAL_CENTERS[id];
+  }
+  
   const points = d.match(/([0-9.]+)/g);
   if (!points || points.length < 2) return { x: 0, y: 0 };
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -60,7 +80,6 @@ const getPathCenter = (d) => {
   return { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2 };
 };
 
-// Transforma "005A" em "5A", "021" em "21"
 const formatQuadraLabel = (id) => {
   return id.replace(/^0+/, '');
 };
@@ -71,7 +90,6 @@ export default function InteractiveMap({ logo }) {
   const [selectedActivity, setSelectedActivity] = useState('');
   const [selectedInput, setSelectedInput] = useState('');
   
-  // Período padrão: Mês Atual
   const [dateStart, setDateStart] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [dateEnd, setDateEnd] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   
@@ -138,10 +156,10 @@ export default function InteractiveMap({ logo }) {
 
   const getQuadraColor = (quadraId) => {
     const state = getQuadraState(quadraId);
-    if (state === 'Iniciada') return '#fef08a'; // Amarelo
-    if (state === 'Finalizada') return '#86efac'; // Verde
-    if (state === 'Pendente') return '#bae6fd'; // Azul
-    return '#f1f5f9'; // Cinza
+    if (state === 'Iniciada') return '#fef08a'; 
+    if (state === 'Finalizada') return '#86efac'; 
+    if (state === 'Pendente') return '#bae6fd'; 
+    return '#f1f5f9'; 
   };
 
   const getLatestForCard = (quadraId) => {
@@ -173,13 +191,19 @@ export default function InteractiveMap({ logo }) {
 
   return (
     <div style={layoutStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative', zIndex: 10000 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', position: 'relative' }}>
         <PageHeader title={isFullScreen ? "Visão Panorâmica da Fazenda" : "Mapa Interativo"} subtitle="Situação de Quadras e Insumos" logo={logo} />
-        {/* BOTÃO TELA CHEIA FIXADO NO TOPO E COM Z-INDEX ALTO */}
+        
         <button 
           onClick={() => setIsFullScreen(!isFullScreen)} 
           className="btn btn-primary"
-          style={{ position: 'relative', zIndex: 10001, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+          style={{ 
+            position: 'absolute', 
+            top: 0, 
+            right: 0, 
+            zIndex: 10001, 
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)' 
+          }}
         >
           <div className="btn-inner">
             {isFullScreen ? <Minimize2 size={18}/> : <Maximize2 size={18}/>}
@@ -188,7 +212,7 @@ export default function InteractiveMap({ logo }) {
         </button>
       </div>
 
-      <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '0.8rem', alignItems: 'end', flexWrap: 'wrap', position: 'relative', zIndex: 10000 }}>
+      <div className="premium-card glass" style={{ display: 'flex', gap: '1rem', padding: '0.8rem', alignItems: 'end', flexWrap: 'wrap', position: 'relative', zIndex: 100 }}>
         <div style={{ flex: 1, minWidth: '150px' }}>
           <label style={{ fontSize: '0.65rem', fontWeight: '900' }}>ATIVIDADE</label>
           <select value={selectedActivity} onChange={(e) => setSelectedActivity(e.target.value)} className="filter-select" style={{ width: '100%' }}>
@@ -212,7 +236,7 @@ export default function InteractiveMap({ logo }) {
         <div className="premium-card" style={{ flex: 3, display: 'flex', justifyContent: 'center', background: '#fff', position: 'relative' }}>
           <svg viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '100%' }}>
             {QUADRAS_DATA.map((q) => {
-              const center = getPathCenter(q.d);
+              const center = getPathCenter(q.id, q.d);
               const label = formatQuadraLabel(q.id);
               return (
                 <g key={q.id}>
@@ -224,7 +248,6 @@ export default function InteractiveMap({ logo }) {
                     onClick={() => setSelectedQuadraId(q.id)}
                     style={{ cursor: 'pointer', transition: '0.2s' }}
                   />
-                  {/* NUMERAÇÃO DA QUADRA */}
                   <text 
                     x={center.x} 
                     y={center.y + 4} 
