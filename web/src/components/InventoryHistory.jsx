@@ -361,7 +361,6 @@ function RecipeView({ ordens, searchTerm, onEdit, onCheck, onDelete, onPrint }) 
                     <th style={{ textAlign: 'left', padding: '1rem' }}>N° Receita</th>
                     <th style={{ textAlign: 'left', padding: '1rem' }}>Atividade</th>
                     <th style={{ textAlign: 'left', padding: '1rem' }}>Quadra</th>
-                    {/* ADICIONADO TURNO E CARRETA AQUI */}
                     <th style={{ textAlign: 'center', padding: '1rem' }}>Turno</th>
                     <th style={{ textAlign: 'center', padding: '1rem' }}>Carreta</th>
                     <th style={{ textAlign: 'center', padding: '1rem' }}>Situação</th>
@@ -375,7 +374,6 @@ function RecipeView({ ordens, searchTerm, onEdit, onCheck, onDelete, onPrint }) 
                         <td style={{ padding: '1rem', fontWeight: '700' }}>{o.numero_receita}</td>
                         <td style={{ padding: '1rem' }}>{o.atividades?.nome}</td>
                         <td style={{ padding: '1rem', fontWeight: '700' }}>{o.quadras?.nome}</td>
-                        {/* DADOS DE TURNO E CARRETA */}
                         <td style={{ padding: '1rem', textAlign: 'center' }}>{o.turno || '-'}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>{o.numero_carreta || '-'}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
@@ -435,7 +433,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
         setAtividades(a);
         setPendingOS(pos);
 
-        // CORREÇÃO DO ENGASGO: Garante que o quadra_id esteja correto logo ao abrir o modal
         if (!header.quadra_id && order.quadras?.nome) {
             const foundQuadra = q.find(quadra => quadra.nome === order.quadras.nome);
             if (foundQuadra) {
@@ -446,8 +443,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
 
     const handleSave = async () => {
         try {
-            // CORREÇÃO DO BUG DA RECEITA MÃE: Removemos numero_receita, quadra_id e atividade_id. 
-            // O Estoque só atualiza os dados da "Ordem de Saída", não da Receita Mãe do ADM.
             const headerUpdates = {
                 data: header.data,
                 turno: header.turno,
@@ -470,7 +465,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 return { ...item, observacao_divergencia: obs };
             });
 
-            // Traceability: Log transfer destination in source header
             let observationPrefix = header.observacao || '';
             const transferItems = items.filter(it => (itemDestinations[it.id] === 'transfer') && parseFloat(it.devolucao || 0) > 0);
 
@@ -484,7 +478,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
 
             await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
 
-            // REFINED AUTO-TRANSFER LOGIC (Granular & Robust)
             if (mode === 'check' && Object.values(itemDestinations).includes('transfer')) {
                 if (!targetOS) {
                     throw new Error('Você selecionou transferência para uma quadra, mas não vinculou a receita de destino.');
@@ -498,7 +491,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                     at.nome?.trim().toLowerCase() === targetOS.operacao?.trim().toLowerCase()
                 )?.id || header.atividade_id;
 
-                // Target Recipe Number (Standardized)
                 const targetRecipeNo = `${format(new Date(targetOS.data_prescricao + 'T00:00:00'), 'yy')}/${targetOS.numero_os.toString().padStart(6, '0')}`;
 
                 for (const item of items) {
@@ -508,11 +500,10 @@ function OrderModal({ order, onClose, onSave, mode }) {
                     if (destination === 'transfer' && amountToTransfer > 0) {
                         try {
                             const transferItemNote = `\n- ${item.insumos?.insumo}: ${amountToTransfer} unidades transferidas p/ Receita ${targetRecipeNo} (Quadra ${targetOS.quadra})`;
-                            if (!headerUpdates.observacao?.includes(transferItemNote)) { // Proteção extra contra null
+                            if (!headerUpdates.observacao?.includes(transferItemNote)) {
                                 headerUpdates.observacao = (headerUpdates.observacao || '') + transferItemNote;
                             }
 
-                            // 1. Search for existing unconfirmed saidas for this Product + OS ID
                             const { data: existingSaidas, error: searchError } = await supabase
                                 .from('saidas')
                                 .select('*, ordens_saida!inner(id, os_id, situacao)')
@@ -523,12 +514,10 @@ function OrderModal({ order, onClose, onSave, mode }) {
                             if (searchError) throw searchError;
 
                             if (existingSaidas && existingSaidas.length > 0) {
-                                // 2. Update existing saida
                                 const targetSaida = existingSaidas[0];
                                 const newQty = parseFloat(targetSaida.quantidade || 0) + amountToTransfer;
                                 await saidasService.update(targetSaida.id, { quantidade: newQty });
                             } else {
-                                // 3. Check if there's any unconfirmed Ordem de Saída for this OS ID
                                 const { data: existingOrdens, error: oError } = await supabase
                                     .from('ordens_saida')
                                     .select('id')
@@ -539,7 +528,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                 if (oError) throw oError;
 
                                 if (existingOrdens && existingOrdens.length > 0) {
-                                    // 4. Append to existing Ordem de Saída
                                     const newItem = {
                                         insumo_id: item.insumo_id,
                                         dosagem: item.dosagem,
@@ -551,7 +539,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                     };
                                     await saidasService.create(newItem);
                                 } else {
-                                    // 5. Create new header + item
                                     const newHeader = {
                                         data: format(new Date(), 'yyyy-MM-dd'),
                                         turno: header.turno,
@@ -635,7 +622,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                         />
                     </div>
                     
-                    {/* ADICIONADO CAMPOS TURNO E CARRETA NA EDIÇÃO */}
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: '800' }}>Turno</label>
                         <input
@@ -721,7 +707,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                     onMouseEnter={e => e.currentTarget.style.backgroundColor = hasUnconfirmed ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)'}
                                                     onMouseLeave={e => e.currentTarget.style.backgroundColor = hasUnconfirmed ? 'rgba(16, 185, 129, 0.02)' : 'rgba(239, 68, 68, 0.02)'}
                                                 >
-                                                    <div style={{ display: 'flex', justify-content: 'space-between', marginBottom: '0.4rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                                                         <span><strong>{recipeNo}</strong> - Quadra: {os.quadra}</span>
                                                         <span style={{
                                                             fontSize: '0.65rem', fontWeight: '900', padding: '2px 6px', borderRadius: '4px',
