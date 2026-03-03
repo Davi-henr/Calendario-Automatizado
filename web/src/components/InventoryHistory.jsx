@@ -32,6 +32,8 @@ export default function InventoryHistory({ subview }) {
     const [ordens, setOrdens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    // NOVO: Estado para controlar o filtro, iniciando em 'Pendente'
+    const [statusFilter, setStatusFilter] = useState('Pendente'); 
     const [logo, setLogo] = useState(null);
 
     // Modal states
@@ -241,19 +243,40 @@ export default function InventoryHistory({ subview }) {
                     </div>
                 </div>
 
-                <div style={{ position: 'relative', width: '350px' }}>
-                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input
-                        type="text"
-                        placeholder="Buscar..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            width: '100%', padding: '0.7rem 1rem 0.7rem 2.8rem',
-                            borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)',
-                            fontSize: '0.9rem', outline: 'none', backgroundColor: '#f8fafc'
-                        }}
-                    />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {/* NOVO: Filtro Visível apenas na aba de Receitas */}
+                    {subview !== 'geral' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#f8fafc', padding: '0.2rem 0.5rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)' }}>
+                            <Filter size={16} style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }} />
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                style={{
+                                    padding: '0.5rem', border: 'none', background: 'transparent',
+                                    fontSize: '0.9rem', outline: 'none', color: 'var(--text)', cursor: 'pointer'
+                                }}
+                            >
+                                <option value="Todos">Todas as Situações</option>
+                                <option value="Pendente">Pendentes</option>
+                                <option value="Conferida">Conferidas</option>
+                            </select>
+                        </div>
+                    )}
+
+                    <div style={{ position: 'relative', width: '300px' }}>
+                        <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                            type="text"
+                            placeholder="Buscar..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{
+                                width: '100%', padding: '0.7rem 1rem 0.7rem 2.8rem',
+                                borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)',
+                                fontSize: '0.9rem', outline: 'none', backgroundColor: '#f8fafc'
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -265,6 +288,7 @@ export default function InventoryHistory({ subview }) {
                     <RecipeView
                         ordens={ordens}
                         searchTerm={searchTerm}
+                        statusFilter={statusFilter} // Passando o filtro novo para a tabela
                         onEdit={setEditingOrder}
                         onCheck={setCheckingOrder}
                         onDelete={handleDeleteOrder}
@@ -343,14 +367,20 @@ function GeneralView({ saidas, searchTerm }) {
     );
 }
 
-function RecipeView({ ordens, searchTerm, onEdit, onCheck, onDelete, onPrint }) {
+// NOVO: statusFilter foi adicionado às props
+function RecipeView({ ordens, searchTerm, statusFilter, onEdit, onCheck, onDelete, onPrint }) {
     const filtered = ordens.filter(o => {
         const search = searchTerm.toLowerCase();
-        return (
+        const matchSearch = (
             o.numero_receita?.toLowerCase().includes(search) ||
             o.quadras?.nome?.toLowerCase().includes(search) ||
             o.atividades?.nome?.toLowerCase().includes(search)
         );
+        
+        // Aplica o filtro de situação
+        const matchStatus = statusFilter === 'Todos' || o.situacao === statusFilter;
+        
+        return matchSearch && matchStatus;
     });
 
     return (
