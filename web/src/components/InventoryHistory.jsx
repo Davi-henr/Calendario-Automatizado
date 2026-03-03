@@ -361,6 +361,9 @@ function RecipeView({ ordens, searchTerm, onEdit, onCheck, onDelete, onPrint }) 
                     <th style={{ textAlign: 'left', padding: '1rem' }}>N° Receita</th>
                     <th style={{ textAlign: 'left', padding: '1rem' }}>Atividade</th>
                     <th style={{ textAlign: 'left', padding: '1rem' }}>Quadra</th>
+                    {/* ADICIONADO TURNO E CARRETA AQUI */}
+                    <th style={{ textAlign: 'center', padding: '1rem' }}>Turno</th>
+                    <th style={{ textAlign: 'center', padding: '1rem' }}>Carreta</th>
                     <th style={{ textAlign: 'center', padding: '1rem' }}>Situação</th>
                     <th style={{ textAlign: 'right', padding: '1rem' }}>Ações</th>
                 </tr>
@@ -372,6 +375,9 @@ function RecipeView({ ordens, searchTerm, onEdit, onCheck, onDelete, onPrint }) 
                         <td style={{ padding: '1rem', fontWeight: '700' }}>{o.numero_receita}</td>
                         <td style={{ padding: '1rem' }}>{o.atividades?.nome}</td>
                         <td style={{ padding: '1rem', fontWeight: '700' }}>{o.quadras?.nome}</td>
+                        {/* DADOS DE TURNO E CARRETA */}
+                        <td style={{ padding: '1rem', textAlign: 'center' }}>{o.turno || '-'}</td>
+                        <td style={{ padding: '1rem', textAlign: 'center' }}>{o.numero_carreta || '-'}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
                             <span style={{
                                 padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '800',
@@ -428,19 +434,26 @@ function OrderModal({ order, onClose, onSave, mode }) {
         setQuadras(q);
         setAtividades(a);
         setPendingOS(pos);
+
+        // CORREÇÃO DO ENGASGO: Garante que o quadra_id esteja correto logo ao abrir o modal
+        if (!header.quadra_id && order.quadras?.nome) {
+            const foundQuadra = q.find(quadra => quadra.nome === order.quadras.nome);
+            if (foundQuadra) {
+                setHeader(prev => ({ ...prev, quadra_id: foundQuadra.id }));
+            }
+        }
     };
 
     const handleSave = async () => {
         try {
+            // CORREÇÃO DO BUG DA RECEITA MÃE: Removemos numero_receita, quadra_id e atividade_id. 
+            // O Estoque só atualiza os dados da "Ordem de Saída", não da Receita Mãe do ADM.
             const headerUpdates = {
                 data: header.data,
                 turno: header.turno,
                 quantidade_bombas: header.quantidade_bombas,
                 bombas_aplicadas: header.bombas_aplicadas,
-                numero_receita: header.numero_receita,
                 numero_carreta: header.numero_carreta,
-                atividade_id: header.atividade_id,
-                quadra_id: header.quadra_id,
                 observacao: header.observacao,
                 situacao: mode === 'check' ? 'Conferida' : header.situacao
             };
@@ -495,8 +508,8 @@ function OrderModal({ order, onClose, onSave, mode }) {
                     if (destination === 'transfer' && amountToTransfer > 0) {
                         try {
                             const transferItemNote = `\n- ${item.insumos?.insumo}: ${amountToTransfer} unidades transferidas p/ Receita ${targetRecipeNo} (Quadra ${targetOS.quadra})`;
-                            if (!headerUpdates.observacao.includes(transferItemNote)) {
-                                headerUpdates.observacao += transferItemNote;
+                            if (!headerUpdates.observacao?.includes(transferItemNote)) { // Proteção extra contra null
+                                headerUpdates.observacao = (headerUpdates.observacao || '') + transferItemNote;
                             }
 
                             // 1. Search for existing unconfirmed saidas for this Product + OS ID
@@ -548,7 +561,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         quadra_id: targetQId,
                                         atividade_id: targetAId,
                                         numero_receita: targetRecipeNo,
-                                        observacao: `Recebido por transferência da Receita #[${header.numero_receita}]`,
+                                        observacao: `Recebido por transferência da Receita #[${header.numero_receita || order.numero_receita}]`,
                                         situacao: 'Pendente'
                                     };
                                     const newItem = {
@@ -597,11 +610,12 @@ function OrderModal({ order, onClose, onSave, mode }) {
                     </div>
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: '800' }}>Receita</label>
-                        <input type="text" value={header.numero_receita} readOnly={mode === 'check'} onChange={e => setHeader({ ...header, numero_receita: e.target.value })} className="input-field" />
+                        <input type="text" value={header.numero_receita} readOnly={true} className="input-field" style={{ backgroundColor: '#f1f5f9' }} />
                     </div>
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: '800' }}>Quadra</label>
-                        <select value={header.quadra_id} disabled={mode === 'check'} onChange={e => setHeader({ ...header, quadra_id: e.target.value })} className="input-field">
+                        <select value={header.quadra_id || ''} disabled={true} className="input-field" style={{ backgroundColor: '#f1f5f9', appearance: 'none' }}>
+                            <option value="">{order.quadras?.nome || 'Carregando...'}</option>
                             {quadras.map(q => <option key={q.id} value={q.id}>{q.nome}</option>)}
                         </select>
                     </div>
@@ -614,10 +628,32 @@ function OrderModal({ order, onClose, onSave, mode }) {
                         <label style={{ fontSize: '0.75rem', fontWeight: '800', color: mode === 'check' ? 'var(--primary)' : 'inherit' }}>Qtde Bombas Aplicada</label>
                         <input
                             type="number"
-                            value={header.bombas_aplicadas}
+                            value={header.bombas_aplicadas || ''}
                             onChange={e => setHeader({ ...header, bombas_aplicadas: e.target.value })}
                             className="input-field"
                             style={mode === 'check' ? { border: '2px solid var(--primary)', backgroundColor: 'rgba(239, 68, 68, 0.05)' } : {}}
+                        />
+                    </div>
+                    
+                    {/* ADICIONADO CAMPOS TURNO E CARRETA NA EDIÇÃO */}
+                    <div className="form-group">
+                        <label style={{ fontSize: '0.75rem', fontWeight: '800' }}>Turno</label>
+                        <input
+                            type="text"
+                            value={header.turno || ''}
+                            readOnly={mode === 'check'}
+                            onChange={e => setHeader({ ...header, turno: e.target.value })}
+                            className="input-field"
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label style={{ fontSize: '0.75rem', fontWeight: '800' }}>Nº Carreta</label>
+                        <input
+                            type="text"
+                            value={header.numero_carreta || ''}
+                            readOnly={mode === 'check'}
+                            onChange={e => setHeader({ ...header, numero_carreta: e.target.value })}
+                            className="input-field"
                         />
                     </div>
                 </div>
@@ -685,7 +721,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                     onMouseEnter={e => e.currentTarget.style.backgroundColor = hasUnconfirmed ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)'}
                                                     onMouseLeave={e => e.currentTarget.style.backgroundColor = hasUnconfirmed ? 'rgba(16, 185, 129, 0.02)' : 'rgba(239, 68, 68, 0.02)'}
                                                 >
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                                                    <div style={{ display: 'flex', justify-content: 'space-between', marginBottom: '0.4rem' }}>
                                                         <span><strong>{recipeNo}</strong> - Quadra: {os.quadra}</span>
                                                         <span style={{
                                                             fontSize: '0.65rem', fontWeight: '900', padding: '2px 6px', borderRadius: '4px',
@@ -836,6 +872,16 @@ function OrderModal({ order, onClose, onSave, mode }) {
                             })}
                         </tbody>
                     </table>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '2rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: '800' }}>Observações</label>
+                    <textarea
+                        value={header.observacao || ''}
+                        onChange={e => setHeader({ ...header, observacao: e.target.value })}
+                        className="input-field"
+                        style={{ width: '100%', minHeight: '80px' }}
+                    />
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
