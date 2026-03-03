@@ -326,6 +326,19 @@ function GeneralView({ saidas, searchTerm }) {
             s.quadras?.nome?.toLowerCase().includes(search) ||
             s.ordens_saida?.numero_receita?.toLowerCase().includes(search)
         );
+    }).sort((a, b) => {
+        // Ordenação: 1º Data (Decrescente), 2º Turno (Crescente), 3º Carreta (Crescente)
+        const dateA = new Date(a.data_saida || 0).getTime();
+        const dateB = new Date(b.data_saida || 0).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+
+        const turnoA = (a.ordens_saida?.turno || '').toLowerCase();
+        const turnoB = (b.ordens_saida?.turno || '').toLowerCase();
+        if (turnoA !== turnoB) return turnoA.localeCompare(turnoB);
+
+        const carretaA = parseInt(a.ordens_saida?.numero_carreta) || 0;
+        const carretaB = parseInt(b.ordens_saida?.numero_carreta) || 0;
+        return carretaA - carretaB;
     });
 
     return (
@@ -381,6 +394,19 @@ function RecipeView({ ordens, searchTerm, statusFilter, onEdit, onCheck, onDelet
         const matchStatus = statusFilter === 'Todos' || o.situacao === statusFilter;
         
         return matchSearch && matchStatus;
+    }).sort((a, b) => {
+        // Ordenação: 1º Data (Decrescente), 2º Turno (Crescente), 3º Carreta (Crescente)
+        const dateA = new Date(a.data || 0).getTime();
+        const dateB = new Date(b.data || 0).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+
+        const turnoA = (a.turno || '').toLowerCase();
+        const turnoB = (b.turno || '').toLowerCase();
+        if (turnoA !== turnoB) return turnoA.localeCompare(turnoB);
+
+        const carretaA = parseInt(a.numero_carreta) || 0;
+        const carretaB = parseInt(b.numero_carreta) || 0;
+        return carretaA - carretaB;
     });
 
     return (
