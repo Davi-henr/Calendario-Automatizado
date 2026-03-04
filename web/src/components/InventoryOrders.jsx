@@ -9,17 +9,24 @@ import {
     Save,
     X,
     Filter,
-    Package
+    Package,
+    ClipboardList,
+    CheckCircle
 } from 'lucide-react';
 import { pedidosService, insumosService, entradasService, saidasService } from '../lib/services';
 import { format } from 'date-fns';
 
-export default function InventoryOrders() {
+export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
     const [pedidos, setPedidos] = useState([]);
     const [insumos, setInsumos] = useState([]);
     const [stockMap, setStockMap] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
+    
+    // Form state (Fazer Pedido)
+    const [orderQuantities, setOrderQuantities] = useState({});
+
+    // Form state (Edição Relatório)
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [selectedId, setSelectedId] = useState(null);
@@ -31,7 +38,7 @@ export default function InventoryOrders() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [subview]);
 
     const fetchData = async () => {
         try {
@@ -43,7 +50,6 @@ export default function InventoryOrders() {
                 saidasService.getAll()
             ]);
 
-            // Calculate current stock map
             const currentStock = {};
             insumosData.forEach(insumo => {
                 const entradas = entradasData
@@ -65,17 +71,45 @@ export default function InventoryOrders() {
         }
     };
 
-    const handleSave = async (e) => {
+    const handleQuantityChange = (insumoId, value) => {
+        setOrderQuantities(prev => ({
+            ...prev,
+            [insumoId]: value
+        }));
+    };
+
+    const handleBaixarPedido = async () => {
+        const itemsToOrder = Object.entries(orderQuantities).filter(([id, qty]) => Number(qty) > 0);
+        
+        if (itemsToOrder.length === 0) {
+            alert('Preencha a quantidade solicitada de pelo menos um insumo para baixar o pedido.');
+            return;
+        }
+
+        if (window.confirm(`Confirmar o pedido de ${itemsToOrder.length} insumo(s)?`)) {
+            try {
+                for (const [id, qty] of itemsToOrder) {
+                    await pedidosService.create({
+                        insumo_id: id,
+                        quantidade_solicitada: qty.replace(',', '.'),
+                        status: 'Pendente'
+                    });
+                }
+                setOrderQuantities({});
+                alert('Pedidos registrados com sucesso! Acompanhe-os no Relatório.');
+                if (onNavigate) onNavigate('relatorio');
+            } catch (err) {
+                alert('Erro ao salvar pedidos: ' + err.message);
+            }
+        }
+    };
+
+    const handleSaveEdit = async (e) => {
         e.preventDefault();
         try {
-            if (editingItem) {
-                await pedidosService.update(editingItem.id, formData);
-            } else {
-                await pedidosService.create(formData);
-            }
+            await pedidosService.update(editingItem.id, formData);
             setShowForm(false);
             setEditingItem(null);
-            setFormData({ insumo_id: '', quantidade_solicitada: '', status: 'Pendente' });
             fetchData();
         } catch (error) {
             alert('Erro ao salvar: ' + error.message);
@@ -113,6 +147,11 @@ export default function InventoryOrders() {
         window.print();
     };
 
+    const filteredInsumos = insumos.filter(insumo => {
+        const search = searchTerm.toLowerCase();
+        return insumo.insumo?.toLowerCase().includes(search) || insumo.classificacao?.toLowerCase().includes(search);
+    });
+
     const filteredPedidos = pedidos.filter(pedido => {
         const search = searchTerm.toLowerCase();
         return pedido.insumos?.insumo?.toLowerCase().includes(search);
@@ -146,14 +185,14 @@ export default function InventoryOrders() {
                         background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white'
                     }}>
-                        <ShoppingCart size={24} />
+                        {subview === 'fazer' ? <ShoppingCart size={24} /> : <ClipboardList size={24} />}
                     </div>
                     <div>
                         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: '900', color: 'var(--text)', fontSize: '1.4rem' }}>
-                            Sugestão de Pedidos
+                            {subview === 'fazer' ? 'Fazer Pedido' : 'Relatório de Pedidos'}
                         </h2>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '600' }}>
-                            Gestão de compras de insumos
+                            {subview === 'fazer' ? 'Selecione os insumos e informe a quantidade solicitada' : 'Acompanhamento de insumos pendentes de entrega'}
                         </span>
                     </div>
                 </div>
@@ -173,108 +212,141 @@ export default function InventoryOrders() {
                             }}
                         />
                     </div>
-                    <button onClick={handlePrint} className="btn btn-outline" style={{ padding: '0.7rem 1.5rem', borderRadius: '12px' }}>
-                        <Printer size={18} /> Imprimir PDF
-                    </button>
                 </div>
             </div>
 
-            {/* Tabela de Pedidos */}
-            <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '1rem 2rem',
-                backgroundColor: '#fafbfc'
-            }}>
-                {/* Cabeçalho de Impressão (Só aparece no Print) */}
+            {/* Area da Tabela */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 2rem', backgroundColor: '#fafbfc' }}>
                 <div className="print-only" style={{ display: 'none', textAlign: 'center', marginBottom: '2rem' }}>
-                    <h1 style={{ fontWeight: '900', color: '#111' }}>Sugestão de Pedidos de Insumos</h1>
-                    <p>Relatório gerado em {format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
+                    <h1 style={{ fontWeight: '900', color: '#111' }}>{subview === 'fazer' ? 'Lista de Insumos' : 'Relatório de Pedidos'}</h1>
+                    <p>Gerado em {format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
                     <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
                 </div>
 
-                <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
-                    <thead style={{ position: 'sticky', top: 0, zIndex: 5, backgroundColor: '#fafbfc' }}>
-                        <tr style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
-                            <th style={{ textAlign: 'left', padding: '1rem', fontWeight: '800' }}>Insumo</th>
-                            <th style={{ textAlign: 'left', padding: '1rem', fontWeight: '800' }}>Classificação</th>
-                            <th style={{ textAlign: 'center', padding: '1rem', fontWeight: '800' }}>Saldo Atual</th>
-                            <th style={{ textAlign: 'center', padding: '1rem', fontWeight: '800' }}>Qtd Solicitada</th>
-                            <th style={{ textAlign: 'center', padding: '1rem', fontWeight: '800' }}>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr><td colSpan="5" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Buscando pedidos...</td></tr>
-                        ) : filteredPedidos.length === 0 ? (
-                            <tr><td colSpan="5" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Nenhum pedido pendente.</td></tr>
-                        ) : (
-                            filteredPedidos.map(item => (
-                                <tr
-                                    key={item.id}
-                                    onClick={() => setSelectedId(item.id)}
-                                    style={{
-                                        backgroundColor: selectedId === item.id ? 'white' : '#ffffff',
-                                        boxShadow: selectedId === item.id ? '0 4px 15px rgba(245, 158, 11, 0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
-                                        border: selectedId === item.id ? '2px solid #f59e0b' : '1px solid rgba(0,0,0,0.04)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                    }}
-                                >
-                                    <td style={{ padding: '1.2rem 1rem', fontWeight: '800', color: 'var(--text)', borderRadius: '12px 0 0 12px' }}>
-                                        {item.insumos?.insumo}
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Carregando dados...</div>
+                ) : subview === 'fazer' ? (
+                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 5, backgroundColor: '#fafbfc' }}>
+                            <tr style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                                <th style={{ textAlign: 'left', padding: '1rem', fontWeight: '800' }}>Insumo</th>
+                                <th style={{ textAlign: 'left', padding: '1rem', fontWeight: '800' }}>Classificação</th>
+                                <th style={{ textAlign: 'center', padding: '1rem', fontWeight: '800' }}>Saldo Atual</th>
+                                <th style={{ textAlign: 'center', padding: '1rem', fontWeight: '800' }}>Qtd Solicitada</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredInsumos.map(insumo => (
+                                <tr key={insumo.id} style={{ backgroundColor: '#ffffff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.04)' }}>
+                                    <td style={{ padding: '0.8rem 1rem', fontWeight: '800', color: 'var(--text)', borderRadius: '12px 0 0 12px' }}>
+                                        {insumo.insumo}
                                     </td>
-                                    <td style={{ padding: '1.2rem 1rem' }}>
-                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                            {item.insumos?.classificacao || '-'}
-                                        </span>
+                                    <td style={{ padding: '0.8rem 1rem' }}>
+                                        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{insumo.classificacao || '-'}</span>
                                     </td>
-                                    <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '700' }}>
-                                        {stockMap[item.insumo_id] || 0}
+                                    <td style={{ padding: '0.8rem 1rem', textAlign: 'center', fontWeight: '700' }}>
+                                        {stockMap[insumo.id] || 0}
                                     </td>
-                                    <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '800', color: 'var(--primary)', fontSize: '1.1rem' }}>
-                                        {item.quantidade_solicitada}
-                                    </td>
-                                    <td style={{ padding: '1.2rem 1rem', textAlign: 'center', borderRadius: '0 12px 12px 0' }}>
-                                        <span style={{
-                                            padding: '0.4rem 0.8rem', borderRadius: '8px',
-                                            background: item.status === 'Pedido' ? '#ecfdf5' : '#fff7ed',
-                                            color: item.status === 'Pedido' ? '#059669' : '#f59e0b',
-                                            fontSize: '0.75rem', fontWeight: '800'
-                                        }}>
-                                            {item.status}
-                                        </span>
+                                    <td style={{ padding: '0.6rem 1rem', textAlign: 'center', borderRadius: '0 12px 12px 0' }}>
+                                        <input 
+                                            type="number"
+                                            placeholder="0"
+                                            value={orderQuantities[insumo.id] || ''}
+                                            onChange={e => handleQuantityChange(insumo.id, e.target.value)}
+                                            style={{
+                                                width: '100px', padding: '0.5rem', textAlign: 'center', fontWeight: '800',
+                                                border: '2px solid #f8fafc', borderRadius: '8px', outline: 'none',
+                                                backgroundColor: orderQuantities[insumo.id] ? '#fffbeb' : '#f8fafc',
+                                                borderColor: orderQuantities[insumo.id] ? '#fcd34d' : '#f8fafc',
+                                                color: orderQuantities[insumo.id] ? '#d97706' : 'var(--text)'
+                                            }}
+                                        />
                                     </td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ))}
+                        </tbody>
+                    </table>
+                ) : (
+                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 5, backgroundColor: '#fafbfc' }}>
+                            <tr style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                                <th style={{ textAlign: 'left', padding: '1rem', fontWeight: '800' }}>Insumo</th>
+                                <th style={{ textAlign: 'left', padding: '1rem', fontWeight: '800' }}>Data do Pedido</th>
+                                <th style={{ textAlign: 'center', padding: '1rem', fontWeight: '800' }}>Qtd Solicitada</th>
+                                <th style={{ textAlign: 'center', padding: '1rem', fontWeight: '800' }}>Situação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredPedidos.length === 0 ? (
+                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Nenhum pedido no histórico.</td></tr>
+                            ) : (
+                                filteredPedidos.map(item => (
+                                    <tr
+                                        key={item.id}
+                                        onClick={() => setSelectedId(item.id)}
+                                        style={{
+                                            backgroundColor: selectedId === item.id ? 'white' : '#ffffff',
+                                            boxShadow: selectedId === item.id ? '0 4px 15px rgba(245, 158, 11, 0.15)' : '0 2px 4px rgba(0,0,0,0.02)',
+                                            border: selectedId === item.id ? '2px solid #f59e0b' : '1px solid rgba(0,0,0,0.04)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                        }}
+                                    >
+                                        <td style={{ padding: '1.2rem 1rem', fontWeight: '800', color: 'var(--text)', borderRadius: '12px 0 0 12px' }}>
+                                            {item.insumos?.insumo}
+                                        </td>
+                                        <td style={{ padding: '1.2rem 1rem', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.85rem' }}>
+                                            {item.created_at ? format(new Date(item.created_at), 'dd/MM/yyyy') : '-'}
+                                        </td>
+                                        <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '800', color: 'var(--primary)', fontSize: '1.1rem' }}>
+                                            {item.quantidade_solicitada}
+                                        </td>
+                                        <td style={{ padding: '1.2rem 1rem', textAlign: 'center', borderRadius: '0 12px 12px 0' }}>
+                                            <span style={{
+                                                padding: '0.4rem 0.8rem', borderRadius: '8px',
+                                                background: item.status === 'Concluído' ? '#ecfdf5' : '#fff7ed',
+                                                color: item.status === 'Concluído' ? '#059669' : '#f59e0b',
+                                                fontSize: '0.75rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                                            }}>
+                                                {item.status === 'Concluído' ? <CheckCircle size={14}/> : <ShoppingCart size={14}/>}
+                                                {item.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                )}
             </div>
 
             {/* Footer Fixo */}
             <div className="no-print" style={{
-                padding: '1.5rem 2rem',
-                backgroundColor: 'white',
-                borderTop: '1px solid rgba(0,0,0,0.06)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
+                padding: '1.5rem 2rem', backgroundColor: 'white', borderTop: '1px solid rgba(0,0,0,0.06)',
+                display: 'flex', justifyContent: subview === 'fazer' ? 'flex-end' : 'space-between', alignItems: 'center'
             }}>
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn btn-primary" style={{ padding: '0.8rem 2.5rem', background: '#f59e0b' }}>
-                        <Plus size={20} /> Novo Pedido
+                {subview === 'fazer' ? (
+                    <button onClick={handleBaixarPedido} className="btn btn-primary" style={{ padding: '0.8rem 2.5rem', background: '#f59e0b' }}>
+                        <div className="btn-inner" style={{ fontSize: '1rem' }}><Save size={20} /> Baixar Pedido</div>
                     </button>
-                    <button onClick={handleEdit} disabled={!selectedId} className="btn btn-outline" style={{ opacity: !selectedId ? 0.3 : 1 }}>
-                        <Edit2 size={18} /> Editar
-                    </button>
-                    <button onClick={handleDelete} disabled={!selectedId} className="btn btn-outline" style={{ color: '#ef4444', borderColor: '#fee2e2', opacity: !selectedId ? 0.3 : 1 }}>
-                        <Trash2 size={18} /> Excluir
-                    </button>
-                </div>
+                ) : (
+                    <>
+                        <div style={{ display: 'flex', gap: '1rem' }}>
+                            <button onClick={handleEdit} disabled={!selectedId} className="btn btn-outline" style={{ opacity: !selectedId ? 0.3 : 1 }}>
+                                <Edit2 size={18} /> Editar
+                            </button>
+                            <button onClick={handleDelete} disabled={!selectedId} className="btn btn-outline" style={{ color: '#ef4444', borderColor: '#fee2e2', opacity: !selectedId ? 0.3 : 1 }}>
+                                <Trash2 size={18} /> Excluir
+                            </button>
+                        </div>
+                        <button onClick={handlePrint} className="btn btn-secondary" style={{ padding: '0.8rem 2.5rem' }}>
+                            <div className="btn-inner" style={{ fontSize: '1rem' }}><Printer size={20} /> Imprimir Relatório</div>
+                        </button>
+                    </>
+                )}
             </div>
 
-            {/* Modal de Formulário */}
+            {/* Modal de Edição (Apenas no Relatório) */}
             {showForm && (
                 <div className="no-print" style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
@@ -284,33 +356,23 @@ export default function InventoryOrders() {
                     <div className="premium-card" style={{ maxWidth: '500px', width: '90%', padding: '2.5rem' }}>
                         <div style={{ marginBottom: '2rem' }}>
                             <h3 style={{ fontSize: '1.5rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                                <ShoppingCart size={24} style={{ color: '#f59e0b' }} />
-                                {editingItem ? 'Editar Pedido' : 'Sugestão de Pedido'}
+                                <Edit2 size={24} style={{ color: '#f59e0b' }} />
+                                Editar Pedido
                             </h3>
                         </div>
 
-                        <form onSubmit={handleSave}>
+                        <form onSubmit={handleSaveEdit}>
                             <div className="form-group" style={{ marginBottom: '1.2rem' }}>
                                 <label style={{ fontWeight: '800', marginBottom: '0.5rem', display: 'block' }}>Insumo *</label>
-                                <select
-                                    className="input-field"
-                                    value={formData.insumo_id}
-                                    onChange={e => setFormData({ ...formData, insumo_id: e.target.value })}
-                                    required
-                                >
-                                    <option value="">Selecione...</option>
-                                    {insumos.map(insumo => (
-                                        <option key={insumo.id} value={insumo.id}>{insumo.insumo}</option>
-                                    ))}
+                                <select className="input-field" value={formData.insumo_id} disabled>
+                                    <option value={formData.insumo_id}>{editingItem?.insumos?.insumo}</option>
                                 </select>
                             </div>
 
                             <div className="form-group" style={{ marginBottom: '1.2rem' }}>
-                                <label style={{ fontWeight: '800', marginBottom: '0.5rem', display: 'block' }}>Qtd Sugerida/Solicitada *</label>
+                                <label style={{ fontWeight: '800', marginBottom: '0.5rem', display: 'block' }}>Qtd Solicitada *</label>
                                 <input
-                                    type="number"
-                                    step="0.01"
-                                    className="input-field"
+                                    type="number" step="0.01" className="input-field"
                                     value={formData.quantidade_solicitada}
                                     onChange={e => setFormData({ ...formData, quantidade_solicitada: e.target.value })}
                                     required
@@ -318,15 +380,10 @@ export default function InventoryOrders() {
                             </div>
 
                             <div className="form-group" style={{ marginBottom: '2rem' }}>
-                                <label style={{ fontWeight: '800', marginBottom: '0.5rem', display: 'block' }}>Status</label>
-                                <select
-                                    className="input-field"
-                                    value={formData.status}
-                                    onChange={e => setFormData({ ...formData, status: e.target.value })}
-                                >
+                                <label style={{ fontWeight: '800', marginBottom: '0.5rem', display: 'block' }}>Situação</label>
+                                <select className="input-field" value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
                                     <option value="Pendente">Pendente</option>
-                                    <option value="Pedido">Já Pedido</option>
-                                    <option value="Cotando">Cotando</option>
+                                    <option value="Concluído">Concluído</option>
                                 </select>
                             </div>
 
