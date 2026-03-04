@@ -11,26 +11,32 @@ import {
     User,
     Package,
     AlertCircle,
-    Filter
+    Filter,
+    ChevronDown,
+    ChevronUp
 } from 'lucide-react';
-import { entradasService, insumosService } from '../lib/services';
+import { entradasService, insumosService, pedidosService } from '../lib/services';
 import { format } from 'date-fns';
 
 export default function InventoryInbound() {
     const [entradas, setEntradas] = useState([]);
     const [insumos, setInsumos] = useState([]);
+    const [pendingPedidos, setPendingPedidos] = useState([]); // NOVO
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
+    const [showOrderLookup, setShowOrderLookup] = useState(false); // NOVO
     const [editingItem, setEditingItem] = useState(null);
     const [selectedId, setSelectedId] = useState(null);
+    
     const [formData, setFormData] = useState({
         data_entrada: format(new Date(), 'yyyy-MM-dd'),
         insumo_id: '',
         quantidade: '',
         validade: '',
         fornecedor: '',
-        nf: ''
+        nf: '',
+        pedido_id: null // NOVO: Para vincular ao pedido do Relatório
     });
 
     useEffect(() => {
@@ -41,8 +47,12 @@ export default function InventoryInbound() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const data = await entradasService.getAll();
+            const [data, pData] = await Promise.all([
+                entradasService.getAll(),
+                pedidosService.getAll() // Busca pedidos para achar os pendentes
+            ]);
             setEntradas(data);
+            setPendingPedidos(pData.filter(p => p.status === 'Pendente'));
         } catch (error) {
             console.error('Error fetching entries:', error);
         } finally {
@@ -62,10 +72,18 @@ export default function InventoryInbound() {
     const handleSave = async (e) => {
         e.preventDefault();
         try {
+            // Extraímos o pedido_id para não enviar para a tabela entradas
+            const { pedido_id, ...dataToSave } = formData;
+
             if (editingItem) {
-                await entradasService.update(editingItem.id, formData);
+                await entradasService.update(editingItem.id, dataToSave);
             } else {
-                await entradasService.create(formData);
+                await entradasService.create(dataToSave);
+                
+                // NOVO: Se escolheu da lupa, dá baixa no Relatório de Pedidos
+                if (pedido_id) {
+                    await pedidosService.update(pedido_id, { status: 'Concluído' });
+                }
             }
             setShowForm(false);
             setEditingItem(null);
@@ -75,7 +93,8 @@ export default function InventoryInbound() {
                 quantidade: '',
                 validade: '',
                 fornecedor: '',
-                nf: ''
+                nf: '',
+                pedido_id: null
             });
             fetchData();
         } catch (error) {
@@ -94,7 +113,8 @@ export default function InventoryInbound() {
                 quantidade: item.quantidade,
                 validade: item.validade || '',
                 fornecedor: item.fornecedor || '',
-                nf: item.nf || ''
+                nf: item.nf || '',
+                pedido_id: null
             });
             setShowForm(true);
         }
@@ -249,7 +269,7 @@ export default function InventoryInbound() {
                 boxShadow: '0 -4px 15px rgba(0,0,0,0.02)'
             }}>
                 <div style={{ display: 'flex', gap: '1rem' }}>
-                    <button onClick={() => { setEditingItem(null); setShowForm(true); }} className="btn btn-primary" style={{ padding: '0.8rem 2.5rem', borderRadius: '14px', background: '#10b981' }}>
+                    <button onClick={() => { setEditingItem(null); setShowForm(true); setShowOrderLookup(false); }} className="btn btn-primary" style={{ padding: '0.8rem 2.5rem', borderRadius: '14px', background: '#10b981' }}>
                         <div className="btn-inner" style={{ fontSize: '0.95rem', fontWeight: '800' }}><Plus size={20} /> Inserir Entrada</div>
                     </button>
                     <button
@@ -302,6 +322,43 @@ export default function InventoryInbound() {
                         </div>
 
                         <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem' }}>
+                            
+                            {/* NOVO: LUPA DE PEDIDOS PENDENTES */}
+                            {!editingItem && (
+                                <div className="form-group" style={{ gridColumn: '1 / -1', marginBottom: '0.5rem' }}>
+                                    <button type="button" onClick={() => setShowOrderLookup(!showOrderLookup)} className="btn btn-outline" style={{ width: '100%', justifyContent: 'space-between', padding: '0.8rem 1rem' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <Search size={18} color="var(--primary)" />
+                                            <span style={{ fontWeight: '800', color: 'var(--primary)' }}>Puxar Insumo Pendente de Entrega</span>
+                                        </div>
+                                        {showOrderLookup ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                                    </button>
+
+                                    {showOrderLookup && (
+                                        <div style={{ marginTop: '0.5rem', padding: '1rem', border: '1px solid var(--primary)', borderRadius: '12px', background: 'rgba(16, 185, 129, 0.05)', display: 'grid', gap: '0.5rem', maxHeight: '180px', overflowY: 'auto' }}>
+                                            {pendingPedidos.length === 0 ? (
+                                                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>Nenhum pedido pendente.</div>
+                                            ) : (
+                                                pendingPedidos.map(p => (
+                                                    <div key={p.id} onClick={() => {
+                                                        setFormData({ ...formData, insumo_id: p.insumo_id, quantidade: p.quantidade_solicitada, pedido_id: p.id });
+                                                        setShowOrderLookup(false);
+                                                    }} style={{ padding: '0.8rem 1rem', background: 'white', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.08)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.2s' }}
+                                                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--primary)'}
+                                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(0,0,0,0.08)'}>
+                                                        <div>
+                                                            <div style={{ fontWeight: '900', fontSize: '0.9rem', color: 'var(--text)' }}>{p.insumos?.insumo}</div>
+                                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: '600' }}>Pedido de {p.created_at ? format(new Date(p.created_at), 'dd/MM/yy') : '-'}</div>
+                                                        </div>
+                                                        <span style={{ color: 'white', background: '#f59e0b', padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: '900', fontSize: '0.85rem' }}>{p.quantidade_solicitada} aguardando</span>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="form-group">
                                 <label style={{ color: 'var(--text)', fontWeight: '800', fontSize: '0.85rem', marginBottom: '0.5rem', display: 'block' }}>Data de Entrada *</label>
                                 <input
