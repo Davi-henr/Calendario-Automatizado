@@ -39,11 +39,14 @@ export default function Inventory({ logo, onBack }) {
     const [showHistorySubmenu, setShowHistorySubmenu] = useState(false);
     const [historySubview, setHistorySubview] = useState('geral');
 
+    const [showOrdersSubmenu, setShowOrdersSubmenu] = useState(false);
+    const [ordersSubview, setOrdersSubview] = useState('fazer');
+
     const tabs = [
         { id: 'estoque', label: 'Estoque', icon: <Package size={18} /> },
         { id: 'entradas', label: 'Entradas', icon: <PlusCircle size={18} /> },
         { id: 'ordem-saida', label: 'Ordem Saída', icon: <ArrowUpRight size={18} /> },
-        { id: 'pedidos', label: 'Pedidos', icon: <ShoppingCart size={18} /> },
+        { id: 'pedidos', label: 'Pedidos', icon: <ShoppingCart size={18} />, hasSubmenu: true, submenuKey: 'orders' },
         { id: 'saida', label: 'Histórico Saídas', icon: <History size={18} />, hasSubmenu: true, submenuKey: 'history' },
         { id: 'cadastro', label: 'Cadastro', icon: <Settings size={18} />, hasSubmenu: true, submenuKey: 'register' },
     ];
@@ -57,6 +60,10 @@ export default function Inventory({ logo, onBack }) {
         history: [
             { id: 'geral', label: 'Histórico Geral', icon: <ClipboardList size={14} /> },
             { id: 'receita', label: 'Histórico por Receita', icon: <Beaker size={14} /> },
+        ],
+        orders: [
+            { id: 'fazer', label: 'Fazer Pedido', icon: <PlusCircle size={14} /> },
+            { id: 'relatorio', label: 'Relatório', icon: <ClipboardList size={14} /> },
         ]
     };
 
@@ -64,13 +71,20 @@ export default function Inventory({ logo, onBack }) {
         if (tabId === 'cadastro') {
             setShowRegisterSubmenu(!showRegisterSubmenu);
             setShowHistorySubmenu(false);
+            setShowOrdersSubmenu(false);
         } else if (tabId === 'saida') {
             setShowHistorySubmenu(!showHistorySubmenu);
+            setShowRegisterSubmenu(false);
+            setShowOrdersSubmenu(false);
+        } else if (tabId === 'pedidos') {
+            setShowOrdersSubmenu(!showOrdersSubmenu);
+            setShowHistorySubmenu(false);
             setShowRegisterSubmenu(false);
         } else {
             setCurrentTab(tabId);
             setShowRegisterSubmenu(false);
             setShowHistorySubmenu(false);
+            setShowOrdersSubmenu(false);
         }
     };
 
@@ -82,6 +96,9 @@ export default function Inventory({ logo, onBack }) {
         } else if (tabId === 'saida') {
             setHistorySubview(subId);
             setShowHistorySubmenu(false);
+        } else if (tabId === 'pedidos') {
+            setOrdersSubview(subId);
+            setShowOrdersSubmenu(false);
         }
     };
 
@@ -90,7 +107,7 @@ export default function Inventory({ logo, onBack }) {
             case 'estoque': return <InventoryStock />;
             case 'entradas': return <InventoryInbound />;
             case 'ordem-saida': return <InventoryOutbound logo={logo} />;
-            case 'pedidos': return <InventoryOrders />;
+            case 'pedidos': return <InventoryOrders subview={ordersSubview} onNavigate={(view) => setOrdersSubview(view)} />;
             case 'saida': return <InventoryHistory subview={historySubview} />;
             case 'cadastro': return <InventoryRegistration subview={registerSubview} />;
             default: return <InventoryStock />;
@@ -99,7 +116,6 @@ export default function Inventory({ logo, onBack }) {
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg)', position: 'relative' }}>
-            {/* Main Header */}
             <header style={{
                 height: isMobile ? '72px' : '88px',
                 backgroundColor: 'rgba(255,255,255,0.85)',
@@ -113,10 +129,8 @@ export default function Inventory({ logo, onBack }) {
                 top: 0,
                 zIndex: 1000
             }}>
-                {/* Accent Gradient Line */}
                 <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '2.5px', background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', opacity: 0.8 }} />
 
-                {/* Left: Logo & Brand */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
                     {logo ? (
                         <img src={logo} alt="Logo" style={{ height: isMobile ? '36px' : '48px', width: 'auto', borderRadius: '10px' }} />
@@ -144,7 +158,6 @@ export default function Inventory({ logo, onBack }) {
                     )}
                 </div>
 
-                {/* Center Nav */}
                 {!isMobile && (
                     <nav style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f1f5f9', padding: '0.4rem', borderRadius: '16px', border: '1px solid rgba(0,0,0,0.05)' }}>
                         {tabs.map((tab, index) => (
@@ -192,13 +205,21 @@ export default function Inventory({ logo, onBack }) {
                                             ))}
                                         </div>
                                     )}
+                                    {tab.id === 'pedidos' && showOrdersSubmenu && (
+                                        <div style={{ position: 'absolute', top: '110%', left: 0, backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.05)', padding: '0.5rem', minWidth: '180px', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            {submenus.orders.map(sub => (
+                                                <button key={sub.id} onClick={() => handleSubmenuClick('pedidos', sub.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', padding: '0.8rem 1rem', borderRadius: '8px', border: 'none', background: ordersSubview === sub.id && currentTab === 'pedidos' ? 'rgba(245, 158, 11, 0.1)' : 'transparent', color: ordersSubview === sub.id && currentTab === 'pedidos' ? '#f59e0b' : 'var(--text)', cursor: 'pointer', textAlign: 'left', fontWeight: '700', fontSize: '0.85rem' }}>
+                                                    {sub.icon} {sub.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </React.Fragment>
                         ))}
                     </nav>
                 )}
 
-                {/* Right: Voltar Button */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', borderLeft: isMobile ? 'none' : '1.5px solid rgba(0,0,0,0.1)', paddingLeft: isMobile ? 0 : '1.5rem' }}>
                         {!isMobile && (
@@ -216,7 +237,6 @@ export default function Inventory({ logo, onBack }) {
                 </div>
             </header>
 
-            {/* Main Content Area */}
             <main style={{ padding: isMobile ? '1rem' : '2.5rem', flex: 1, position: 'relative', zIndex: 1 }}>
                 <div className="container" style={{ padding: 0 }}>
                     {renderTabContent()}
