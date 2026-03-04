@@ -42,17 +42,19 @@ export default function InventoryStock() {
 
                 const saldoInicial = Number(insumo.saldo_inicial || 0);
                 const consumoReal = totalSaidas - totalDevolucoes;
+                const saldoAtual = saldoInicial + totalEntradas - consumoReal;
 
+                // CORREÇÃO: parseFloat com toFixed(2) força o corte dos decimais infinitos do JavaScript
                 return {
                     id: insumo.id,
                     insumo: insumo.insumo,
                     classificacao: insumo.classificacao,
-                    saldo_inicial: saldoInicial,
-                    total_entradas: totalEntradas,
-                    total_saidas: totalSaidas,
-                    total_devolucoes: totalDevolucoes,
-                    consumo_real: consumoReal,
-                    saldo_atual: saldoInicial + totalEntradas - consumoReal
+                    saldo_inicial: parseFloat(saldoInicial.toFixed(2)),
+                    total_entradas: parseFloat(totalEntradas.toFixed(2)),
+                    total_saidas: parseFloat(totalSaidas.toFixed(2)),
+                    total_devolucoes: parseFloat(totalDevolucoes.toFixed(2)),
+                    consumo_real: parseFloat(consumoReal.toFixed(2)),
+                    saldo_atual: parseFloat(saldoAtual.toFixed(2))
                 };
             });
 
