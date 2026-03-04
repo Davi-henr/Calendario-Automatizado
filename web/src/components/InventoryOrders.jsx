@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { pedidosService, insumosService, entradasService, saidasService } from '../lib/services';
 import { format } from 'date-fns';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
     const [pedidos, setPedidos] = useState([]);
@@ -50,15 +52,19 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                 saidasService.getAll()
             ]);
 
+            // CORREÇÃO: Cálculo do saldo atual agora considera devoluções!
             const currentStock = {};
             insumosData.forEach(insumo => {
                 const entradas = entradasData
                     .filter(e => e.insumo_id === insumo.id)
-                    .reduce((sum, e) => sum + Number(e.quantidade), 0);
+                    .reduce((sum, e) => sum + Number(e.quantidade || 0), 0);
+                
                 const saidas = saidasData
                     .filter(s => s.insumo_id === insumo.id)
-                    .reduce((sum, s) => sum + Number(s.quantidade), 0);
-                currentStock[insumo.id] = Number(insumo.saldo_inicial || 0) + entradas - saidas;
+                    .reduce((sum, s) => sum + (Number(s.quantidade || 0) - Number(s.devolucao || 0)), 0);
+                
+                let saldo = Number(insumo.saldo_inicial || 0) + entradas - saidas;
+                currentStock[insumo.id] = saldo % 1 === 0 ? saldo.toString() : saldo.toFixed(2);
             });
 
             setPedidos(pedidosData);
@@ -95,7 +101,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                         status: 'Pendente'
                     });
                 }
-                setOrderQuantities({});
+                setOrderQuantities({}); // ISSO AQUI ZERA OS CAMPOS APÓS BAIXAR O PEDIDO
                 alert('Pedidos registrados com sucesso! Acompanhe-os no Relatório.');
                 if (onNavigate) onNavigate('relatorio');
             } catch (err) {
@@ -143,8 +149,72 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
         }
     };
 
+    // NOVO: Gerador de PDF Profissional
     const handlePrint = () => {
-        window.print();
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pw = doc.internal.pageSize.getWidth();
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        
+        if (subview === 'fazer') {
+            doc.text('Lista de Insumos - Sugestão de Pedidos', pw / 2, 15, { align: 'center' });
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pw / 2, 22, { align: 'center' });
+
+            const tableData = filteredInsumos.map(insumo => {
+                const qty = orderQuantities[insumo.id] ? orderQuantities[insumo.id].toString() : '';
+                return [
+                    insumo.insumo,
+                    insumo.classificacao || '-',
+                    (stockMap[insumo.id] !== undefined ? stockMap[insumo.id].toString() : '0'),
+                    qty
+                ];
+            });
+
+            autoTable(doc, {
+                startY: 30,
+                head: [['Insumo', 'Classificação', 'Saldo Atual', 'Qtd Solicitada']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [245, 158, 11] },
+                styles: { fontSize: 9, cellPadding: 3 },
+                columnStyles: {
+                    2: { halign: 'center' },
+                    3: { halign: 'center' }
+                }
+            });
+            
+            doc.save(`Sugestao_Pedidos_${format(new Date(), 'ddMMyyyy')}.pdf`);
+        } else {
+            doc.text('Relatório de Pedidos Pendentes', pw / 2, 15, { align: 'center' });
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pw / 2, 22, { align: 'center' });
+
+            const tableData = filteredPedidos.map(pedido => [
+                pedido.insumos?.insumo || '-',
+                pedido.created_at ? format(new Date(pedido.created_at), 'dd/MM/yyyy') : '-',
+                pedido.quantidade_solicitada?.toString() || '0',
+                pedido.status || '-'
+            ]);
+
+            autoTable(doc, {
+                startY: 30,
+                head: [['Insumo', 'Data do Pedido', 'Qtd Solicitada', 'Situação']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [245, 158, 11] },
+                styles: { fontSize: 9, cellPadding: 3 },
+                columnStyles: {
+                    2: { halign: 'center' },
+                    3: { halign: 'center' }
+                }
+            });
+            
+            doc.save(`Relatorio_Pedidos_${format(new Date(), 'ddMMyyyy')}.pdf`);
+        }
     };
 
     const filteredInsumos = insumos.filter(insumo => {
@@ -169,7 +239,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
             overflow: 'hidden'
         }}>
             {/* Header Fixo */}
-            <div className="no-print" style={{
+            <div style={{
                 padding: '1.5rem 2rem',
                 borderBottom: '1px solid rgba(0,0,0,0.06)',
                 backgroundColor: 'rgba(255,255,255,0.8)',
@@ -212,17 +282,16 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                             }}
                         />
                     </div>
+                    {subview === 'fazer' && (
+                        <button onClick={handlePrint} className="btn btn-outline" style={{ padding: '0.7rem 1.5rem', borderRadius: '12px' }}>
+                            <Printer size={18} /> Imprimir Tabela
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* Area da Tabela */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 2rem', backgroundColor: '#fafbfc' }}>
-                <div className="print-only" style={{ display: 'none', textAlign: 'center', marginBottom: '2rem' }}>
-                    <h1 style={{ fontWeight: '900', color: '#111' }}>{subview === 'fazer' ? 'Lista de Insumos' : 'Relatório de Pedidos'}</h1>
-                    <p>Gerado em {format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
-                    <hr style={{ margin: '1rem 0', borderColor: '#eee' }} />
-                </div>
-
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Carregando dados...</div>
                 ) : subview === 'fazer' ? (
@@ -321,9 +390,13 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
             </div>
 
             {/* Footer Fixo */}
-            <div className="no-print" style={{
-                padding: '1.5rem 2rem', backgroundColor: 'white', borderTop: '1px solid rgba(0,0,0,0.06)',
-                display: 'flex', justifyContent: subview === 'fazer' ? 'flex-end' : 'space-between', alignItems: 'center'
+            <div style={{
+                padding: '1.5rem 2rem',
+                backgroundColor: 'white',
+                borderTop: '1px solid rgba(0,0,0,0.06)',
+                display: 'flex',
+                justifyContent: subview === 'fazer' ? 'flex-end' : 'space-between',
+                alignItems: 'center'
             }}>
                 {subview === 'fazer' ? (
                     <button onClick={handleBaixarPedido} className="btn btn-primary" style={{ padding: '0.8rem 2.5rem', background: '#f59e0b' }}>
@@ -348,7 +421,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
 
             {/* Modal de Edição (Apenas no Relatório) */}
             {showForm && (
-                <div className="no-print" style={{
+                <div style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
                     backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(8px)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000
@@ -395,17 +468,6 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                     </div>
                 </div>
             )}
-
-            <style>{`
-                @media print {
-                    .no-print { display: none !important; }
-                    .print-only { display: block !important; }
-                    body { background: white !important; }
-                    .container { width: 100% !important; max-width: none !important; padding: 0 !important; }
-                    table { border: 1px solid #eee !important; width: 100% !important; }
-                    th, td { border: 1px solid #eee !important; padding: 10px !important; }
-                }
-            `}</style>
         </div>
     );
 }
