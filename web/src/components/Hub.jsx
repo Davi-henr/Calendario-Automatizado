@@ -144,7 +144,7 @@ export default function Hub({ onNavigate, logo }) {
                     </div>
                 )}
                 <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-1.5px', marginBottom: '0.8rem', lineHeight: 1.1 }}>
-                    Citricultura no topo <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> e o Greening? MORTO</span>
+                    Monitoramento ativo: sua produção cresce, <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> o Greening desaparece.</span>
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '1.1rem' }}>Identifique-se para acessar os módulos</p>
             </div>
