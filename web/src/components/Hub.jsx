@@ -121,13 +121,13 @@ export default function Hub({ onNavigate, logo }) {
                         </div>
                     )}
                     <div>
-                        <p style={{ color: 'var(--text)', fontWeight: '800', fontSize: '0.95rem', letterSpacing: '-0.3px' }}>Calendário Automatizado</p>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px' }}>por Davi Henrique</p>
+                        <p style={{ color: 'var(--text)', fontWeight: '800', fontSize: '0.95rem', letterSpacing: '-0.3px' }}>ERP Sistema de Operações Agrícola</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Desenvolvido por Davi Henrique</p>
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px rgba(34, 197, 94, 0.4)' }} />
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: '700' }}>SISTEMA ONLINE</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: '700' }}>ON</span>
                 </div>
             </header>
 
@@ -144,7 +144,7 @@ export default function Hub({ onNavigate, logo }) {
                     </div>
                 )}
                 <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-1.5px', marginBottom: '0.8rem', lineHeight: 1.1 }}>
-                    Sua área de <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>gestão inteligente</span>
+                    Citricultura no topo <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> e o Greening? MORTO</span>
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '1.1rem' }}>Identifique-se para acessar os módulos</p>
             </div>
