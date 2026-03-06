@@ -261,7 +261,7 @@ export default function Hub({ onNavigate, logo }) {
                                     type="text"
                                     value={username}
                                     onChange={e => setUsername(e.target.value)}
-                                    placeholder="Ex: celso"
+                                    placeholder="Digite seu usuário."
                                     autoFocus required
                                     style={{ width: '100%', boxSizing: 'border-box', padding: '0.85rem 1.1rem', borderRadius: '14px', border: '1.5px solid var(--border)', background: '#f8fafc', color: 'var(--text)', fontSize: '1rem', outline: 'none', fontFamily: 'inherit', fontWeight: '600' }}
                                 />
