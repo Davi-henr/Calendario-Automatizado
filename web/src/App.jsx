@@ -20,6 +20,7 @@ import Dashboard from './components/Dashboard';
 import Hub from './components/Hub';
 import Inventory from './components/Inventory';
 import Prescriptions from './components/Prescriptions';
+import Settings from './components/Settings';
 import { settingsService } from './lib/services';
 
 function App() {
