@@ -39,13 +39,18 @@ export const registrosService = {
             if (nao_agendar) {
                 dadosParaSalvar.proxima_pulverizacao = null; 
             } else {
-                // Comportamento normal: busca a carência e soma à data final
-                const { data: current } = await supabase.from('registros').select('dias_carencia').eq('id', id).single();
+                // Comportamento normal: busca a carência e soma à data INICIAL (Alterado aqui)
+                const { data: current } = await supabase.from('registros').select('dias_carencia, data_inicial').eq('id', id).single();
                 const carencia = dadosParaSalvar.dias_carencia || current?.dias_carencia || 0;
+                
+                // Pegamos a data_inicial do banco para garantir o cálculo correto
+                const dataInicial = dadosParaSalvar.data_inicial || current?.data_inicial;
 
-                const dateInput = parse(dadosParaSalvar.data_final, 'yyyy-MM-dd', new Date());
-                const nextSprayingDate = addDays(dateInput, parseInt(carencia));
-                dadosParaSalvar.proxima_pulverizacao = format(nextSprayingDate, 'yyyy-MM-dd');
+                if (dataInicial) {
+                    const dateInput = parse(dataInicial, 'yyyy-MM-dd', new Date());
+                    const nextSprayingDate = addDays(dateInput, parseInt(carencia));
+                    dadosParaSalvar.proxima_pulverizacao = format(nextSprayingDate, 'yyyy-MM-dd');
+                }
             }
         }
 
