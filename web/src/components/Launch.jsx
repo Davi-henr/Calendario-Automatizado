@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PageHeader from './PageHeader';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import {
     Plus,
     Search,
@@ -15,9 +15,9 @@ import {
     X,
     FileDown,
     ClipboardList,
-    Printer // <-- IMPORTADO O ÍCONE DA IMPRESSORA
+    Printer // Ícone da impressora adicionado
 } from 'lucide-react';
-// IMPORTAMOS OS SERVICES NECESSÁRIOS PARA O PDF
+// Importamos os services necessários para puxar os dados do PDF
 import { osService, registrosService, ordensSaidaService, quadrasService, insumosService } from '../lib/services';
 import { format, parseISO, differenceInDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -32,7 +32,7 @@ export default function Launch({ logo }) {
     const [pendingOS, setPendingOS] = useState([]);
     const [selectedOS, setSelectedOS] = useState(null);
 
-    // Estados para alimentar o layout do PDF
+    // Estados para armazenar meta-dados necessários para o PDF
     const [quadrasMeta, setQuadrasMeta] = useState([]);
     const [insumosMeta, setInsumosMeta] = useState([]);
 
@@ -57,7 +57,7 @@ export default function Launch({ logo }) {
     useEffect(() => {
         loadRegistros();
         loadPendingOS();
-        // Carrega os metas silenciosamente para caso o usuário queira imprimir o PDF
+        // Carrega as quadras e insumos em background para o PDF funcionar
         quadrasService.getAll().then(setQuadrasMeta).catch(console.error);
         insumosService.getAll().then(setInsumosMeta).catch(console.error);
     }, []);
@@ -248,6 +248,7 @@ export default function Launch({ logo }) {
         );
     };
 
+    // Esta é a função para exportar a listagem da tela
     const exportToPDF = () => {
         const doc = new jsPDF();
         doc.text('Relatório de Pulverização - AgroControl', 14, 15);
@@ -262,7 +263,7 @@ export default function Launch({ logo }) {
             reg.observacao || ''
         ]);
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [['Situação', 'Início', 'Fim', 'Quadra', 'Receita', 'Próxima', 'Obs']],
             body: tableData,
             startY: 25,
@@ -273,7 +274,7 @@ export default function Launch({ logo }) {
     };
 
     // =======================================================================
-    // FUNÇÃO IMPORTADA E ADAPTADA PARA IMPRIMIR A RECEITA/OS DIRETAMENTE AQUI
+    // FUNÇÃO QUE IMPRIME A RECEITA (OS) DAQUELE LANÇAMENTO
     // =======================================================================
     const exportOS_PDF = async (regItem) => {
         if (!regItem.os_id) {
@@ -282,15 +283,15 @@ export default function Launch({ logo }) {
         }
 
         try {
-            // Busca a OS vinculada ao lançamento
+            // Busca TODAS as OS no banco de dados para encontrar a correta
             const allOS = await osService.getAll();
             const os = allOS.find(o => o.id === regItem.os_id);
             if (!os) {
-                alert('Receita original não encontrada no banco de dados.');
+                alert('A Receita original não foi encontrada no banco de dados.');
                 return;
             }
 
-            const outbounds = await ordensSaidaService.getByOsId(os.id);
+            const outbounds = await ordensSaidaService.getByOsId(os.id).catch(() => []);
             const doc = new jsPDF('l', 'mm', 'a4');
             const pw = doc.internal.pageSize.getWidth();
             const ph = doc.internal.pageSize.getHeight();
@@ -326,7 +327,9 @@ export default function Launch({ logo }) {
             doc.text(`Aprovado em: 01/09/2020`, pw - 53, 18);
 
             const idStartY = 23;
-            let osYear = format(parseISO(os.data_prescricao), 'yy');
+            // Proteção para data
+            const osDate = os.data_prescricao ? parseISO(os.data_prescricao) : new Date();
+            let osYear = format(osDate, 'yy');
             let osFullNum = `${osYear}/${String(os.numero_os || '').padStart(6, '0')}`;
 
             doc.rect(5, idStartY, 25, 6); doc.text('Quadra:', 7, idStartY + 4.5);
@@ -334,7 +337,7 @@ export default function Launch({ logo }) {
             doc.rect(90, idStartY, 45, 6); doc.text('N° Ordem Serviço:', 92, idStartY + 4.5);
             doc.rect(135, idStartY, 40, 6); doc.setFont('helvetica', 'bold'); doc.text(osFullNum, 137, idStartY + 4.5); doc.setFont('helvetica', 'normal');
             doc.rect(175, idStartY, 35, 6); doc.text('Data Inicial:', 177, idStartY + 4.5);
-            doc.rect(210, idStartY, 35, 6); doc.text(os.data_prescricao ? format(parseISO(os.data_prescricao), 'dd/MM/yyyy') : '        /        /        ', 212, idStartY + 4.5);
+            doc.rect(210, idStartY, 35, 6); doc.text(os.data_prescricao ? format(osDate, 'dd/MM/yyyy') : '        /        /        ', 212, idStartY + 4.5);
             doc.rect(245, idStartY, 25, 6); doc.text('Pressão PSI:', 247, idStartY + 4.5);
             doc.rect(270, idStartY, 22, 6); doc.text(os.dados_tecnicos?.pressao || '', 272, idStartY + 4.5);
 
@@ -380,10 +383,10 @@ export default function Launch({ logo }) {
             };
 
             const consumptionMap = {};
-            outbounds.forEach(out => {
-                out.saidas?.forEach(s => {
+            (outbounds || []).forEach(out => {
+                (out.saidas || []).forEach(s => {
                     const idKey = s.insumo_id;
-                    const nameKey = s.insumos?.insumo?.toLowerCase().trim();
+                    const nameKey = (s.insumos?.insumo || '').toLowerCase().trim();
 
                     if (idKey) {
                         if (!consumptionMap[idKey]) consumptionMap[idKey] = { retirada: 0, real: 0, devolucao: 0 };
@@ -414,10 +417,12 @@ export default function Launch({ logo }) {
                 const desc = ins.sequencia ? `${ins.sequencia} - ${ins.material || ''}` : (ins.material || '');
 
                 const consById = ins.insumo_id ? consumptionMap[ins.insumo_id] : null;
-                const consByName = ins.material ? consumptionMap[ins.material.toLowerCase().trim()] : null;
+                const consByName = ins.material ? consumptionMap[(ins.material || '').toLowerCase().trim()] : null;
                 const cons = consById || consByName || { retirada: 0, real: 0, devolucao: 0 };
 
-                const matchedMaterial = ins.material ? insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material.toLowerCase().trim()) : null;
+                // Trava de segurança no trim()
+                const matchedMaterial = ins.material ? insumosMeta.find(m => (m.insumo || '').toLowerCase().trim() === (ins.material || '').toLowerCase().trim()) : null;
+                
                 const principioAtivo = matchedMaterial?.principio_ativo || matchedMaterial?.principio || ins.principio || '';
                 const finalidadeAlvo = matchedMaterial?.classificacao || ins.finalidade || '';
 
@@ -443,7 +448,7 @@ export default function Launch({ logo }) {
                 ]);
             }
 
-            doc.autoTable({
+            autoTable(doc, {
                 startY: tableY,
                 head: [[
                     'Código\nMaterial', 'Sequencia de Mistura\nDescrição', 'Dosagem\n4000 Lts', 'Finalidade\nAlvo', 'Princípio\nAtivo', 'Carência\ndias',
@@ -466,7 +471,7 @@ export default function Launch({ logo }) {
             doc.rect(5, midY, 85, 6); doc.text('Reentrada de Pessoas', 7, midY + 4.5);
             doc.rect(90, midY, 45, 6); doc.text('24 Horas após aplicação', 92, midY + 4.5);
             
-            const carenciaParaImprimir = maxCarencia > 0 ? maxCarencia : parseInt(os.carencia || 0, 10);
+            const carenciaParaImprimir = maxCarencia > 0 ? maxCarencia : (parseInt(os.carencia, 10) || 0);
             doc.rect(135, midY, 75, 6); doc.text('Carencia (Dias):    ' + carenciaParaImprimir, 137, midY + 4.5);
             
             let liberadoColheitaText = 'LIBERADO COLHEITA:';
@@ -490,7 +495,7 @@ export default function Launch({ logo }) {
                 ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', '']
             ];
 
-            doc.autoTable({
+            autoTable(doc, {
                 startY: subY,
                 head: [['', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO']],
                 body: weatherData,
@@ -510,7 +515,7 @@ export default function Launch({ logo }) {
 
             const shiftTableMargin = 25; 
             
-            doc.autoTable({
+            autoTable(doc, {
                 startY: shiftY,
                 head: [[{ content: 'TURNO DO DIA', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
                 body: emptyShiftRows,
@@ -520,7 +525,7 @@ export default function Launch({ logo }) {
                 tableWidth: 135
             });
 
-            doc.autoTable({
+            autoTable(doc, {
                 startY: shiftY,
                 head: [[{ content: 'TURNO DA NOITE', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
                 body: emptyShiftRows,
@@ -846,14 +851,13 @@ export default function Launch({ logo }) {
                                                         </div>
                                                     </button>
                                                 )}
-                                                
                                                 <button onClick={() => { setEditingId(reg.id); setFormData(reg); setShowForm(true); }} className="btn btn-mini" title="Editar">
                                                     <div className="btn-inner">
                                                         <Edit2 size={16} />
                                                     </div>
                                                 </button>
                                                 
-                                                {/* NOVO: O BOTÃO DE IMPRESSÃO DE RECEITAS FOI ADICIONADO AQUI */}
+                                                {/* BOTÃO DA IMPRESSORA (APARECE QUANDO FINALIZADA E TEM OS_ID) */}
                                                 {reg.situacao === 'Finalizada' && reg.os_id && (
                                                     <button onClick={() => exportOS_PDF(reg)} className="btn btn-mini" style={{ color: '#0ea5e9' }} title="Imprimir Receita (OS)">
                                                         <div className="btn-inner">
