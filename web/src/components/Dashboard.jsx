@@ -132,7 +132,6 @@ export default function Dashboard({ logo }) {
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
     const [insumos, setInsumos] = useState([]);
-    const [mapSvg, setMapSvg] = useState('');
     const [forecast, setForecast] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -154,11 +153,9 @@ export default function Dashboard({ logo }) {
     const [showManualForm, setShowManualForm] = useState(false);
     const [showManualRegistros, setShowManualRegistros] = useState(false);
     const [manualFormData, setManualFormData] = useState({ id: null, atividade: 'Adubação', produto: '', data: format(new Date(), 'yyyy-MM-dd'), cor: '#3b82f6', observacao: '' });
-    const mapContainerRef = useRef(null);
 
     const [rainStartDate, setRainStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
     const [rainEndDate, setRainEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-
     const [showRainForm, setShowRainForm] = useState(false);
     const [rainFormData, setRainFormData] = useState({ data: format(new Date(), 'yyyy-MM-dd'), mm: '', local: 'Sede' });
 
@@ -167,90 +164,17 @@ export default function Dashboard({ logo }) {
         fetchWeather();
     }, []);
 
-    // Effect reponsável pela renderização da pintura no SVG do Mapa Manual
-    useEffect(() => {
-        if (activeTab === 'mapaManual' && mapContainerRef.current) {
-            const svgEl = mapContainerRef.current.querySelector('svg');
-            if (!svgEl) return;
-
-            svgEl.style.width = '100%';
-            svgEl.style.height = '100%';
-
-            const currentActRecords = registros.filter(r => r.situacao === 'MapaManual' && r.receita === manualFilters.atividade);
-            const latest = {};
-            currentActRecords.forEach(r => {
-                if (!latest[r.quadra] || new Date(r.data_inicial) > new Date(latest[r.quadra].data_inicial)) {
-                    latest[r.quadra] = r;
-                }
-            });
-
-            const needsProduct = ['Adubação', 'Calcário', 'Gesso'].includes(manualFilters.atividade);
-            if (needsProduct && manualFilters.produto) {
-                Object.keys(latest).forEach(k => {
-                    try {
-                        const meta = JSON.parse(latest[k].observacao);
-                        if (!meta.produto || !meta.produto.toLowerCase().includes(manualFilters.produto.toLowerCase())) {
-                            delete latest[k];
-                        }
-                    } catch(e) {}
-                });
-            }
-
-            svgEl.querySelectorAll('.manual-text').forEach(e => e.remove());
-
-            blocks.forEach(b => {
-                const el = svgEl.querySelector(`[id="${b}"]`);
-                if (el) {
-                    el.style.fill = '#f8fafc'; 
-                    el.style.stroke = selectedMapQuadra === b ? '#0f172a' : '#cbd5e1';
-                    el.style.strokeWidth = selectedMapQuadra === b ? '3px' : '1px';
-                    el.style.cursor = 'pointer';
-                    el.onclick = () => setSelectedMapQuadra(b);
-                }
-            });
-
-            Object.values(latest).forEach(reg => {
-                const el = svgEl.querySelector(`[id="${reg.quadra}"]`);
-                if (el) {
-                    try {
-                        const meta = JSON.parse(reg.observacao);
-                        el.style.fill = meta.cor || '#3b82f6';
-
-                        const bbox = el.getBBox();
-                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        text.setAttribute('x', bbox.x + bbox.width / 2);
-                        text.setAttribute('y', bbox.y + bbox.height / 2 + 16);
-                        text.setAttribute('text-anchor', 'middle');
-                        text.setAttribute('class', 'manual-text');
-                        
-                        // CORREÇÕES APLICADAS AQUI: Cor preta, fonte menor (10px) e contorno claro
-                        text.setAttribute('fill', '#000000'); 
-                        text.setAttribute('font-size', '10px');
-                        text.setAttribute('font-weight', '900');
-                        text.setAttribute('pointer-events', 'none');
-                        text.setAttribute('style', 'text-shadow: 1px 1px 2px rgba(255,255,255,0.9), -1px -1px 2px rgba(255,255,255,0.9);');
-                        
-                        text.textContent = format(parseISO(reg.data_inicial), 'dd/MM');
-                        svgEl.appendChild(text);
-                    } catch(e) {}
-                }
-            });
-        }
-    }, [activeTab, registros, manualFilters, selectedMapQuadra]);
-
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [regData, rainData, insData, settings] = await Promise.all([
+            const [regData, rainData, insData] = await Promise.all([
                 registrosService.getAll(),
                 chuvasService.getAll(),
-                insumosService.getAll(),
-                settingsService.get()
+                insumosService.getAll()
             ]);
             setRegistros(regData);
             setChuvas(rainData);
             setInsumos(insData);
-            setMapSvg(settings?.map_svg || '');
         } catch (err) {
             console.error(err);
         } finally {
@@ -1110,18 +1034,20 @@ export default function Dashboard({ logo }) {
                         Mapa de Operação: {manualFilters.atividade} {manualFilters.produto && ` - ${manualFilters.produto}`}
                     </h2>
                     
-                    <div ref={mapContainerRef} style={{ flex: 1, minHeight: '75vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minHeight: '75vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         <svg id="fazenda-map-svg-manual" viewBox="0 0 522 646" style={{ width: '100%', height: '100%', maxHeight: '85vh' }}>
                             {QUADRAS_DATA.map((q) => {
                                 const center = getPathCenter(q.id, q.d);
                                 const label = formatQuadraLabel(q.id);
                                 const reg = latestByQuadra[q.id];
                                 let fillColor = '#f8fafc';
+                                let dateLabel = '';
                                 
                                 if (reg) {
                                     try {
                                         const meta = JSON.parse(reg.observacao);
                                         fillColor = meta.cor || '#3b82f6';
+                                        dateLabel = format(parseISO(reg.data_inicial), 'dd/MM');
                                     } catch(e) {}
                                 }
                                 
@@ -1149,6 +1075,21 @@ export default function Dashboard({ logo }) {
                                         >
                                             {label}
                                         </text>
+                                        {/* RENDERIZAÇÃO NATIVA DO REACT (Resolvido o Erro 310) */}
+                                        {dateLabel && (
+                                            <text 
+                                                x={center.x} 
+                                                y={center.y + 16} 
+                                                textAnchor="middle" 
+                                                fill="#000000" 
+                                                fontSize="10" 
+                                                fontWeight="900" 
+                                                pointerEvents="none"
+                                                style={{ textShadow: '1px 1px 2px rgba(255,255,255,0.9), -1px -1px 2px rgba(255,255,255,0.9)' }}
+                                            >
+                                                {dateLabel}
+                                            </text>
+                                        )}
                                     </g>
                                 );
                             })}
@@ -1343,43 +1284,56 @@ export default function Dashboard({ logo }) {
         .filter-select { padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: white; font-weight: 600; }
         .input-field { padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); }
         
+        /* CSS BLINDADO PARA IMPRESSÃO EM 1 PÁGINA */
         @media print {
-            @page { size: landscape; margin: 10mm; }
-            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            body * { visibility: hidden; }
-            .map-print-area, .map-print-area * { visibility: visible; }
+            @page { size: landscape; margin: 0; }
+            body { margin: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            .premium-card { box-shadow: none !important; border: none !important; padding: 0 !important; background: transparent !important; }
+            
             .map-print-area { 
-                position: absolute; 
-                top: 0; 
-                left: 0; 
-                width: 100vw; 
-                height: 100vh; 
-                padding: 0 !important; 
+                position: fixed !important; 
+                top: 0 !important; 
+                left: 0 !important; 
+                width: 100vw !important; 
+                height: 100vh !important; 
+                padding: 10mm !important; 
                 margin: 0 !important; 
                 border: none !important; 
                 display: flex !important; 
                 flex-direction: column !important; 
                 justify-content: center !important;
                 align-items: center !important;
+                box-sizing: border-box !important;
+                background: white !important;
+                z-index: 99999 !important;
             }
             .print-only-title { 
                 display: block !important; 
                 text-align: center !important; 
-                margin-bottom: 10px !important; 
-                font-size: 24px !important; 
+                margin-bottom: 5mm !important; 
+                font-size: 20px !important; 
                 color: black !important;
-            }
-            .print-legend { 
-                position: relative !important; 
-                justify-content: center !important; 
-                border-top: none !important; 
-                padding: 10px !important; 
-                margin-top: 10px !important; 
+                flex: 0 0 auto;
             }
             #fazenda-map-svg-manual {
-                height: 80vh !important;
+                flex: 1 1 auto;
+                height: auto !important;
                 width: auto !important;
+                max-height: 70vh !important;
+                max-width: 100% !important;
             }
+            .print-legend { 
+                flex: 0 0 auto;
+                position: relative !important; 
+                justify-content: center !important; 
+                border-top: 1px solid #e2e8f0 !important; 
+                padding-top: 5mm !important; 
+                margin-top: 5mm !important; 
+                width: 100% !important;
+            }
+            body * { visibility: hidden; }
+            .map-print-area, .map-print-area * { visibility: visible; }
         }
       `}</style>
         </div>
