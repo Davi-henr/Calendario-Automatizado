@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { registrosService, chuvasService, insumosService, settingsService } from '../lib/services';
+import React, { useState, useEffect } from 'react';
+import { registrosService, chuvasService, insumosService } from '../lib/services';
 import PageHeader from './PageHeader';
 import InteractiveMap from './InteractiveMap';
 import {
     BarChart3,
     Droplets,
     Layers,
-    Calendar as CalendarIcon,
     CloudRain,
     ClipboardList,
     FileSpreadsheet,
@@ -59,12 +58,80 @@ const API_KEY = "29f247c5a06de34f0992ec03ba8f0a12";
 const CIDADE = "Bariri, São Paulo, BR";
 const blocks = ["001", "002", "003", "004", "005A", "005B", "005C", "006A", "006B", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "024", "026", "027", "028", "029", "030", "031", "032", "033", "034"];
 
+// --- COORDENADAS DO MAPA DA FAZENDA ---
+const QUADRAS_DATA = [
+  { id: "021", d: "M281.102 508L226.602 558L164.102 532.5L223.602 485L281.102 508Z" },
+  { id: "026", d: "M289.602 498L282.102 507.5L262.602 501.5L313.602 432.5L323.602 439L293.102 485.5L289.602 498Z" },
+  { id: "027", d: "M272.102 425L222.102 484.5L224.102 486L264.602 500L305.602 441L272.102 425Z" },
+  { id: "007", d: "M494.102 209.5L431.602 259L246.602 195L258.602 131L494.102 209.5Z" },
+  { id: "033", d: "M319.102 421.5L305.602 441L272.602 426L273.602 423L276.102 389.5L272.602 366.5L273.602 360L321.602 396.5L324.602 402L319.102 421.5Z" },
+  { id: "005C", d: "M322.602 396.5L325.602 398.5L333.602 393.5L382.102 326.5L330.102 303L291.102 372L325.602 398.5Z" },
+  { id: "005B", d: "M281.602 278L328.602 302L291.102 368L288.102 369.5L248.102 338.5L281.602 278Z" },
+  { id: "005A", d: "M217.602 246L281.602 278L247.602 338L185.102 288.5L217.602 246Z" },
+  { id: "006A", d: "M306.602 217L281.102 276L218.602 244L245.102 195L306.602 217Z" },
+  { id: "006B", d: "M308.102 217.5L282.102 276L381.102 325.5L397.102 287L428.602 260V258L312.602 218.5L308.102 217.5Z" },
+  { id: "024", d: "M421.602 310L411.602 317L421.602 298V292L433.602 279.5L443.602 276.5L446.102 279.5L430.102 295L421.602 310Z" },
+  { id: "017", d: "M431.602 258L448.102 277L457.602 274.5L475.102 264.5L493.102 268.5L501.602 260L504.602 246.5L516.602 222.5L519.102 205L513.102 196H511.102L431.602 258Z" },
+  { id: "008", d: "M511.602 191L493.602 209.5L260.102 132.5L267.102 101.5L301.102 111L321.602 90.5L407.602 119.5L481.102 151.5L511.602 191Z" },
+  { id: "001", d: "M267.102 86L258.102 130.5L245.102 193.5L165.102 116.5L267.102 86Z" },
+  { id: "018", d: "M298.102 40.5L268.102 80L166.602 41.5L171.602 27.5L165.102 21L169.102 6.5L298.102 40.5Z" },
+  { id: "034", d: "M237.602 76.5L230.602 96.5L248.102 92V79L237.602 76.5Z" },
+  { id: "022", d: "M171.602 27L166.102 40L134.102 27L147.102 1L168.102 7L164.102 20.5L171.602 27Z" },
+  { id: "002", d: "M164.102 117L244.102 195L215.102 244L105.102 149L109.602 128.5L164.102 117Z" },
+  { id: "003", d: "M216.602 244L183.102 288.5L90.6018 212L79.1018 218L66.6018 227.5L62.6018 226L59.1018 220V214.5L62.6018 208.5V203L67.6018 196.5L79.1018 183L105.602 149.5L216.602 244Z" },
+  { id: "004", d: "M85.6018 223.5L92.1018 216.5H96.1018L185.602 291L150.602 341.5L144.602 397H142.102L96.1018 275.5L85.6018 228V223.5Z" },
+  { id: "009", d: "M63.1018 228.5L81.6018 219L96.6018 274L11.6018 329L1.60178 302.5L24.1018 284.5L30.1018 274L63.1018 228.5Z" },
+  { id: "010", d: "M36.1018 377.5L11.6018 330.5L97.1018 278.5L120.102 334L41.1018 385L36.1018 377.5Z" },
+  { id: "011", d: "M51.6018 400.5L41.1018 386.5L118.602 334.5L142.102 396.5L62.1018 439L54.6018 419.5L51.6018 400.5Z" },
+  { id: "012", d: "M139.102 457.5L143.602 396.5L61.1018 438.5L51.1018 447L57.1018 451.5L64.1018 488H61.1018V497V504L139.102 457.5Z" },
+  { id: "013", d: "M62.1018 535.5V504L138.602 457L132.102 519.5L81.1018 566.5L67.1018 560V553.5V545.5L62.1018 535.5Z" },
+  { id: "014", d: "M131.602 520.5L82.6018 567L91.1018 573L95.1018 595L116.102 626L131.602 520.5Z" },
+  { id: "015", d: "M127.602 642.5L116.102 628L132.602 519L160.102 530L171.602 646L160.102 635.5L150.602 631.5H141.602L127.602 642.5Z" },
+  { id: "016", d: "M178.602 646H172.602L157.602 529L225.602 559.5L212.602 572V582.5L194.602 600.5L187.102 622L182.602 630.5L178.602 635.5V646Z" },
+  { id: "020", d: "M185.602 472L159.602 531.5H163.102L223.602 486.5L185.602 472Z" },
+  { id: "019", d: "M158.602 530L134.102 517.5L141.102 454.5L183.602 470L158.602 530Z" },
+  { id: "028", d: "M271.602 424.5L224.602 484.5L174.602 466.5L224.602 407.5L271.602 424.5Z" },
+  { id: "029", d: "M222.602 407.5L173.102 465.5L139.102 453.5L151.102 369.5L222.602 407.5Z" },
+  { id: "032", d: "M274.102 393V426L221.102 408L249.602 339L274.102 357V393Z" },
+  { id: "031", d: "M243.602 353L222.102 407.5L172.102 380L187.602 361L217.602 345.5L243.602 353Z" },
+  { id: "030", d: "M149.602 369.5L171.602 378L186.602 361.5L218.102 346.5L242.602 352.5L248.602 339L186.602 289L149.602 343.5V369.5Z" }
+];
+
+const MANUAL_CENTERS = {
+  "003": { x: 130, y: 220 },
+  "004": { x: 135, y: 310 },
+  "032": { x: 250, y: 385 },
+  "017": { x: 480, y: 235 },
+  "024": { x: 428, y: 295 },
+  "015": { x: 145, y: 580 },
+  "016": { x: 185, y: 590 },
+  "020": { x: 188, y: 500 },
+  "012": { x: 95,  y: 455 },
+  "030": { x: 195, y: 340 },
+  "013": { x: 95,  y: 520 },
+  "034": { x: 239, y: 86 }
+};
+
+const getPathCenter = (id, d) => {
+  if (MANUAL_CENTERS[id]) return MANUAL_CENTERS[id];
+  const points = d.match(/([0-9.]+)/g);
+  if (!points || points.length < 2) return { x: 0, y: 0 };
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (let i = 0; i < points.length; i += 2) {
+    const x = parseFloat(points[i]); const y = parseFloat(points[i + 1]);
+    if (!isNaN(x)) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); }
+    if (!isNaN(y)) { minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+  }
+  return { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2 };
+};
+
+const formatQuadraLabel = (id) => id.replace(/^0+/, '');
+
 export default function Dashboard({ logo }) {
-    const [activeTab, setActiveTab] = useState('chuva');
+    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo, mapa, leprose, relatorioAtividade, mapaManual
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
     const [insumos, setInsumos] = useState([]);
-    const [mapSvg, setMapSvg] = useState('');
     const [forecast, setForecast] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -91,7 +158,6 @@ export default function Dashboard({ logo }) {
     const [showManualForm, setShowManualForm] = useState(false);
     const [showManualRegistros, setShowManualRegistros] = useState(false);
     const [manualFormData, setManualFormData] = useState({ id: null, atividade: 'Adubação', produto: '', data: format(new Date(), 'yyyy-MM-dd'), cor: '#3b82f6', observacao: '' });
-    const mapContainerRef = useRef(null);
 
     // Period Filter for Chuva Chart
     const [rainStartDate, setRainStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
@@ -99,98 +165,28 @@ export default function Dashboard({ logo }) {
 
     // Rain Form State
     const [showRainForm, setShowRainForm] = useState(false);
-    const [rainFormData, setRainFormData] = useState({ data: format(new Date(), 'yyyy-MM-dd'), mm: '', local: 'Sede' });
+    const [rainFormData, setRainFormData] = useState({
+        data: format(new Date(), 'yyyy-MM-dd'),
+        mm: '',
+        local: 'Sede'
+    });
 
     useEffect(() => {
         fetchData();
         fetchWeather();
     }, []);
 
-    // ===== O Effect do Mapa Manual precisa ficar no topo, fora de funções condicionais =====
-    useEffect(() => {
-        if (activeTab === 'mapaManual' && mapSvg && mapContainerRef.current) {
-            const svgEl = mapContainerRef.current.querySelector('svg');
-            if (!svgEl) return;
-
-            svgEl.style.width = '100%';
-            svgEl.style.height = '100%';
-
-            // Recalcula o latest apenas para o mapa visual
-            const currentActRecords = registros.filter(r => r.situacao === 'MapaManual' && r.receita === manualFilters.atividade);
-            const latest = {};
-            currentActRecords.forEach(r => {
-                if (!latest[r.quadra] || new Date(r.data_inicial) > new Date(latest[r.quadra].data_inicial)) {
-                    latest[r.quadra] = r;
-                }
-            });
-
-            const needsProduct = ['Adubação', 'Calcário', 'Gesso'].includes(manualFilters.atividade);
-            if (needsProduct && manualFilters.produto) {
-                Object.keys(latest).forEach(k => {
-                    try {
-                        const meta = JSON.parse(latest[k].observacao);
-                        if (!meta.produto || !meta.produto.toLowerCase().includes(manualFilters.produto.toLowerCase())) {
-                            delete latest[k];
-                        }
-                    } catch(e) {}
-                });
-            }
-
-            // Remove textos antigos
-            svgEl.querySelectorAll('.manual-text').forEach(e => e.remove());
-
-            // Reseta todas as quadras
-            blocks.forEach(b => {
-                const el = svgEl.querySelector(`[id="${b}"]`);
-                if (el) {
-                    el.style.fill = '#f8fafc'; 
-                    el.style.stroke = selectedMapQuadra === b ? '#0f172a' : '#cbd5e1';
-                    el.style.strokeWidth = selectedMapQuadra === b ? '3px' : '1px';
-                    el.style.cursor = 'pointer';
-                    el.onclick = () => setSelectedMapQuadra(b);
-                }
-            });
-
-            // Pinta as ativas
-            Object.values(latest).forEach(reg => {
-                const el = svgEl.querySelector(`[id="${reg.quadra}"]`);
-                if (el) {
-                    try {
-                        const meta = JSON.parse(reg.observacao);
-                        el.style.fill = meta.cor || '#3b82f6';
-
-                        const bbox = el.getBBox();
-                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                        text.setAttribute('x', bbox.x + bbox.width / 2);
-                        text.setAttribute('y', bbox.y + bbox.height / 2 + 16);
-                        text.setAttribute('text-anchor', 'middle');
-                        text.setAttribute('class', 'manual-text');
-                        text.setAttribute('fill', '#ffffff');
-                        text.setAttribute('font-size', '13px');
-                        text.setAttribute('font-weight', '900');
-                        text.setAttribute('pointer-events', 'none');
-                        text.setAttribute('style', 'text-shadow: 1px 1px 2px rgba(0,0,0,0.8);');
-                        text.textContent = format(parseISO(reg.data_inicial), 'dd/MM');
-                        svgEl.appendChild(text);
-                    } catch(e) {}
-                }
-            });
-        }
-    }, [activeTab, mapSvg, registros, manualFilters, selectedMapQuadra]);
-
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [regData, rainData, insData, settings] = await Promise.all([
+            const [regData, rainData, insData] = await Promise.all([
                 registrosService.getAll(),
                 chuvasService.getAll(),
-                insumosService.getAll(),
-                settingsService.get()
+                insumosService.getAll()
             ]);
             setRegistros(regData);
             setChuvas(rainData);
             setInsumos(insData);
-            setMapSvg(settings?.map_svg || '');
         } catch (err) {
             console.error(err);
         } finally {
@@ -211,6 +207,7 @@ export default function Dashboard({ logo }) {
         } catch (err) { console.error(err); }
     };
 
+    // --- Helpers for Summary Logic ---
     const calculateDelay = (reg) => {
         if (reg.situacao !== 'Finalizada' || !reg.data_inicial) return '-';
         const history = normalRegistros
@@ -228,6 +225,8 @@ export default function Dashboard({ logo }) {
         if (diff > 0) return `${diff} dias de atraso`;
         return `${Math.abs(diff)} dias adiantado`;
     };
+
+    // --- Sub-Tab Renderers ---
 
     const handleAddRain = async (e) => {
         e.preventDefault();
@@ -1018,10 +1017,6 @@ export default function Dashboard({ logo }) {
             }
         };
 
-        const handlePrint = () => {
-            window.print();
-        };
-
         const currentTableRecords = currentActRecords.sort((a, b) => a.quadra.localeCompare(b.quadra, undefined, { numeric: true }));
 
         return (
@@ -1030,7 +1025,10 @@ export default function Dashboard({ logo }) {
                     <div style={{ padding: '0.6rem', background: 'rgba(25, 118, 210, 0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center' }}>
                         <Map size={18} color="var(--primary)" />
                     </div>
-                    <select value={manualFilters.atividade} onChange={(e) => setManualFilters({ ...manualFilters, atividade: e.target.value })} className="filter-select">
+                    <select value={manualFilters.atividade} onChange={(e) => {
+                        setManualFilters({ atividade: e.target.value, produto: '' });
+                        setSelectedMapQuadra(null);
+                    }} className="filter-select">
                         {manualActivities.map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
                     {needsProduct && (
@@ -1045,13 +1043,73 @@ export default function Dashboard({ logo }) {
                     )}
                 </div>
 
-                {/* Área de Impressão (Mapa + Legenda) */}
+                {/* Área de Impressão (Mapa SVG NATIVO + Legenda) */}
                 <div className="map-print-area" style={{ width: '100%', backgroundColor: '#fff', borderRadius: '12px', border: '1px solid var(--border)', padding: '1rem', display: 'flex', flexDirection: 'column' }}>
                     <h2 className="print-only-title" style={{ display: 'none', textAlign: 'center', marginBottom: '2rem', color: '#000', fontFamily: 'Arial, sans-serif' }}>
                         Mapa de Operação: {manualFilters.atividade} {manualFilters.produto && ` - ${manualFilters.produto}`}
                     </h2>
                     
-                    <div ref={mapContainerRef} dangerouslySetInnerHTML={{ __html: mapSvg }} style={{ flex: 1, minHeight: '600px' }} />
+                    {/* SVG Renderizado de forma nativa e segura no React */}
+                    <div style={{ flex: 1, minHeight: '600px', display: 'flex', justifyContent: 'center' }}>
+                        <svg id="fazenda-map-svg-manual" viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '600px' }}>
+                            {QUADRAS_DATA.map((q) => {
+                                const center = getPathCenter(q.id, q.d);
+                                const label = formatQuadraLabel(q.id);
+                                const reg = latestByQuadra[q.id];
+                                let fillColor = '#f8fafc';
+                                let dateLabel = '';
+                                
+                                if (reg) {
+                                    try {
+                                        const meta = JSON.parse(reg.observacao);
+                                        fillColor = meta.cor || '#3b82f6';
+                                        dateLabel = format(parseISO(reg.data_inicial), 'dd/MM');
+                                    } catch(e) {}
+                                }
+                                
+                                const isSelected = selectedMapQuadra === q.id;
+
+                                return (
+                                    <g key={q.id}>
+                                        <path
+                                            d={q.d}
+                                            fill={fillColor}
+                                            stroke={isSelected ? "#0f172a" : "#cbd5e1"}
+                                            strokeWidth={isSelected ? "3" : "1"}
+                                            onClick={() => setSelectedMapQuadra(q.id)}
+                                            style={{ cursor: 'pointer', transition: 'all 0.2s' }}
+                                        />
+                                        <text 
+                                            x={center.x} 
+                                            y={center.y + 4} 
+                                            textAnchor="middle" 
+                                            fill="#334155" 
+                                            fontSize="11" 
+                                            fontWeight="800" 
+                                            pointerEvents="none"
+                                            style={{ opacity: 0.8 }}
+                                        >
+                                            {label}
+                                        </text>
+                                        {dateLabel && (
+                                            <text 
+                                                x={center.x} 
+                                                y={center.y + 20} 
+                                                textAnchor="middle" 
+                                                fill="#ffffff" 
+                                                fontSize="13" 
+                                                fontWeight="900" 
+                                                pointerEvents="none"
+                                                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
+                                            >
+                                                {dateLabel}
+                                            </text>
+                                        )}
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                    </div>
                     
                     <div className="print-legend" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '2rem', padding: '1.5rem', borderTop: '2px solid #f1f5f9' }}>
                         <span style={{ fontWeight: '900', color: '#334155' }}>Legenda:</span>
@@ -1088,7 +1146,7 @@ export default function Dashboard({ logo }) {
                                 <ClipboardList size={18} /> Ver Registros
                             </div>
                         </button>
-                        <button onClick={handlePrint} className="btn btn-secondary">
+                        <button onClick={() => window.print()} className="btn btn-secondary">
                             <div className="btn-inner">
                                 <Printer size={18} /> Imprimir Mapa
                             </div>
