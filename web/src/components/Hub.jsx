@@ -5,14 +5,16 @@ import { BarChart2, Shield, Package, X, Eye, EyeOff, LogIn, Sprout, ClipboardLis
 
 const USER_MAP = {
     djair: 'djair@fazendavale.com',
+    celso: 'celso@fazendavale.com',
     davi: 'davi@fazendavale.com',
+    jean: 'jean@fazendavale.com',
     
 };
 
 // Mantivemos a lista, mas a trava agora é inteligente para e-mails novos
 const MODULE_ACCESS = {
-    calendar: ['djair', 'davi'],
-    admin: ['davi'],
+    calendar: ['celso', 'djair', 'davi'],
+    admin: ['jean', 'davi'],
     inventory: ['davi'],
 };
 
