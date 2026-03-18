@@ -8,8 +8,10 @@ const USER_MAP = {
     djair: 'djair@fazendavale.com',
     jean: 'jean@fazendavale.com',
     davi: 'davi@fazendavale.com',
+    
 };
 
+// Mantivemos a lista, mas a trava agora é inteligente para e-mails novos
 const MODULE_ACCESS = {
     calendar: ['celso', 'djair', 'davi'],
     admin: ['jean', 'davi'],
@@ -73,15 +75,32 @@ export default function Hub({ onNavigate, logo }) {
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true); setError('');
-        const u = username.trim().toLowerCase();
-        if (!USER_MAP[u]) { setError('Usuário não encontrado.'); setLoading(false); return; }
-        if (!MODULE_ACCESS[selectedModule].includes(u)) {
-            setError(`Usuário "${u}" não tem acesso a esta área.`); setLoading(false); return;
+        
+        const inputStr = username.trim().toLowerCase();
+        
+        // 1. Identifica se é um usuário antigo (celso) ou um e-mail novo direto do Supabase
+        const loginEmail = USER_MAP[inputStr] || inputStr;
+
+        // 2. Se for um usuário da lista antiga, verifica o acesso do módulo. Se for e-mail novo, deixa passar pra testar a senha.
+        if (USER_MAP[inputStr] && !MODULE_ACCESS[selectedModule].includes(inputStr)) {
+            setError(`Usuário "${inputStr}" não tem acesso a esta área.`); 
+            setLoading(false); 
+            return;
         }
-        const { error: authError } = await supabase.auth.signInWithPassword({ email: USER_MAP[u], password });
-        if (authError) { setError('Usuário ou senha incorretos.'); setLoading(false); return; }
+
+        // 3. Validação oficial de segurança com o Supabase
+        const { error: authError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
+        
+        if (authError) { 
+            setError('E-mail/Usuário ou senha incorretos.'); 
+            setLoading(false); 
+            return; 
+        }
+
+        // 4. Liberado!
         onNavigate(selectedModule);
-        closeModal(); setLoading(false);
+        closeModal(); 
+        setLoading(false);
     };
 
     const mod = MODULES.find(m => m.key === selectedModule);
@@ -256,12 +275,12 @@ export default function Hub({ onNavigate, logo }) {
                         {/* Form */}
                         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
                             <div>
-                                <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'rgba(255,255,255,0.4)', marginBottom: '0.4rem', display: 'block', letterSpacing: '1px' }}>USUÁRIO</label>
+                                <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block', letterSpacing: '1px' }}>E-MAIL OU USUÁRIO</label>
                                 <input
                                     type="text"
                                     value={username}
                                     onChange={e => setUsername(e.target.value)}
-                                    placeholder="Digite seu usuário."
+                                    placeholder="Ex: celso ou seu@email.com"
                                     autoFocus required
                                     style={{ width: '100%', boxSizing: 'border-box', padding: '0.85rem 1.1rem', borderRadius: '14px', border: '1.5px solid var(--border)', background: '#f8fafc', color: 'var(--text)', fontSize: '1rem', outline: 'none', fontFamily: 'inherit', fontWeight: '600' }}
                                 />
