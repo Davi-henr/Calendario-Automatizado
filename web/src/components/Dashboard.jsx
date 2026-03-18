@@ -60,7 +60,7 @@ const CIDADE = "Bariri, São Paulo, BR";
 const blocks = ["001", "002", "003", "004", "005A", "005B", "005C", "006A", "006B", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "024", "026", "027", "028", "029", "030", "031", "032", "033", "034"];
 
 export default function Dashboard({ logo }) {
-    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo, mapa, leprose, relatorioAtividade, mapaManual
+    const [activeTab, setActiveTab] = useState('chuva');
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
     const [insumos, setInsumos] = useState([]);
@@ -106,7 +106,7 @@ export default function Dashboard({ logo }) {
         fetchWeather();
     }, []);
 
-    // ===== CORREÇÃO AQUI: O Effect do Mapa precisa ficar no topo, e não dentro da função da aba! =====
+    // ===== O Effect do Mapa Manual precisa ficar no topo, fora de funções condicionais =====
     useEffect(() => {
         if (activeTab === 'mapaManual' && mapSvg && mapContainerRef.current) {
             const svgEl = mapContainerRef.current.querySelector('svg');
@@ -228,8 +228,6 @@ export default function Dashboard({ logo }) {
         if (diff > 0) return `${diff} dias de atraso`;
         return `${Math.abs(diff)} dias adiantado`;
     };
-
-    // --- Sub-Tab Renderers ---
 
     const handleAddRain = async (e) => {
         e.preventDefault();
@@ -486,7 +484,6 @@ export default function Dashboard({ logo }) {
             activityTotals[r.receita] = (activityTotals[r.receita] || 0) + (parseInt(r.quantidade_bombas) || 0);
         });
 
-        // Puxa as finalizadas e depois tira APENAS a mais atual de cada quadra/atividade
         const finalizadasRaw = normalRegistros.filter(r =>
             r.situacao === 'Finalizada' &&
             (summaryFilters.quadra === 'Todos' || r.quadra === summaryFilters.quadra) &&
@@ -929,10 +926,8 @@ export default function Dashboard({ logo }) {
         const manualActivities = ['Adubação', 'Roçadeira', 'Desbrota', 'Lenha', 'Calcário', 'Gesso'];
         const needsProduct = ['Adubação', 'Calcário', 'Gesso'].includes(manualFilters.atividade);
 
-        // 1. Pega apenas os registros da atividade selecionada
         const currentActRecords = manualRegistros.filter(r => r.receita === manualFilters.atividade);
         
-        // 2. Extrai apenas o último de cada quadra
         const latestByQuadra = {};
         currentActRecords.forEach(r => {
             if (!latestByQuadra[r.quadra] || new Date(r.data_inicial) > new Date(latestByQuadra[r.quadra].data_inicial)) {
@@ -940,7 +935,6 @@ export default function Dashboard({ logo }) {
             }
         });
 
-        // 3. Aplica o filtro de Produto (se houver e for necessário)
         if (needsProduct && manualFilters.produto) {
             Object.keys(latestByQuadra).forEach(k => {
                 try {
@@ -952,7 +946,6 @@ export default function Dashboard({ logo }) {
             });
         }
 
-        // 4. Monta a Legenda de Cores
         const legendItems = {};
         Object.values(latestByQuadra).forEach(r => {
             try {
@@ -1029,7 +1022,6 @@ export default function Dashboard({ logo }) {
             window.print();
         };
 
-        // Registros para a tabela (Modal)
         const currentTableRecords = currentActRecords.sort((a, b) => a.quadra.localeCompare(b.quadra, undefined, { numeric: true }));
 
         return (
