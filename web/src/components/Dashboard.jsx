@@ -25,7 +25,8 @@ import {
     Search,
     X,
     Bug,
-    AlertTriangle
+    AlertTriangle,
+    ListFilter
 } from 'lucide-react';
 import {
     Chart as ChartJS,
@@ -65,7 +66,7 @@ const API_KEY = "29f247c5a06de34f0992ec03ba8f0a12";
 const CIDADE = "Bariri, São Paulo, BR";
 
 export default function Dashboard({ logo }) {
-    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo, mapa, leprose
+    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo, mapa, leprose, relatorioAtividade
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
     const [insumos, setInsumos] = useState([]);
@@ -80,6 +81,10 @@ export default function Dashboard({ logo }) {
     const [summaryFilters, setSummaryFilters] = useState({ quadra: 'Todos', receita: 'Todos' });
     const [summaryStartDate, setSummaryStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [summaryEndDate, setSummaryEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+
+    // Filters for Relatório por Atividade
+    const [actReportActivity, setActReportActivity] = useState('Todos');
+    const [actReportClass, setActReportClass] = useState('Todos');
 
     // Period Filter for Chuva Chart
     const [rainStartDate, setRainStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
@@ -132,12 +137,10 @@ export default function Dashboard({ logo }) {
     // --- Helpers for Summary Logic ---
     const calculateDelay = (reg) => {
         if (reg.situacao !== 'Finalizada' || !reg.data_inicial) return '-';
-        // Find previous record for same block/recipe
         const history = registros
             .filter(r => r.quadra === reg.quadra && r.receita === reg.receita && r.id !== reg.id)
             .sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial));
 
-        // Find the closest one BEFORE this one's data_inicial
         const prev = history.find(r => new Date(r.data_inicial) < new Date(reg.data_inicial));
         if (!prev || !prev.proxima_pulverizacao) return 'Primeira';
 
@@ -167,7 +170,6 @@ export default function Dashboard({ logo }) {
             isWithinInterval(parseISO(c.data), { start: parseISO(rainStartDate), end: parseISO(rainEndDate) })
         ).sort((a, b) => new Date(a.data) - new Date(b.data));
 
-        // Aggregate by month
         const monthlyMap = {};
         filteredChuvas.forEach(c => {
             const key = format(parseISO(c.data), 'MM/yyyy');
@@ -193,7 +195,6 @@ export default function Dashboard({ logo }) {
                     ))}
                 </div>
 
-                {/* Rain Entry Button */}
                 <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
                     <button onClick={() => setShowRainForm(!showRainForm)} className="btn btn-primary">
                         <div className="btn-inner">
@@ -227,7 +228,6 @@ export default function Dashboard({ logo }) {
                     </div>
                 )}
 
-                {/* Chart and Table */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
                     <div className="premium-card glass" style={{ border: '1px solid rgba(255,255,255,0.4)', boxShadow: 'var(--shadow)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
@@ -274,20 +274,10 @@ export default function Dashboard({ logo }) {
                                     options={{
                                         responsive: true,
                                         maintainAspectRatio: false,
-                                        plugins: {
-                                            legend: { display: false },
-                                            tooltip: {
-                                                backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                                                titleFont: { family: 'var(--font-main)', size: 14, weight: 'bold' },
-                                                bodyFont: { family: 'var(--font-main)', size: 13 },
-                                                padding: 12,
-                                                cornerRadius: 12,
-                                                displayColors: false
-                                            }
-                                        },
+                                        plugins: { legend: { display: false } },
                                         scales: {
-                                            y: { grid: { display: true, color: 'rgba(0,0,0,0.03)' }, ticks: { font: { family: 'var(--font-main)', weight: '600' } } },
-                                            x: { grid: { display: false }, ticks: { font: { family: 'var(--font-main)', weight: '600' } } }
+                                            y: { grid: { display: true, color: 'rgba(0,0,0,0.03)' } },
+                                            x: { grid: { display: false } }
                                         }
                                     }}
                                 />
@@ -321,15 +311,8 @@ export default function Dashboard({ logo }) {
                                             <td style={{ padding: '0.75rem' }}>{c.local}</td>
                                             <td style={{ padding: '0.75rem', fontWeight: 'bold', color: '#1976d2' }}>{c.mm} mm</td>
                                             <td style={{ padding: '0.75rem' }}>
-                                                <button
-                                                    onClick={async () => { if (confirm('Excluir?')) { await chuvasService.delete(c.id); fetchData(); } }}
-                                                    className="btn btn-mini"
-                                                    style={{ color: '#ef5350' }}
-                                                    title="Excluir"
-                                                >
-                                                    <div className="btn-inner" style={{ padding: '0.4rem' }}>
-                                                        <Trash2 size={16} />
-                                                    </div>
+                                                <button onClick={async () => { if (confirm('Excluir?')) { await chuvasService.delete(c.id); fetchData(); } }} className="btn btn-mini" style={{ color: '#ef5350' }} title="Excluir">
+                                                    <div className="btn-inner" style={{ padding: '0.4rem' }}><Trash2 size={16} /></div>
                                                 </button>
                                             </td>
                                         </tr>
@@ -344,45 +327,18 @@ export default function Dashboard({ logo }) {
     };
 
     const renderPlanejamento = () => {
-        // Week Logic: Mon-Fri + previous Sat/Sun
-        const today = new Date();
-        const mon = startOfWeek(today, { weekStartsOn: 1 });
-        const fri = addDays(mon, 4);
-        const prevSat = subDays(mon, 2);
-
-        // Show PROXIMA PULVERIZACAO from Finalizada records that HAVE NO SUCCESSOR
-        let upcoming = registros.filter(r => {
-            if (r.situacao !== 'Finalizada' || !r.proxima_pulverizacao) return false;
-
-            // Successor check: any record that started AFTER this one's data_inicial
-            const hasSuccessor = registros.some(succ =>
-                succ.quadra === r.quadra &&
-                succ.receita === r.receita &&
-                new Date(succ.data_inicial) > new Date(r.data_inicial)
-            );
-            return !hasSuccessor;
-        });
-
-        if (showWeekly) {
-            upcoming = upcoming.filter(r => {
-                const d = parseISO(r.proxima_pulverizacao);
-                return isWithinInterval(d, { start: prevSat, end: fri });
-            });
-        }
-
-        if (filterActivity !== 'Todos') {
-            upcoming = upcoming.filter(r => r.receita === filterActivity);
-        }
-
         const recipes = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
-
-        const ongoing = registros.filter(r => r.situacao === 'Iniciada').sort((a, b) => new Date(a.data_inicial) - new Date(b.data_inicial));
+        
+        let ongoing = registros.filter(r => r.situacao === 'Iniciada').sort((a, b) => new Date(a.data_inicial) - new Date(b.data_inicial));
+        
+        if (filterActivity !== 'Todos') {
+            ongoing = ongoing.filter(r => r.receita === filterActivity);
+        }
 
         const exportPDF = () => {
             const doc = new jsPDF();
             doc.text('Planejamento de Pulverização', 14, 15);
 
-            // Ongoing section
             if (ongoing.length > 0) {
                 doc.setFontSize(14);
                 doc.text('Em Andamento', 14, 25);
@@ -392,25 +348,6 @@ export default function Dashboard({ logo }) {
                     startY: 30
                 });
             }
-
-            const nextY = ongoing.length > 0 ? doc.lastAutoTable.finalY + 15 : 25;
-            doc.setFontSize(14);
-            doc.text('Próximas Pulverizações', 14, nextY);
-
-            const data = upcoming.map(r => [
-                format(parseISO(r.proxima_pulverizacao), 'dd/MM/yyyy'),
-                r.quadra,
-                r.receita,
-                r.observacao || '',
-                r.quantidade_bombas || '',
-                r.pes_tratados || '',
-                `${differenceInDays(parseISO(r.proxima_pulverizacao), new Date())} d`
-            ]);
-            doc.autoTable({
-                head: [['Vencimento', 'Quadra', 'Atividade', 'Obs', 'Bombas', 'Pés', 'Restante']],
-                body: data,
-                startY: nextY + 5
-            });
             doc.save('planejamento.pdf');
         };
 
@@ -422,15 +359,6 @@ export default function Dashboard({ logo }) {
                             <option value="Todos">Todas Atividades</option>
                             {recipes.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
-                        <button
-                            onClick={() => setShowWeekly(!showWeekly)}
-                            className="btn btn-outline"
-                            style={{ height: '38px', minWidth: '160px' }}
-                        >
-                            <div className="btn-inner" style={{ background: showWeekly ? 'var(--secondary)' : 'white', color: showWeekly ? 'white' : 'black', padding: '0 1rem' }}>
-                                <Clock size={16} /> Nesta Semana
-                            </div>
-                        </button>
                     </div>
                     <button onClick={exportPDF} className="btn btn-secondary" style={{ marginBottom: '1.5rem' }}>
                         <div className="btn-inner">
@@ -439,8 +367,7 @@ export default function Dashboard({ logo }) {
                     </button>
                 </div>
 
-                {/* --- Ongoing Table --- */}
-                {ongoing.length > 0 && (
+                {ongoing.length > 0 ? (
                     <div style={{ marginBottom: '3rem' }}>
                         <h4 style={{ marginBottom: '1.2rem', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                             <Droplets size={20} /> Pulverizações em Andamento
@@ -470,47 +397,11 @@ export default function Dashboard({ logo }) {
                             </table>
                         </div>
                     </div>
+                ) : (
+                    <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        Nenhuma pulverização em andamento encontrada.
+                    </p>
                 )}
-
-                <h4 style={{ marginBottom: '1.2rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <CalendarIcon size={20} /> Próximas Pulverizações
-                </h4>
-                <div className="table-responsive">
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left' }}>
-                                <th style={{ padding: '0.75rem' }}>Próxima</th>
-                                <th style={{ padding: '0.75rem' }}>Quadra</th>
-                                <th style={{ padding: '0.75rem' }}>Atividade</th>
-                                <th style={{ padding: '0.75rem' }}>Obs</th>
-                                <th style={{ padding: '0.75rem' }}>Bombas</th>
-                                <th style={{ padding: '0.75rem' }}>Dias Rest.</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {upcoming.map(r => (
-                                <tr key={r.id} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '0.75rem' }}>{format(parseISO(r.proxima_pulverizacao), 'dd/MM/yyyy')}</td>
-                                    <td style={{ padding: '0.75rem', fontWeight: 'bold' }}>{r.quadra}</td>
-                                    <td style={{ padding: '0.75rem' }}>{r.receita}</td>
-                                    <td style={{ padding: '0.75rem', fontSize: '0.8rem', maxWidth: '200px' }}>{r.observacao}</td>
-                                    <td style={{ padding: '0.75rem' }}>{r.quantidade_bombas}</td>
-                                    <td style={{ padding: '0.75rem' }}>
-                                        <span style={{
-                                            padding: '0.2rem 0.5rem',
-                                            borderRadius: '4px',
-                                            backgroundColor: differenceInDays(parseISO(r.proxima_pulverizacao), new Date()) < 0 ? '#ffebee' : '#e8f5e9',
-                                            color: differenceInDays(parseISO(r.proxima_pulverizacao), new Date()) < 0 ? '#c62828' : '#2e7d32',
-                                            fontWeight: 'bold'
-                                        }}>
-                                            {differenceInDays(parseISO(r.proxima_pulverizacao), new Date())} d
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
             </div>
         );
     };
@@ -528,18 +419,11 @@ export default function Dashboard({ logo }) {
             r.data_final && isWithinInterval(parseISO(r.data_final), { start: parseISO(summaryStartDate), end: parseISO(summaryEndDate) })
         ).sort((a, b) => new Date(b.data_final) - new Date(a.data_final));
 
-        const concluídasHist = registros.filter(r =>
-            (summaryFilters.quadra === 'Todos' || r.quadra === summaryFilters.quadra) &&
-            (summaryFilters.receita === 'Todos' || r.receita === summaryFilters.receita) &&
-            isWithinInterval(parseISO(r.data_inicial), { start: parseISO(summaryStartDate), end: parseISO(summaryEndDate) })
-        ).sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial));
-
         const blocks = ["001", "002", "003", "004", "005A", "005B", "005C", "006A", "006B", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "024", "026", "027", "028", "029", "030", "031", "032", "033", "034"];
         const recipes = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                {/* Total Bombas Cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                     {Object.entries(activityTotals).map(([act, total]) => (
                         <div key={act} className="premium-card" style={{ borderLeft: '4px solid var(--secondary)' }}>
@@ -612,41 +496,13 @@ export default function Dashboard({ logo }) {
                         </table>
                     </div>
                 </div>
-
-                <div className="premium-card">
-                    <h4 style={{ marginBottom: '1.5rem' }}>Todas Pulverizações</h4>
-                    <div className="table-responsive">
-                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                                    <th style={{ padding: '0.75rem' }}>Data</th>
-                                    <th style={{ padding: '0.75rem' }}>Quadra</th>
-                                    <th style={{ padding: '0.75rem' }}>Atividade</th>
-                                    <th style={{ padding: '0.75rem' }}>Bombas</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {concluídasHist.slice(0, 10).map(r => (
-                                    <tr key={r.id} style={{ borderBottom: '1px solid #eee' }}>
-                                        <td style={{ padding: '0.75rem' }}>{format(parseISO(r.data_inicial), 'dd/MM/yyyy')}</td>
-                                        <td style={{ padding: '0.75rem' }}>{r.quadra}</td>
-                                        <td style={{ padding: '0.75rem' }}>{r.receita}</td>
-                                        <td style={{ padding: '0.75rem' }}>{r.quantidade_bombas}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
         );
     };
 
     const renderLeprose = () => {
-        // 1. Filtrar apenas registros da atividade 'Leprose' que tenham data_inicial
         const leproseRegs = registros.filter(r => r.receita?.toLowerCase().includes('leprose') && r.data_inicial);
 
-        // 2. Pegar apenas a aplicação mais recente de cada quadra
         const latestByQuadra = {};
         leproseRegs.forEach(r => {
             if (!latestByQuadra[r.quadra] || new Date(r.data_inicial) > new Date(latestByQuadra[r.quadra].data_inicial)) {
@@ -654,28 +510,19 @@ export default function Dashboard({ logo }) {
             }
         });
 
-        // Ordenar os dados por quadra
         const tableData = Object.values(latestByQuadra).sort((a, b) => a.quadra.localeCompare(b.quadra, undefined, { numeric: true }));
 
-        // Helper: Extrair o Acaricida e a Dosagem da Observação cruzando com o banco de Insumos
         const getAcaricidaInfo = (observacao) => {
             if (!observacao) return { nome: '-', dosagem: '-' };
-
-            // Puxa todos os insumos cadastrados que têm a palavra "Acaricida" na classificação
             const acaricidas = insumos.filter(i => i.classificacao?.toLowerCase().includes('acaricida'));
-            
             let foundNome = '-';
             let foundDosagem = '-';
-
-            // Varre a observação procurando se o nome de algum acaricida aparece nela
             for (const aca of acaricidas) {
-                // Regex para encontrar o nome do acaricida e tentar pegar o valor dentro dos parenteses logo após ele
-                const regex = new RegExp(`${aca.insumo}\\s*(?:\\(([^)]+)\\))?`, 'i');
+                const regex = new RegExp(`${aca.insumo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:\\(([^)]+)\\))?`, 'i');
                 const match = observacao.match(regex);
-                
                 if (match) {
                     foundNome = aca.insumo;
-                    foundDosagem = match[1] || '-'; // match[1] é o valor capturado dentro dos parenteses
+                    foundDosagem = match[1] || '-';
                     break;
                 }
             }
@@ -705,7 +552,7 @@ export default function Dashboard({ logo }) {
                 body: dataToExport,
                 startY: 30,
                 theme: 'grid',
-                headStyles: { fillColor: [239, 68, 68] }, // Cor avermelhada
+                headStyles: { fillColor: [239, 68, 68] },
                 styles: { fontSize: 9, cellPadding: 3 }
             });
             doc.save(`relatorio-leprose-${format(new Date(), 'dd-MM-yyyy')}.pdf`);
@@ -799,6 +646,180 @@ export default function Dashboard({ logo }) {
         );
     };
 
+    const renderRelatorioAtividade = () => {
+        const recipes = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
+        const classOptions = ['Todos', 'Inseticida', 'Acaricida', 'Fungicida', 'Bactericida', 'Fertilizante Foliar', 'Redutor de PH'];
+
+        // Função para cruzar observação com insumos filtrados
+        const getInsumosFiltrados = (observacao, filterClass) => {
+            if (!observacao) return [];
+            let found = [];
+            insumos.forEach(ins => {
+                if (filterClass !== 'Todos' && (!ins.classificacao || !ins.classificacao.toLowerCase().includes(filterClass.toLowerCase()))) {
+                    return; // Pula insumos que não são da classe selecionada
+                }
+                const safeInsumo = ins.insumo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`${safeInsumo}\\s*(?:\\(([^)]+)\\))?`, 'i');
+                const match = observacao.match(regex);
+                if (match) {
+                    found.push(`${ins.insumo} ${match[1] ? `(${match[1]})` : ''}`.trim());
+                }
+            });
+            return found;
+        };
+
+        // Filtra por Atividade primeiro
+        let reportData = registros.filter(r => r.data_inicial);
+        if (actReportActivity !== 'Todos') {
+            reportData = reportData.filter(r => r.receita === actReportActivity);
+        }
+
+        // Aplica o filtro de Insumos e formata a visualização
+        const tableData = [];
+        reportData.forEach(r => {
+            const extracted = getInsumosFiltrados(r.observacao, actReportClass);
+            
+            // Se filtrou por uma classificação específica e não achou nada na observação, ignora a linha
+            if (actReportClass !== 'Todos' && extracted.length === 0) return;
+
+            const insumoUtilizado = extracted.length > 0 ? extracted.join(', ') : (actReportClass === 'Todos' ? (r.observacao || '-') : '-');
+
+            tableData.push({ ...r, insumoUtilizado });
+        });
+
+        tableData.sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial));
+
+        const exportPDFAtividade = () => {
+            const doc = new jsPDF();
+            doc.text('Relatório por Atividade e Insumos', 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 22);
+            doc.text(`Filtros - Atividade: ${actReportActivity} | Classe: ${actReportClass}`, 14, 28);
+
+            const dataToExport = tableData.map(r => {
+                const dias = r.proxima_pulverizacao ? differenceInDays(parseISO(r.proxima_pulverizacao), new Date()) : '-';
+                return [
+                    format(parseISO(r.data_inicial), 'dd/MM/yyyy'),
+                    r.quadra,
+                    r.proxima_pulverizacao ? format(parseISO(r.proxima_pulverizacao), 'dd/MM/yyyy') : '-',
+                    r.receita,
+                    r.insumoUtilizado,
+                    dias !== '-' ? `${dias} d` : '-'
+                ];
+            });
+
+            doc.autoTable({
+                head: [['Data Aplicação', 'Quadra', 'Próx. Pulverização', 'Atividade', 'Insumos', 'Restante']],
+                body: dataToExport,
+                startY: 35,
+                theme: 'grid',
+                headStyles: { fillColor: [25, 118, 210] }, // primary blue
+                styles: { fontSize: 8, cellPadding: 3 }
+            });
+            doc.save(`relatorio-atividade-${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+        };
+
+        return (
+            <div className="premium-card glass" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', borderTop: '4px solid var(--primary)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text)', margin: 0 }}>
+                        <div style={{ padding: '0.5rem', background: 'rgba(25, 118, 210, 0.1)', borderRadius: '10px' }}>
+                            <ListFilter size={20} color="var(--primary)" />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: '800' }}>Relatório Cruzado de Atividades</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Filtro de Insumos por Classificação Química</span>
+                        </div>
+                    </h4>
+                    <button onClick={exportPDFAtividade} className="btn btn-secondary">
+                        <div className="btn-inner">
+                            <FileDown size={18} /> Exportar Relatório
+                        </div>
+                    </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flex: 1, minWidth: '300px' }}>
+                        <div style={{ padding: '0.6rem', background: 'rgba(25, 118, 210, 0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center' }}>
+                            <Search size={18} color="var(--primary)" />
+                        </div>
+                        <select value={actReportActivity} onChange={(e) => setActReportActivity(e.target.value)} className="filter-select">
+                            <option value="Todos">Todas Atividades</option>
+                            {recipes.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <select value={actReportClass} onChange={(e) => setActReportClass(e.target.value)} className="filter-select">
+                            {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="table-responsive">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+                        <thead style={{ backgroundColor: '#fafbfc' }}>
+                            <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Data Aplicação</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Quadra</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Próx. Pulverização</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Atividade</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Insumo Utilizado</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Dias Rest.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tableData.length === 0 ? (
+                                <tr>
+                                    <td colSpan="6" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                                        <ListFilter size={48} style={{ opacity: 0.1, marginBottom: '1rem', display: 'block', margin: '0 auto' }} />
+                                        Nenhum registro encontrado para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            ) : (
+                                tableData.map(r => {
+                                    const dias = r.proxima_pulverizacao ? differenceInDays(parseISO(r.proxima_pulverizacao), new Date()) : null;
+                                    const isAtrasado = dias !== null && dias < 0;
+
+                                    return (
+                                        <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'all 0.2s', backgroundColor: isAtrasado ? 'rgba(239, 68, 68, 0.02)' : 'transparent' }}>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '700', color: 'var(--text)' }}>
+                                                {format(parseISO(r.data_inicial), 'dd/MM/yyyy')}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '900', fontSize: '1.1rem', color: 'var(--text)' }}>
+                                                {r.quadra}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                                                {r.proxima_pulverizacao ? format(parseISO(r.proxima_pulverizacao), 'dd/MM/yyyy') : '-'}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', color: 'var(--text)', fontWeight: '800' }}>
+                                                {r.receita}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', color: 'var(--primary)', fontWeight: '600', maxWidth: '250px' }}>
+                                                {r.insumoUtilizado}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem' }}>
+                                                {dias !== null ? (
+                                                    <span style={{
+                                                        padding: '0.4rem 0.8rem',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: isAtrasado ? '#fee2e2' : '#e8f5e9',
+                                                        color: isAtrasado ? '#ef4444' : '#2e7d32',
+                                                        fontWeight: '900',
+                                                        fontSize: '0.85rem'
+                                                    }}>
+                                                        {dias} dias
+                                                    </span>
+                                                ) : '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -813,6 +834,7 @@ export default function Dashboard({ logo }) {
                     { id: 'resumo', label: 'Resumo', icon: <FileSpreadsheet size={18} /> },
                     { id: 'mapa', label: 'Mapa Interativo', icon: <Layers size={18} /> },
                     { id: 'leprose', label: 'Relatório Leprose', icon: <Bug size={18} /> },
+                    { id: 'relatorioAtividade', label: 'Relatório por Atividade', icon: <ListFilter size={18} /> },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -858,6 +880,7 @@ export default function Dashboard({ logo }) {
                     {activeTab === 'resumo' && renderResumo()}
                     {activeTab === 'mapa' && <InteractiveMap registros={registros} chuvas={chuvas} />}
                     {activeTab === 'leprose' && renderLeprose()}
+                    {activeTab === 'relatorioAtividade' && renderRelatorioAtividade()}
                 </>
             )}
 
