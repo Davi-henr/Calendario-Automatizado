@@ -4,17 +4,15 @@ import { settingsService } from '../lib/services';
 import { BarChart2, Shield, Package, X, Eye, EyeOff, LogIn, Sprout, ClipboardList } from 'lucide-react';
 
 const USER_MAP = {
-    celso: 'celso@fazendavale.com',
     djair: 'djair@fazendavale.com',
-    jean: 'jean@fazendavale.com',
     davi: 'davi@fazendavale.com',
     
 };
 
 // Mantivemos a lista, mas a trava agora é inteligente para e-mails novos
 const MODULE_ACCESS = {
-    calendar: ['celso', 'djair', 'davi'],
-    admin: ['jean', 'davi'],
+    calendar: ['djair', 'davi'],
+    admin: ['davi'],
     inventory: ['davi'],
 };
 
