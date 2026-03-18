@@ -696,7 +696,7 @@ export default function Dashboard({ logo }) {
                                                     </span>
                                                     {passouDoLimite && (
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#ef4444', fontSize: '0.75rem', fontWeight: '800', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>
-                                                            <AlertTriangle size={14} /> Passou de 160 dias
+                                                            <AlertTriangle size={14} /> Opa!Passou 6 meses
                                                         </div>
                                                     )}
                                                 </div>
