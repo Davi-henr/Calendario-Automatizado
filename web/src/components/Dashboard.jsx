@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { registrosService, chuvasService } from '../lib/services';
+import { registrosService, chuvasService, insumosService } from '../lib/services';
 import PageHeader from './PageHeader';
 import InteractiveMap from './InteractiveMap';
 import {
@@ -23,7 +23,9 @@ import {
     CheckCircle,
     FileDown,
     Search,
-    X
+    X,
+    Bug,
+    AlertTriangle
 } from 'lucide-react';
 import {
     Chart as ChartJS,
@@ -63,9 +65,10 @@ const API_KEY = "29f247c5a06de34f0992ec03ba8f0a12";
 const CIDADE = "Bariri, São Paulo, BR";
 
 export default function Dashboard({ logo }) {
-    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo, mapa
+    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo, mapa, leprose
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
+    const [insumos, setInsumos] = useState([]);
     const [forecast, setForecast] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -98,12 +101,14 @@ export default function Dashboard({ logo }) {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [regData, rainData] = await Promise.all([
+            const [regData, rainData, insData] = await Promise.all([
                 registrosService.getAll(),
-                chuvasService.getAll()
+                chuvasService.getAll(),
+                insumosService.getAll()
             ]);
             setRegistros(regData);
             setChuvas(rainData);
+            setInsumos(insData);
         } catch (err) {
             console.error(err);
         } finally {
@@ -637,6 +642,163 @@ export default function Dashboard({ logo }) {
         );
     };
 
+    const renderLeprose = () => {
+        // 1. Filtrar apenas registros da atividade 'Leprose' que tenham data_inicial
+        const leproseRegs = registros.filter(r => r.receita?.toLowerCase().includes('leprose') && r.data_inicial);
+
+        // 2. Pegar apenas a aplicação mais recente de cada quadra
+        const latestByQuadra = {};
+        leproseRegs.forEach(r => {
+            if (!latestByQuadra[r.quadra] || new Date(r.data_inicial) > new Date(latestByQuadra[r.quadra].data_inicial)) {
+                latestByQuadra[r.quadra] = r;
+            }
+        });
+
+        // Ordenar os dados por quadra
+        const tableData = Object.values(latestByQuadra).sort((a, b) => a.quadra.localeCompare(b.quadra, undefined, { numeric: true }));
+
+        // Helper: Extrair o Acaricida e a Dosagem da Observação cruzando com o banco de Insumos
+        const getAcaricidaInfo = (observacao) => {
+            if (!observacao) return { nome: '-', dosagem: '-' };
+
+            // Puxa todos os insumos cadastrados que têm a palavra "Acaricida" na classificação
+            const acaricidas = insumos.filter(i => i.classificacao?.toLowerCase().includes('acaricida'));
+            
+            let foundNome = '-';
+            let foundDosagem = '-';
+
+            // Varre a observação procurando se o nome de algum acaricida aparece nela
+            for (const aca of acaricidas) {
+                // Regex para encontrar o nome do acaricida e tentar pegar o valor dentro dos parenteses logo após ele
+                const regex = new RegExp(`${aca.insumo}\\s*(?:\\(([^)]+)\\))?`, 'i');
+                const match = observacao.match(regex);
+                
+                if (match) {
+                    foundNome = aca.insumo;
+                    foundDosagem = match[1] || '-'; // match[1] é o valor capturado dentro dos parenteses
+                    break;
+                }
+            }
+            return { nome: foundNome, dosagem: foundDosagem };
+        };
+
+        const exportPDF = () => {
+            const doc = new jsPDF();
+            doc.text('Relatório de Controle de Leprose', 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, 14, 22);
+
+            const dataToExport = tableData.map(r => {
+                const info = getAcaricidaInfo(r.observacao);
+                const dias = differenceInDays(new Date(), parseISO(r.data_inicial));
+                return [
+                    format(parseISO(r.data_inicial), 'dd/MM/yyyy'),
+                    r.quadra,
+                    info.nome,
+                    info.dosagem,
+                    `${dias} dias`
+                ];
+            });
+
+            doc.autoTable({
+                head: [['Data Aplicação', 'Quadra', 'Acaricida Utilizado', 'Dosagem', 'Dias desde a aplicação']],
+                body: dataToExport,
+                startY: 30,
+                theme: 'grid',
+                headStyles: { fillColor: [239, 68, 68] }, // Cor avermelhada
+                styles: { fontSize: 9, cellPadding: 3 }
+            });
+            doc.save(`relatorio-leprose-${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+        };
+
+        return (
+            <div className="premium-card glass" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', borderTop: '4px solid #ef4444' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text)', margin: 0 }}>
+                        <div style={{ padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '10px' }}>
+                            <Bug size={20} color="#ef4444" />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: '800' }}>Últimas Aplicações de Leprose</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Monitoramento de carência de Acaricidas por Quadra</span>
+                        </div>
+                    </h4>
+                    <button onClick={exportPDF} className="btn btn-secondary">
+                        <div className="btn-inner">
+                            <FileDown size={18} /> Exportar Relatório
+                        </div>
+                    </button>
+                </div>
+
+                <div className="table-responsive">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
+                        <thead style={{ backgroundColor: '#fafbfc' }}>
+                            <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Data Aplicação</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Quadra</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Acaricida Utilizado</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Dosagem</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Dias desde a aplicação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {tableData.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                                        <Bug size={48} style={{ opacity: 0.1, marginBottom: '1rem', display: 'block', margin: '0 auto' }} />
+                                        Nenhuma aplicação de Leprose encontrada no histórico.
+                                    </td>
+                                </tr>
+                            ) : (
+                                tableData.map(r => {
+                                    const info = getAcaricidaInfo(r.observacao);
+                                    const dias = differenceInDays(new Date(), parseISO(r.data_inicial));
+                                    const passouDoLimite = dias >= 160;
+
+                                    return (
+                                        <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: passouDoLimite ? 'rgba(239, 68, 68, 0.03)' : '#ffffff', transition: 'all 0.2s' }}>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '700', color: 'var(--text)' }}>
+                                                {format(parseISO(r.data_inicial), 'dd/MM/yyyy')}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '900', fontSize: '1.1rem', color: 'var(--text)' }}>
+                                                {r.quadra}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', color: 'var(--primary)', fontWeight: '800' }}>
+                                                {info.nome}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '600', color: 'var(--text-muted)' }}>
+                                                {info.dosagem}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                                    <span style={{
+                                                        padding: '0.4rem 0.8rem',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: passouDoLimite ? '#fee2e2' : '#f1f5f9',
+                                                        color: passouDoLimite ? '#ef4444' : 'var(--text-muted)',
+                                                        fontWeight: '900',
+                                                        fontSize: '0.85rem'
+                                                    }}>
+                                                        {dias} dias
+                                                    </span>
+                                                    {passouDoLimite && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#ef4444', fontSize: '0.75rem', fontWeight: '800', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: '6px' }}>
+                                                            <AlertTriangle size={14} /> Passou de 160 dias
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -650,6 +812,7 @@ export default function Dashboard({ logo }) {
                     { id: 'planejamento', label: 'Planejamento', icon: <ClipboardList size={18} /> },
                     { id: 'resumo', label: 'Resumo', icon: <FileSpreadsheet size={18} /> },
                     { id: 'mapa', label: 'Mapa Interativo', icon: <Layers size={18} /> },
+                    { id: 'leprose', label: 'Relatório Leprose', icon: <Bug size={18} /> },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -663,7 +826,7 @@ export default function Dashboard({ logo }) {
                             borderRadius: '14px',
                             border: '1.5px solid var(--border)',
                             background: activeTab === tab.id ? 'transparent' : 'white',
-                            color: activeTab === tab.id ? 'var(--text)' : 'var(--text-muted)',
+                            color: activeTab === tab.id ? (tab.id === 'leprose' ? '#ef4444' : 'var(--text)') : 'var(--text-muted)',
                             cursor: 'pointer',
                             fontWeight: '900',
                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -694,6 +857,7 @@ export default function Dashboard({ logo }) {
                     {activeTab === 'planejamento' && renderPlanejamento()}
                     {activeTab === 'resumo' && renderResumo()}
                     {activeTab === 'mapa' && <InteractiveMap registros={registros} chuvas={chuvas} />}
+                    {activeTab === 'leprose' && renderLeprose()}
                 </>
             )}
 
