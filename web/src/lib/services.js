@@ -6,6 +6,7 @@ export const registrosService = {
         const { data, error } = await supabase
             .from('registros')
             .select('*')
+            .eq('ativo', true) // MÁGICA 1: Traz apenas registros que não foram apagados
             .order('data_inicial', { ascending: false });
 
         if (error) throw error;
@@ -39,7 +40,7 @@ export const registrosService = {
             if (nao_agendar) {
                 dadosParaSalvar.proxima_pulverizacao = null; 
             } else {
-                // Comportamento normal: busca a carência e soma à data INICIAL (Alterado aqui)
+                // Comportamento normal: busca a carência e soma à data INICIAL
                 const { data: current } = await supabase.from('registros').select('dias_carencia, data_inicial').eq('id', id).single();
                 const carencia = dadosParaSalvar.dias_carencia || current?.dias_carencia || 0;
                 
@@ -66,9 +67,10 @@ export const registrosService = {
     },
 
     async delete(id) {
+        // MÁGICA 2: Oculta o registro do sistema (Soft Delete) em vez de apagar do banco
         const { error } = await supabase
             .from('registros')
-            .delete()
+            .update({ ativo: false })
             .eq('id', id);
 
         if (error) throw error;
@@ -80,6 +82,7 @@ export const chuvasService = {
         const { data, error } = await supabase
             .from('chuvas')
             .select('*')
+            .eq('ativo', true) // Proteção Soft Delete
             .order('data', { ascending: false });
 
         if (error) throw error;
@@ -98,9 +101,10 @@ export const chuvasService = {
     },
 
     async delete(id) {
+        // Proteção Soft Delete
         const { error } = await supabase
             .from('chuvas')
-            .delete()
+            .update({ ativo: false })
             .eq('id', id);
 
         if (error) throw error;
@@ -147,6 +151,7 @@ export const osService = {
                 *,
                 registros(id, data_final, quantidade_bombas, pes_tratados)
             `)
+            .eq('ativo', true) // Proteção Soft Delete
             .order('data_prescricao', { ascending: false });
         if (error) throw error;
         return data;
@@ -179,12 +184,12 @@ export const osService = {
     },
 
     async delete(id) {
-        // First unbind any linked stock outbounds to avoid FK violation
+        // Proteção Soft Delete: Arquiva a OS e desvincula os saídas para segurança
         await supabase.from('ordens_saida').update({ os_id: null }).eq('os_id', id);
 
         const { error } = await supabase
             .from('ordens_servico')
-            .delete()
+            .update({ ativo: false })
             .eq('id', id);
 
         if (error) throw error;
@@ -194,6 +199,7 @@ export const osService = {
         const { data, error } = await supabase
             .from('ordens_servico')
             .select('*, ordens_saida(id, situacao)')
+            .eq('ativo', true) // Proteção Soft Delete
             .or('situacao.is.null,situacao.eq.Pendente,situacao.eq.PENDENTE,situacao.eq.Iniciada,situacao.eq.Parcial')
             .order('data_prescricao', { ascending: false });
 
@@ -207,6 +213,7 @@ export const insumosService = {
         const { data, error } = await supabase
             .from('insumos')
             .select('*')
+            .eq('ativo', true) // Proteção Soft Delete
             .order('insumo', { ascending: true });
 
         if (error) throw error;
@@ -235,9 +242,10 @@ export const insumosService = {
     },
 
     async delete(id) {
+        // Proteção Soft Delete
         const { error } = await supabase
             .from('insumos')
-            .delete()
+            .update({ ativo: false })
             .eq('id', id);
 
         if (error) throw error;
@@ -286,7 +294,7 @@ export const quadrasService = {
     async delete(id) {
         const { error } = await supabase
             .from('quadras')
-            .delete()
+            .delete() // Quadras geralmente não usamos soft delete, pois reflete a topografia real
             .eq('id', id);
         if (error) throw error;
     },
@@ -333,7 +341,7 @@ export const atividadesService = {
     async delete(id) {
         const { error } = await supabase
             .from('atividades')
-            .delete()
+            .delete() // Atividades são cadastros base, mantemos hard delete
             .eq('id', id);
         if (error) throw error;
     },
@@ -353,6 +361,7 @@ export const entradasService = {
         const { data, error } = await supabase
             .from('entradas')
             .select('*, insumos(insumo)')
+            .eq('ativo', true) // Proteção Soft Delete
             .order('data_entrada', { ascending: false });
         if (error) throw error;
         return data;
@@ -368,7 +377,8 @@ export const entradasService = {
         return data[0];
     },
     async delete(id) {
-        const { error } = await supabase.from('entradas').delete().eq('id', id);
+        // Proteção Soft Delete
+        const { error } = await supabase.from('entradas').update({ ativo: false }).eq('id', id);
         if (error) throw error;
     }
 };
@@ -403,6 +413,7 @@ export const saidasService = {
         const { data, error } = await supabase
             .from('saidas')
             .select('*, insumos(insumo, codigo), quadras(nome), atividades(nome), ordens_saida(*)')
+            .eq('ativo', true) // Proteção Soft Delete
             .order('data_saida', { ascending: false });
         if (error) throw error;
         return data;
@@ -418,7 +429,8 @@ export const saidasService = {
         return data[0];
     },
     async delete(id) {
-        const { error } = await supabase.from('saidas').delete().eq('id', id);
+        // Proteção Soft Delete
+        const { error } = await supabase.from('saidas').update({ ativo: false }).eq('id', id);
         if (error) throw error;
     }
 };
@@ -428,6 +440,7 @@ export const ordensSaidaService = {
         const { data, error } = await supabase
             .from('ordens_saida')
             .select('*, quadras(nome), atividades(nome), saidas(*, insumos(insumo, codigo))')
+            .eq('ativo', true) // Proteção Soft Delete
             .order('data', { ascending: false });
         if (error) throw error;
         return data;
@@ -507,7 +520,8 @@ export const ordensSaidaService = {
     },
 
     async delete(id) {
-        const { error } = await supabase.from('ordens_saida').delete().eq('id', id);
+        // Proteção Soft Delete
+        const { error } = await supabase.from('ordens_saida').update({ ativo: false }).eq('id', id);
         if (error) throw error;
     },
     async getByOsId(osId) {
@@ -515,7 +529,8 @@ export const ordensSaidaService = {
         const { data, error } = await supabase
             .from('ordens_saida')
             .select('*, saidas(*, insumos(insumo, codigo))')
-            .eq('os_id', osId);
+            .eq('os_id', osId)
+            .eq('ativo', true); // Adicionado filtro para não puxar saídas apagadas logicamente
         if (error) throw error;
         return data;
     },
@@ -524,7 +539,8 @@ export const ordensSaidaService = {
         const { data, error } = await supabase
             .from('ordens_saida')
             .select('bombas_aplicadas')
-            .eq('os_id', osId);
+            .eq('os_id', osId)
+            .eq('ativo', true); // Proteção
         if (error) throw error;
         return data.reduce((sum, item) => sum + (parseFloat(item.bombas_aplicadas) || 0), 0);
     }
