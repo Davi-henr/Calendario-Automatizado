@@ -666,7 +666,7 @@ export default function Dashboard({ logo }) {
                                 tableData.map(r => {
                                     const info = getAcaricidaInfo(r.observacao);
                                     const dias = differenceInDays(new Date(), parseISO(r.data_inicial));
-                                    const passouDoLimite = dias >= 160;
+                                    const passouDoLimite = dias >= 180;
 
                                     return (
                                         <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: passouDoLimite ? 'rgba(239, 68, 68, 0.03)' : '#ffffff', transition: 'all 0.2s' }}>
