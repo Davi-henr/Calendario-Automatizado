@@ -106,6 +106,78 @@ export default function Dashboard({ logo }) {
         fetchWeather();
     }, []);
 
+    // ===== CORREÇÃO AQUI: O Effect do Mapa precisa ficar no topo, e não dentro da função da aba! =====
+    useEffect(() => {
+        if (activeTab === 'mapaManual' && mapSvg && mapContainerRef.current) {
+            const svgEl = mapContainerRef.current.querySelector('svg');
+            if (!svgEl) return;
+
+            svgEl.style.width = '100%';
+            svgEl.style.height = '100%';
+
+            // Recalcula o latest apenas para o mapa visual
+            const currentActRecords = registros.filter(r => r.situacao === 'MapaManual' && r.receita === manualFilters.atividade);
+            const latest = {};
+            currentActRecords.forEach(r => {
+                if (!latest[r.quadra] || new Date(r.data_inicial) > new Date(latest[r.quadra].data_inicial)) {
+                    latest[r.quadra] = r;
+                }
+            });
+
+            const needsProduct = ['Adubação', 'Calcário', 'Gesso'].includes(manualFilters.atividade);
+            if (needsProduct && manualFilters.produto) {
+                Object.keys(latest).forEach(k => {
+                    try {
+                        const meta = JSON.parse(latest[k].observacao);
+                        if (!meta.produto || !meta.produto.toLowerCase().includes(manualFilters.produto.toLowerCase())) {
+                            delete latest[k];
+                        }
+                    } catch(e) {}
+                });
+            }
+
+            // Remove textos antigos
+            svgEl.querySelectorAll('.manual-text').forEach(e => e.remove());
+
+            // Reseta todas as quadras
+            blocks.forEach(b => {
+                const el = svgEl.querySelector(`[id="${b}"]`);
+                if (el) {
+                    el.style.fill = '#f8fafc'; 
+                    el.style.stroke = selectedMapQuadra === b ? '#0f172a' : '#cbd5e1';
+                    el.style.strokeWidth = selectedMapQuadra === b ? '3px' : '1px';
+                    el.style.cursor = 'pointer';
+                    el.onclick = () => setSelectedMapQuadra(b);
+                }
+            });
+
+            // Pinta as ativas
+            Object.values(latest).forEach(reg => {
+                const el = svgEl.querySelector(`[id="${reg.quadra}"]`);
+                if (el) {
+                    try {
+                        const meta = JSON.parse(reg.observacao);
+                        el.style.fill = meta.cor || '#3b82f6';
+
+                        const bbox = el.getBBox();
+                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', bbox.x + bbox.width / 2);
+                        text.setAttribute('y', bbox.y + bbox.height / 2 + 16);
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('class', 'manual-text');
+                        text.setAttribute('fill', '#ffffff');
+                        text.setAttribute('font-size', '13px');
+                        text.setAttribute('font-weight', '900');
+                        text.setAttribute('pointer-events', 'none');
+                        text.setAttribute('style', 'text-shadow: 1px 1px 2px rgba(0,0,0,0.8);');
+                        text.textContent = format(parseISO(reg.data_inicial), 'dd/MM');
+                        svgEl.appendChild(text);
+                    } catch(e) {}
+                }
+            });
+        }
+    }, [activeTab, mapSvg, registros, manualFilters, selectedMapQuadra]);
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -156,6 +228,8 @@ export default function Dashboard({ logo }) {
         if (diff > 0) return `${diff} dias de atraso`;
         return `${Math.abs(diff)} dias adiantado`;
     };
+
+    // --- Sub-Tab Renderers ---
 
     const handleAddRain = async (e) => {
         e.preventDefault();
@@ -887,60 +961,6 @@ export default function Dashboard({ logo }) {
                 const key = `${meta.cor}_${label}`;
                 if (!legendItems[key]) legendItems[key] = { cor: meta.cor, label: label };
             } catch(e) {}
-        });
-
-        // Efeito para injetar a cor e o texto no SVG
-        useEffect(() => {
-            if (activeTab === 'mapaManual' && mapSvg && mapContainerRef.current) {
-                const svgEl = mapContainerRef.current.querySelector('svg');
-                if (!svgEl) return;
-
-                svgEl.style.width = '100%';
-                svgEl.style.height = '100%';
-
-                // Remove textos antigos
-                svgEl.querySelectorAll('.manual-text').forEach(e => e.remove());
-
-                // Reseta todas as quadras
-                blocks.forEach(b => {
-                    const el = svgEl.querySelector(`[id="${b}"]`);
-                    if (el) {
-                        el.style.fill = '#f8fafc'; // Cor cinza bem claro para fundo vazio
-                        el.style.stroke = selectedMapQuadra === b ? '#0f172a' : '#cbd5e1';
-                        el.style.strokeWidth = selectedMapQuadra === b ? '3px' : '1px';
-                        el.style.cursor = 'pointer';
-                        el.onclick = () => setSelectedMapQuadra(b);
-                    }
-                });
-
-                // Pinta e escreve a data nas quadras ativas
-                Object.values(latestByQuadra).forEach(reg => {
-                    const el = svgEl.querySelector(`[id="${reg.quadra}"]`);
-                    if (el) {
-                        try {
-                            const meta = JSON.parse(reg.observacao);
-                            el.style.fill = meta.cor || '#3b82f6';
-
-                            const bbox = el.getBBox();
-                            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                            text.setAttribute('x', bbox.x + bbox.width / 2);
-                            text.setAttribute('y', bbox.y + bbox.height / 2 + 16);
-                            text.setAttribute('text-anchor', 'middle');
-                            text.setAttribute('class', 'manual-text');
-                            text.setAttribute('fill', '#ffffff'); // Texto branco para contrastar com a cor pintada
-                            text.setAttribute('font-size', '13px');
-                            text.setAttribute('font-weight', '900');
-                            text.setAttribute('pointer-events', 'none');
-                            
-                            // Adiciona uma sombra preta no texto para garantir leitura em qualquer cor de fundo
-                            text.setAttribute('style', 'text-shadow: 1px 1px 2px rgba(0,0,0,0.8);');
-                            
-                            text.textContent = format(parseISO(reg.data_inicial), 'dd/MM');
-                            svgEl.appendChild(text);
-                        } catch(e) {}
-                    }
-                });
-            }
         });
 
         const handleOpenForm = () => {
