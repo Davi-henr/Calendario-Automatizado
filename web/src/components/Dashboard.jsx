@@ -181,7 +181,6 @@ export default function Dashboard({ logo }) {
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                {/* Weather Cards */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem' }}>
                     {forecast.map(([date, data]) => (
                         <div key={date} className="premium-card" style={{ textAlign: 'center', backgroundColor: '#e3f2fd', padding: '1rem' }}>
@@ -329,7 +328,7 @@ export default function Dashboard({ logo }) {
     const renderPlanejamento = () => {
         const recipes = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
         
-        let ongoing = registros.filter(r => r.situacao === 'Iniciada').sort((a, b) => new Date(a.data_inicial) - new Date(b.data_inicial));
+        let ongoing = registros.filter(r => r.situacao === 'Iniciada').sort((a, b) => a.quadra.localeCompare(b.quadra, undefined, { numeric: true }));
         
         if (filterActivity !== 'Todos') {
             ongoing = ongoing.filter(r => r.receita === filterActivity);
@@ -417,7 +416,7 @@ export default function Dashboard({ logo }) {
             (summaryFilters.quadra === 'Todos' || r.quadra === summaryFilters.quadra) &&
             (summaryFilters.receita === 'Todos' || r.receita === summaryFilters.receita) &&
             r.data_final && isWithinInterval(parseISO(r.data_final), { start: parseISO(summaryStartDate), end: parseISO(summaryEndDate) })
-        ).sort((a, b) => new Date(b.data_final) - new Date(a.data_final));
+        ).sort((a, b) => a.quadra.localeCompare(b.quadra, undefined, { numeric: true }));
 
         const blocks = ["001", "002", "003", "004", "005A", "005B", "005C", "006A", "006B", "007", "008", "009", "010", "011", "012", "013", "014", "015", "016", "017", "018", "019", "020", "021", "022", "024", "026", "027", "028", "029", "030", "031", "032", "033", "034"];
         const recipes = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
@@ -650,13 +649,26 @@ export default function Dashboard({ logo }) {
         const recipes = ["Chuá", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Herbicida"];
         const classOptions = ['Todos', 'Inseticida', 'Acaricida', 'Fungicida', 'Bactericida', 'Fertilizante Foliar', 'Redutor de PH'];
 
-        // Função para cruzar observação com insumos filtrados
+        // Lógica de Agrupamento: Pega apenas a última aplicação por Quadra + Receita
+        const latestByQA = {};
+        registros.forEach(r => {
+            if (!r.data_inicial) return; // Ignora se não tem data de início
+            if (actReportActivity !== 'Todos' && r.receita !== actReportActivity) return;
+
+            const key = `${r.quadra}_${r.receita}`;
+            if (!latestByQA[key] || new Date(r.data_inicial) > new Date(latestByQA[key].data_inicial)) {
+                latestByQA[key] = r;
+            }
+        });
+
+        const reportData = Object.values(latestByQA);
+
         const getInsumosFiltrados = (observacao, filterClass) => {
             if (!observacao) return [];
             let found = [];
             insumos.forEach(ins => {
                 if (filterClass !== 'Todos' && (!ins.classificacao || !ins.classificacao.toLowerCase().includes(filterClass.toLowerCase()))) {
-                    return; // Pula insumos que não são da classe selecionada
+                    return; 
                 }
                 const safeInsumo = ins.insumo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp(`${safeInsumo}\\s*(?:\\(([^)]+)\\))?`, 'i');
@@ -668,26 +680,17 @@ export default function Dashboard({ logo }) {
             return found;
         };
 
-        // Filtra por Atividade primeiro
-        let reportData = registros.filter(r => r.data_inicial);
-        if (actReportActivity !== 'Todos') {
-            reportData = reportData.filter(r => r.receita === actReportActivity);
-        }
-
-        // Aplica o filtro de Insumos e formata a visualização
         const tableData = [];
         reportData.forEach(r => {
             const extracted = getInsumosFiltrados(r.observacao, actReportClass);
-            
-            // Se filtrou por uma classificação específica e não achou nada na observação, ignora a linha
             if (actReportClass !== 'Todos' && extracted.length === 0) return;
 
             const insumoUtilizado = extracted.length > 0 ? extracted.join(', ') : (actReportClass === 'Todos' ? (r.observacao || '-') : '-');
-
             tableData.push({ ...r, insumoUtilizado });
         });
 
-        tableData.sort((a, b) => new Date(b.data_inicial) - new Date(a.data_inicial));
+        // Ordena por Quadra (A-Z)
+        tableData.sort((a, b) => a.quadra.localeCompare(b.quadra, undefined, { numeric: true }));
 
         const exportPDFAtividade = () => {
             const doc = new jsPDF();
@@ -697,14 +700,16 @@ export default function Dashboard({ logo }) {
             doc.text(`Filtros - Atividade: ${actReportActivity} | Classe: ${actReportClass}`, 14, 28);
 
             const dataToExport = tableData.map(r => {
-                const dias = r.proxima_pulverizacao ? differenceInDays(parseISO(r.proxima_pulverizacao), new Date()) : '-';
+                const dias = r.proxima_pulverizacao ? differenceInDays(parseISO(r.proxima_pulverizacao), new Date()) : null;
+                const infoRestante = r.situacao === 'Iniciada' ? 'Em Andamento' : (dias !== null ? `${dias} d` : '-');
+
                 return [
                     format(parseISO(r.data_inicial), 'dd/MM/yyyy'),
                     r.quadra,
                     r.proxima_pulverizacao ? format(parseISO(r.proxima_pulverizacao), 'dd/MM/yyyy') : '-',
                     r.receita,
                     r.insumoUtilizado,
-                    dias !== '-' ? `${dias} d` : '-'
+                    infoRestante
                 ];
             });
 
@@ -713,7 +718,7 @@ export default function Dashboard({ logo }) {
                 body: dataToExport,
                 startY: 35,
                 theme: 'grid',
-                headStyles: { fillColor: [25, 118, 210] }, // primary blue
+                headStyles: { fillColor: [25, 118, 210] },
                 styles: { fontSize: 8, cellPadding: 3 }
             });
             doc.save(`relatorio-atividade-${format(new Date(), 'dd-MM-yyyy')}.pdf`);
@@ -728,7 +733,7 @@ export default function Dashboard({ logo }) {
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontWeight: '800' }}>Relatório Cruzado de Atividades</span>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Filtro de Insumos por Classificação Química</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Exibindo a última pulverização por Quadra e Atividade</span>
                         </div>
                     </h4>
                     <button onClick={exportPDFAtividade} className="btn btn-secondary">
@@ -776,10 +781,13 @@ export default function Dashboard({ logo }) {
                             ) : (
                                 tableData.map(r => {
                                     const dias = r.proxima_pulverizacao ? differenceInDays(parseISO(r.proxima_pulverizacao), new Date()) : null;
-                                    const isAtrasado = dias !== null && dias < 0;
+                                    const isIniciada = r.situacao === 'Iniciada';
+                                    const isAtrasado = !isIniciada && dias !== null && dias < 0;
+                                    
+                                    const rowBgColor = isIniciada ? 'rgba(251, 140, 0, 0.03)' : (isAtrasado ? 'rgba(239, 68, 68, 0.02)' : 'transparent');
 
                                     return (
-                                        <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'all 0.2s', backgroundColor: isAtrasado ? 'rgba(239, 68, 68, 0.02)' : 'transparent' }}>
+                                        <tr key={r.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'all 0.2s', backgroundColor: rowBgColor }}>
                                             <td style={{ padding: '1.2rem 1rem', fontWeight: '700', color: 'var(--text)' }}>
                                                 {format(parseISO(r.data_inicial), 'dd/MM/yyyy')}
                                             </td>
@@ -796,7 +804,22 @@ export default function Dashboard({ logo }) {
                                                 {r.insumoUtilizado}
                                             </td>
                                             <td style={{ padding: '1.2rem 1rem' }}>
-                                                {dias !== null ? (
+                                                {isIniciada ? (
+                                                    <span style={{
+                                                        padding: '0.4rem 0.8rem',
+                                                        borderRadius: '8px',
+                                                        backgroundColor: '#fff8e1',
+                                                        color: '#f57f17',
+                                                        fontWeight: '900',
+                                                        fontSize: '0.85rem',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.4rem',
+                                                        width: 'fit-content'
+                                                    }}>
+                                                        <Droplets size={14} /> Em Andamento
+                                                    </span>
+                                                ) : dias !== null ? (
                                                     <span style={{
                                                         padding: '0.4rem 0.8rem',
                                                         borderRadius: '8px',
