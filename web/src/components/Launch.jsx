@@ -15,9 +15,11 @@ import {
     X,
     FileDown,
     ClipboardList,
+    Printer // <-- IMPORTADO O ÍCONE DA IMPRESSORA
 } from 'lucide-react';
-import { osService, registrosService, ordensSaidaService } from '../lib/services';
-import { format, parseISO, differenceInDays } from 'date-fns';
+// IMPORTAMOS OS SERVICES NECESSÁRIOS PARA O PDF
+import { osService, registrosService, ordensSaidaService, quadrasService, insumosService } from '../lib/services';
+import { format, parseISO, differenceInDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Launch({ logo }) {
@@ -29,6 +31,10 @@ export default function Launch({ logo }) {
     const [showOSModal, setShowOSModal] = useState(false);
     const [pendingOS, setPendingOS] = useState([]);
     const [selectedOS, setSelectedOS] = useState(null);
+
+    // Estados para alimentar o layout do PDF
+    const [quadrasMeta, setQuadrasMeta] = useState([]);
+    const [insumosMeta, setInsumosMeta] = useState([]);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -51,6 +57,9 @@ export default function Launch({ logo }) {
     useEffect(() => {
         loadRegistros();
         loadPendingOS();
+        // Carrega os metas silenciosamente para caso o usuário queira imprimir o PDF
+        quadrasService.getAll().then(setQuadrasMeta).catch(console.error);
+        insumosService.getAll().then(setInsumosMeta).catch(console.error);
     }, []);
 
     const loadPendingOS = async () => {
@@ -199,7 +208,6 @@ export default function Launch({ logo }) {
         }
     };
 
-    // AQUI ESTÁ A CORREÇÃO NA EXCLUSÃO
     const handleDelete = async (reg) => {
         if (window.confirm('Excluir este lançamento? Se ele estiver vinculado a uma Receita, ela voltará para Pendente.')) {
             try {
@@ -262,6 +270,312 @@ export default function Launch({ logo }) {
         });
 
         doc.save(`relatorio-pulverizacao-${format(new Date(), 'dd-MM-yyyy')}.pdf`);
+    };
+
+    // =======================================================================
+    // FUNÇÃO IMPORTADA E ADAPTADA PARA IMPRIMIR A RECEITA/OS DIRETAMENTE AQUI
+    // =======================================================================
+    const exportOS_PDF = async (regItem) => {
+        if (!regItem.os_id) {
+            alert('Este lançamento foi criado manualmente e não possui Receita Agronômica vinculada.');
+            return;
+        }
+
+        try {
+            // Busca a OS vinculada ao lançamento
+            const allOS = await osService.getAll();
+            const os = allOS.find(o => o.id === regItem.os_id);
+            if (!os) {
+                alert('Receita original não encontrada no banco de dados.');
+                return;
+            }
+
+            const outbounds = await ordensSaidaService.getByOsId(os.id);
+            const doc = new jsPDF('l', 'mm', 'a4');
+            const pw = doc.internal.pageSize.getWidth();
+            const ph = doc.internal.pageSize.getHeight();
+
+            const quadraInfo = quadrasMeta.find(q => q.nome === os.quadra) || {};
+            const areaHa = quadraInfo.hectares ? String(quadraInfo.hectares) : (os.area_ha || '');
+            const variety = quadraInfo.variedade || '';
+
+            doc.setFont('helvetica', 'normal');
+            doc.setDrawColor(0);
+            doc.setLineWidth(0.4);
+
+            doc.rect(5, 5, 25, 18);
+            if (logo) {
+                doc.addImage(logo, 'PNG', 6, 6, 23, 16);
+            } else {
+                doc.setFontSize(10); 
+                doc.text('Fazenda', 17.5, 12, { align: 'center' });
+                doc.text('Vale dos Laranjais', 17.5, 16, { align: 'center' });
+            }
+
+            doc.rect(30, 5, pw - 85, 18);
+            doc.setFontSize(13); 
+            doc.setFont('helvetica', 'bold');
+            doc.text('ORDEM DE SERVIÇO - APLICAÇÃO DE INSUMOS', pw / 2 - 12.5, 14, { align: 'center' });
+
+            doc.rect(pw - 55, 5, 50, 18);
+            doc.setFontSize(8); 
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Identificação: RQ 05`, pw - 53, 9);
+            doc.text(`Elaborador por: Administrativo`, pw - 53, 12);
+            doc.text(`Aprovado: Gabriel Fortes`, pw - 53, 15);
+            doc.text(`Aprovado em: 01/09/2020`, pw - 53, 18);
+
+            const idStartY = 23;
+            let osYear = format(parseISO(os.data_prescricao), 'yy');
+            let osFullNum = `${osYear}/${String(os.numero_os || '').padStart(6, '0')}`;
+
+            doc.rect(5, idStartY, 25, 6); doc.text('Quadra:', 7, idStartY + 4.5);
+            doc.rect(30, idStartY, 60, 6); doc.setFont('helvetica', 'bold'); doc.text(os.quadra || '', 32, idStartY + 4.5); doc.setFont('helvetica', 'normal');
+            doc.rect(90, idStartY, 45, 6); doc.text('N° Ordem Serviço:', 92, idStartY + 4.5);
+            doc.rect(135, idStartY, 40, 6); doc.setFont('helvetica', 'bold'); doc.text(osFullNum, 137, idStartY + 4.5); doc.setFont('helvetica', 'normal');
+            doc.rect(175, idStartY, 35, 6); doc.text('Data Inicial:', 177, idStartY + 4.5);
+            doc.rect(210, idStartY, 35, 6); doc.text(os.data_prescricao ? format(parseISO(os.data_prescricao), 'dd/MM/yyyy') : '        /        /        ', 212, idStartY + 4.5);
+            doc.rect(245, idStartY, 25, 6); doc.text('Pressão PSI:', 247, idStartY + 4.5);
+            doc.rect(270, idStartY, 22, 6); doc.text(os.dados_tecnicos?.pressao || '', 272, idStartY + 4.5);
+
+            const row2Y = idStartY + 6;
+            doc.rect(5, row2Y, 25, 6); doc.text('Área Ha:', 7, row2Y + 4.5);
+            doc.rect(30, row2Y, 60, 6); doc.text(areaHa, 32, row2Y + 4.5); 
+            doc.rect(90, row2Y, 45, 6); doc.text('N° Recomendação:', 92, row2Y + 4.5);
+            doc.rect(135, row2Y, 40, 6); doc.text(os.recomendacao || '', 137, row2Y + 4.5);
+            doc.rect(175, row2Y, 35, 6); doc.text('Hora Inicial:', 177, row2Y + 4.5);
+            doc.rect(210, row2Y, 35, 6); doc.text('        :        ', 212, row2Y + 4.5);
+            doc.rect(245, row2Y, 25, 6); doc.text('Qtde de Pés:', 247, row2Y + 4.5);
+            const rawPes = regItem.pes_tratados || os.dados_tecnicos?.pes || '';
+            doc.rect(270, row2Y, 22, 6); doc.setFont('helvetica', 'bold'); doc.text(rawPes.toString(), 272, row2Y + 4.5); doc.setFont('helvetica', 'normal');
+
+            const row3Y = row2Y + 6;
+            doc.rect(5, row3Y, 25, 6); doc.text('Operação:', 7, row3Y + 4.5);
+            doc.rect(30, row3Y, 60, 6); doc.text(os.operacao || '', 32, row3Y + 4.5);
+            doc.rect(90, row3Y, 45, 6); doc.text('N° Lançamento:', 92, row3Y + 4.5);
+            doc.rect(135, row3Y, 40, 6); doc.text('', 137, row3Y + 4.5);
+            doc.rect(175, row3Y, 35, 6); doc.text('Data Final:', 177, row3Y + 4.5);
+
+            const dataFinalStr = regItem.data_final ? format(parseISO(regItem.data_final), 'dd / MM / yyyy') : '        /        /        ';
+            doc.rect(210, row3Y, 35, 6); doc.text(dataFinalStr, 212, row3Y + 4.5);
+            doc.rect(245, row3Y, 25, 6); doc.text('Marcha:', 247, row3Y + 4.5);
+            doc.rect(270, row3Y, 22, 6); doc.text(os.dados_tecnicos?.marcha || '', 272, row3Y + 4.5);
+
+            const row4Y = row3Y + 6;
+            doc.rect(5, row4Y, 25, 6); doc.text('Equipamento:', 7, row4Y + 4.5);
+            doc.rect(30, row4Y, 60, 6); doc.text(os.equipamento || '', 32, row4Y + 4.5);
+            doc.rect(90, row4Y, 45, 6); doc.text('VARIEDADE:', 92, row4Y + 4.5);
+            doc.rect(135, row4Y, 40, 6); doc.setFont('helvetica', 'bold'); doc.text(variety, 137, row4Y + 4.5); doc.setFont('helvetica', 'normal');
+            doc.rect(175, row4Y, 35, 6); doc.text('Hora Final:', 177, row4Y + 4.5);
+            doc.rect(210, row4Y, 35, 6); doc.text('        :        ', 212, row4Y + 4.5);
+            doc.rect(245, row4Y, 25, 6); doc.text('Rotação:', 247, row4Y + 4.5);
+            doc.rect(270, row4Y, 22, 6); doc.text(os.dados_tecnicos?.rpm || '', 272, row4Y + 4.5);
+
+            const formatVal = (val) => {
+                if (val === undefined || val === null || val === '') return '';
+                const normalized = val.toString().replace(',', '.');
+                const num = parseFloat(normalized);
+                if (isNaN(num) || num === 0) return '';
+                return num.toFixed(2).replace('.', ',');
+            };
+
+            const consumptionMap = {};
+            outbounds.forEach(out => {
+                out.saidas?.forEach(s => {
+                    const idKey = s.insumo_id;
+                    const nameKey = s.insumos?.insumo?.toLowerCase().trim();
+
+                    if (idKey) {
+                        if (!consumptionMap[idKey]) consumptionMap[idKey] = { retirada: 0, real: 0, devolucao: 0 };
+                        const q = parseFloat(s.quantidade) || 0;
+                        const d = parseFloat(s.devolucao) || 0;
+                        consumptionMap[idKey].retirada += q;
+                        consumptionMap[idKey].real += (q - d);
+                        consumptionMap[idKey].devolucao += d;
+                    }
+
+                    if (nameKey) {
+                        if (!consumptionMap[nameKey]) consumptionMap[nameKey] = { retirada: 0, real: 0, devolucao: 0 };
+                        const q = parseFloat(s.quantidade) || 0;
+                        const d = parseFloat(s.devolucao) || 0;
+                        consumptionMap[nameKey].retirada += q;
+                        consumptionMap[nameKey].real += (q - d);
+                        consumptionMap[nameKey].devolucao += d;
+                    }
+                });
+            });
+
+            const tableY = row4Y + 6;
+            const insumosRows = [];
+            let maxCarencia = 0;
+
+            for (let i = 0; i < 12; i++) {
+                const ins = os.insumos?.[i] || {};
+                const desc = ins.sequencia ? `${ins.sequencia} - ${ins.material || ''}` : (ins.material || '');
+
+                const consById = ins.insumo_id ? consumptionMap[ins.insumo_id] : null;
+                const consByName = ins.material ? consumptionMap[ins.material.toLowerCase().trim()] : null;
+                const cons = consById || consByName || { retirada: 0, real: 0, devolucao: 0 };
+
+                const matchedMaterial = ins.material ? insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material.toLowerCase().trim()) : null;
+                const principioAtivo = matchedMaterial?.principio_ativo || matchedMaterial?.principio || ins.principio || '';
+                const finalidadeAlvo = matchedMaterial?.classificacao || ins.finalidade || '';
+
+                const carenciaRaw = matchedMaterial?.carencia_dias ?? matchedMaterial?.dias_carencia ?? matchedMaterial?.carencia ?? ins.carencia;
+                const carenciaDias = (carenciaRaw !== null && carenciaRaw !== undefined && carenciaRaw !== '') ? String(carenciaRaw) : '';
+
+                const parsedCarencia = parseInt(carenciaDias, 10);
+                if (!isNaN(parsedCarencia) && parsedCarencia > maxCarencia) {
+                    maxCarencia = parsedCarencia;
+                }
+
+                insumosRows.push([
+                    ins.codigo || '',
+                    desc,
+                    formatVal(ins.dosagem),
+                    finalidadeAlvo, 
+                    principioAtivo,
+                    carenciaDias,
+                    cons.retirada > 0 ? 'TOTAL' : '',
+                    formatVal(cons.retirada),
+                    formatVal(cons.real),
+                    formatVal(cons.devolucao)
+                ]);
+            }
+
+            doc.autoTable({
+                startY: tableY,
+                head: [[
+                    'Código\nMaterial', 'Sequencia de Mistura\nDescrição', 'Dosagem\n4000 Lts', 'Finalidade\nAlvo', 'Princípio\nAtivo', 'Carência\ndias',
+                    { content: 'CONSUMO', colSpan: 4, styles: { halign: 'center' } }
+                ], [
+                    '', '', '', '', '', '', 'DATA', 'Retirada Estoque', 'Consumo Real', 'Devolução'
+                ]],
+                body: insumosRows,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 0.5, overflow: 'linebreak', halign: 'left', lineColor: 0, lineWidth: 0.1 }, 
+                headStyles: { fillColor: 255, textColor: 0, fontStyle: 'bold' },
+                columnStyles: {
+                    0: { cellWidth: 15 }, 1: { cellWidth: 50 }, 2: { cellWidth: 25 }, 3: { cellWidth: 25 }, 4: { cellWidth: 25 }, 5: { cellWidth: 15 },
+                    6: { cellWidth: 25 }, 7: { cellWidth: 35 }, 8: { cellWidth: 35 }, 9: { cellWidth: 25 }
+                },
+                margin: { left: 5, right: 5 }
+            });
+
+            const midY = doc.lastAutoTable.finalY;
+            doc.rect(5, midY, 85, 6); doc.text('Reentrada de Pessoas', 7, midY + 4.5);
+            doc.rect(90, midY, 45, 6); doc.text('24 Horas após aplicação', 92, midY + 4.5);
+            
+            const carenciaParaImprimir = maxCarencia > 0 ? maxCarencia : parseInt(os.carencia || 0, 10);
+            doc.rect(135, midY, 75, 6); doc.text('Carencia (Dias):    ' + carenciaParaImprimir, 137, midY + 4.5);
+            
+            let liberadoColheitaText = 'LIBERADO COLHEITA:';
+            if (regItem.situacao === 'Finalizada' && regItem.data_final) {
+                const finalDate = parseISO(regItem.data_final);
+                const releaseDate = addDays(finalDate, carenciaParaImprimir);
+                liberadoColheitaText += ' ' + format(releaseDate, 'dd/MM/yyyy');
+            } else {
+                liberadoColheitaText += ' (Aguardando Fim)';
+            }
+
+            doc.rect(210, midY, 82, 6); 
+            doc.setFont('helvetica', 'bold');
+            doc.text(liberadoColheitaText, 212, midY + 4.5);
+            doc.setFont('helvetica', 'normal');
+
+            const subY = midY + 6;
+            const weatherData = [
+                ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', ''],
+                ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', ''],
+                ['Temperatura ar°:', '', '', 'Velocidade do Vento:', '', '', 'Umidade Relativa do Ar:', '', '']
+            ];
+
+            doc.autoTable({
+                startY: subY,
+                head: [['', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO', '', 'HORARIO', 'PARAMETRO']],
+                body: weatherData,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 0.5 }, 
+                headStyles: { fillColor: [240, 240, 240], textColor: 0 },
+                margin: { left: 25 },
+                tableWidth: pw - 30
+            });
+
+            const shiftY = doc.lastAutoTable.finalY + 4;
+            const shiftHead = ['N° Trator', 'N° Equip.', 'Operador', 'Qtd. Bombas'];
+            const emptyShiftRows = [['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', ''], ['', '', '', '']];
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8); 
+
+            const shiftTableMargin = 25; 
+            
+            doc.autoTable({
+                startY: shiftY,
+                head: [[{ content: 'TURNO DO DIA', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
+                body: emptyShiftRows,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 0.5 }, 
+                margin: { left: shiftTableMargin },
+                tableWidth: 135
+            });
+
+            doc.autoTable({
+                startY: shiftY,
+                head: [[{ content: 'TURNO DA NOITE', colSpan: 4, styles: { halign: 'left', fillColor: [220, 220, 220] } }], shiftHead],
+                body: emptyShiftRows,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 0.5 }, 
+                margin: { left: shiftTableMargin + 135 + 2 },
+                tableWidth: 135
+            });
+
+            const totalY = doc.lastAutoTable.finalY;
+            doc.rect(25, totalY, 110, 6); doc.setFont('helvetica', 'bold'); doc.text('TOTAL DE BOMBAS', 105, totalY + 4.5, { align: 'right' });
+            doc.rect(shiftTableMargin + 135 + 2, totalY, 109, 6); doc.text('TOTAL DE BOMBAS', 236, totalY + 4.5, { align: 'right' });
+
+            const totalBombas = regItem.quantidade_bombas?.toString() || '';
+            doc.rect(135, totalY, 25, 6); doc.text(totalBombas, 137, totalY + 4.5);
+            doc.rect(pw - 31, totalY, 26, 6); doc.text(totalBombas, pw - 29, totalY + 4.5);
+            doc.setFont('helvetica', 'normal');
+
+            const sigStartY = totalY + 5;
+            doc.rect(25, sigStartY, 135, 6); doc.text('Assinatura Preparador de Calda: ____________________________________________________________________', 27, sigStartY + 4.5);
+            doc.rect(162, sigStartY, pw - 167, 6);
+            doc.text('Assinatura Preparador de Calda: ____________________________________________________________________', 164, sigStartY + 4.5);
+
+            const lastRowY = sigStartY + 5;
+            doc.rect(25, lastRowY, 135, 6);
+            doc.text('DIA:      (      ) PARCIAL  (      ) FECHADO', 50, lastRowY + 4.5);
+            doc.rect(162, lastRowY, pw - 167, 6);
+            doc.text('Noite:      (      ) PARCIAL  (      ) FECHADO', 185, lastRowY + 4.5);
+
+            const labelBoxH = (lastRowY + 6) - subY;
+            doc.rect(5, subY, 20, labelBoxH);
+            doc.setFontSize(10); 
+            doc.setFont('helvetica', 'bold');
+            doc.saveGraphicsState();
+            doc.setTextColor(0);
+            doc.text('APLICAÇÃO DE INSUMOS', 13, subY + (labelBoxH / 2), { angle: 90, align: 'center' });
+            doc.restoreGraphicsState();
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8); 
+
+            const footY = ph - 12;
+            doc.setLineWidth(0.4);
+
+            doc.line(5, footY, 70, footY); doc.text('Responsável Técnico', 5, footY + 4);
+            doc.line(80, footY, 145, footY); doc.text('Administrador', 80, footY + 4);
+            doc.line(155, footY, 220, footY); doc.text('Encarregado', 155, footY + 4);
+            doc.line(230, footY, pw - 5, footY); doc.text('Encarregado Adm.', 230, footY + 4);
+
+            osYear = format(parseISO(os.data_prescricao), 'yy');
+            osFullNum = `${osYear}/${String(os.numero_os || '').padStart(6, '0')}`;
+            doc.save(`OS_${osFullNum.replace('/', '_')}_${os.quadra}.pdf`);
+        } catch (error) {
+            console.error('Erro ao gerar PDF:', error);
+            alert('Erro ao gerar layout: ' + error.message);
+        }
     };
 
     return (
@@ -532,13 +846,22 @@ export default function Launch({ logo }) {
                                                         </div>
                                                     </button>
                                                 )}
+                                                
                                                 <button onClick={() => { setEditingId(reg.id); setFormData(reg); setShowForm(true); }} className="btn btn-mini" title="Editar">
                                                     <div className="btn-inner">
                                                         <Edit2 size={16} />
                                                     </div>
                                                 </button>
                                                 
-                                                {/* O BOTÃO QUE FOI ALTERADO PARA PASSAR O 'reg' INTEIRO ESTÁ AQUI */}
+                                                {/* NOVO: O BOTÃO DE IMPRESSÃO DE RECEITAS FOI ADICIONADO AQUI */}
+                                                {reg.situacao === 'Finalizada' && reg.os_id && (
+                                                    <button onClick={() => exportOS_PDF(reg)} className="btn btn-mini" style={{ color: '#0ea5e9' }} title="Imprimir Receita (OS)">
+                                                        <div className="btn-inner">
+                                                            <Printer size={16} />
+                                                        </div>
+                                                    </button>
+                                                )}
+                                                
                                                 <button onClick={() => handleDelete(reg)} className="btn btn-mini" style={{ color: '#ef5350' }} title="Excluir">
                                                     <div className="btn-inner">
                                                         <Trash2 size={16} />
