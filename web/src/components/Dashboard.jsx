@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { registrosService, chuvasService, insumosService } from '../lib/services';
+import React, { useState, useEffect, useRef } from 'react';
+import { registrosService, chuvasService, insumosService, settingsService } from '../lib/services';
 import PageHeader from './PageHeader';
 import InteractiveMap from './InteractiveMap';
 import {
@@ -128,65 +128,129 @@ const getPathCenter = (id, d) => {
 const formatQuadraLabel = (id) => id.replace(/^0+/, '');
 
 export default function Dashboard({ logo }) {
-    const [activeTab, setActiveTab] = useState('chuva'); // chuva, planejamento, resumo, mapa, leprose, relatorioAtividade, mapaManual
+    const [activeTab, setActiveTab] = useState('chuva'); 
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
     const [insumos, setInsumos] = useState([]);
+    const [mapSvg, setMapSvg] = useState('');
     const [forecast, setForecast] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Filtros blindados para separar os módulos
     const normalRegistros = registros.filter(r => r.situacao !== 'MapaManual');
     const manualRegistros = registros.filter(r => r.situacao === 'MapaManual');
 
-    // Filters for Planejamento
     const [filterActivity, setFilterActivity] = useState('Todos');
     const [showWeekly, setShowWeekly] = useState(false);
 
-    // Filters for Resumo
     const [summaryFilters, setSummaryFilters] = useState({ quadra: 'Todos', receita: 'Todos' });
     const [summaryStartDate, setSummaryStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [summaryEndDate, setSummaryEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-    // Filters for Relatório por Atividade
     const [actReportActivity, setActReportActivity] = useState('Todos');
     const [actReportClass, setActReportClass] = useState('Todos');
 
-    // Filters for Mapa Manual
     const [manualFilters, setManualFilters] = useState({ atividade: 'Adubação', produto: '' });
     const [selectedMapQuadra, setSelectedMapQuadra] = useState(null);
     const [showManualForm, setShowManualForm] = useState(false);
     const [showManualRegistros, setShowManualRegistros] = useState(false);
     const [manualFormData, setManualFormData] = useState({ id: null, atividade: 'Adubação', produto: '', data: format(new Date(), 'yyyy-MM-dd'), cor: '#3b82f6', observacao: '' });
+    const mapContainerRef = useRef(null);
 
-    // Period Filter for Chuva Chart
     const [rainStartDate, setRainStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
     const [rainEndDate, setRainEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
-    // Rain Form State
     const [showRainForm, setShowRainForm] = useState(false);
-    const [rainFormData, setRainFormData] = useState({
-        data: format(new Date(), 'yyyy-MM-dd'),
-        mm: '',
-        local: 'Sede'
-    });
+    const [rainFormData, setRainFormData] = useState({ data: format(new Date(), 'yyyy-MM-dd'), mm: '', local: 'Sede' });
 
     useEffect(() => {
         fetchData();
         fetchWeather();
     }, []);
 
+    // Effect reponsável pela renderização da pintura no SVG do Mapa Manual
+    useEffect(() => {
+        if (activeTab === 'mapaManual' && mapContainerRef.current) {
+            const svgEl = mapContainerRef.current.querySelector('svg');
+            if (!svgEl) return;
+
+            svgEl.style.width = '100%';
+            svgEl.style.height = '100%';
+
+            const currentActRecords = registros.filter(r => r.situacao === 'MapaManual' && r.receita === manualFilters.atividade);
+            const latest = {};
+            currentActRecords.forEach(r => {
+                if (!latest[r.quadra] || new Date(r.data_inicial) > new Date(latest[r.quadra].data_inicial)) {
+                    latest[r.quadra] = r;
+                }
+            });
+
+            const needsProduct = ['Adubação', 'Calcário', 'Gesso'].includes(manualFilters.atividade);
+            if (needsProduct && manualFilters.produto) {
+                Object.keys(latest).forEach(k => {
+                    try {
+                        const meta = JSON.parse(latest[k].observacao);
+                        if (!meta.produto || !meta.produto.toLowerCase().includes(manualFilters.produto.toLowerCase())) {
+                            delete latest[k];
+                        }
+                    } catch(e) {}
+                });
+            }
+
+            svgEl.querySelectorAll('.manual-text').forEach(e => e.remove());
+
+            blocks.forEach(b => {
+                const el = svgEl.querySelector(`[id="${b}"]`);
+                if (el) {
+                    el.style.fill = '#f8fafc'; 
+                    el.style.stroke = selectedMapQuadra === b ? '#0f172a' : '#cbd5e1';
+                    el.style.strokeWidth = selectedMapQuadra === b ? '3px' : '1px';
+                    el.style.cursor = 'pointer';
+                    el.onclick = () => setSelectedMapQuadra(b);
+                }
+            });
+
+            Object.values(latest).forEach(reg => {
+                const el = svgEl.querySelector(`[id="${reg.quadra}"]`);
+                if (el) {
+                    try {
+                        const meta = JSON.parse(reg.observacao);
+                        el.style.fill = meta.cor || '#3b82f6';
+
+                        const bbox = el.getBBox();
+                        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        text.setAttribute('x', bbox.x + bbox.width / 2);
+                        text.setAttribute('y', bbox.y + bbox.height / 2 + 16);
+                        text.setAttribute('text-anchor', 'middle');
+                        text.setAttribute('class', 'manual-text');
+                        
+                        // CORREÇÕES APLICADAS AQUI: Cor preta, fonte menor (10px) e contorno claro
+                        text.setAttribute('fill', '#000000'); 
+                        text.setAttribute('font-size', '10px');
+                        text.setAttribute('font-weight', '900');
+                        text.setAttribute('pointer-events', 'none');
+                        text.setAttribute('style', 'text-shadow: 1px 1px 2px rgba(255,255,255,0.9), -1px -1px 2px rgba(255,255,255,0.9);');
+                        
+                        text.textContent = format(parseISO(reg.data_inicial), 'dd/MM');
+                        svgEl.appendChild(text);
+                    } catch(e) {}
+                }
+            });
+        }
+    }, [activeTab, registros, manualFilters, selectedMapQuadra]);
+
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [regData, rainData, insData] = await Promise.all([
+            const [regData, rainData, insData, settings] = await Promise.all([
                 registrosService.getAll(),
                 chuvasService.getAll(),
-                insumosService.getAll()
+                insumosService.getAll(),
+                settingsService.get()
             ]);
             setRegistros(regData);
             setChuvas(rainData);
             setInsumos(insData);
+            setMapSvg(settings?.map_svg || '');
         } catch (err) {
             console.error(err);
         } finally {
@@ -207,7 +271,6 @@ export default function Dashboard({ logo }) {
         } catch (err) { console.error(err); }
     };
 
-    // --- Helpers for Summary Logic ---
     const calculateDelay = (reg) => {
         if (reg.situacao !== 'Finalizada' || !reg.data_inicial) return '-';
         const history = normalRegistros
@@ -225,8 +288,6 @@ export default function Dashboard({ logo }) {
         if (diff > 0) return `${diff} dias de atraso`;
         return `${Math.abs(diff)} dias adiantado`;
     };
-
-    // --- Sub-Tab Renderers ---
 
     const handleAddRain = async (e) => {
         e.preventDefault();
@@ -1049,21 +1110,18 @@ export default function Dashboard({ logo }) {
                         Mapa de Operação: {manualFilters.atividade} {manualFilters.produto && ` - ${manualFilters.produto}`}
                     </h2>
                     
-                    {/* SVG Renderizado de forma nativa e segura no React */}
-                    <div style={{ flex: 1, minHeight: '600px', display: 'flex', justifyContent: 'center' }}>
-                        <svg id="fazenda-map-svg-manual" viewBox="0 0 522 646" style={{ width: 'auto', height: '100%', maxHeight: '600px' }}>
+                    <div ref={mapContainerRef} style={{ flex: 1, minHeight: '75vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <svg id="fazenda-map-svg-manual" viewBox="0 0 522 646" style={{ width: '100%', height: '100%', maxHeight: '85vh' }}>
                             {QUADRAS_DATA.map((q) => {
                                 const center = getPathCenter(q.id, q.d);
                                 const label = formatQuadraLabel(q.id);
                                 const reg = latestByQuadra[q.id];
                                 let fillColor = '#f8fafc';
-                                let dateLabel = '';
                                 
                                 if (reg) {
                                     try {
                                         const meta = JSON.parse(reg.observacao);
                                         fillColor = meta.cor || '#3b82f6';
-                                        dateLabel = format(parseISO(reg.data_inicial), 'dd/MM');
                                     } catch(e) {}
                                 }
                                 
@@ -1091,20 +1149,6 @@ export default function Dashboard({ logo }) {
                                         >
                                             {label}
                                         </text>
-                                        {dateLabel && (
-                                            <text 
-                                                x={center.x} 
-                                                y={center.y + 20} 
-                                                textAnchor="middle" 
-                                                fill="#ffffff" 
-                                                fontSize="13" 
-                                                fontWeight="900" 
-                                                pointerEvents="none"
-                                                style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.8)' }}
-                                            >
-                                                {dateLabel}
-                                            </text>
-                                        )}
                                     </g>
                                 );
                             })}
@@ -1301,12 +1345,41 @@ export default function Dashboard({ logo }) {
         
         @media print {
             @page { size: landscape; margin: 10mm; }
-            body { margin: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .no-print { display: none !important; }
-            .premium-card { box-shadow: none !important; border: none !important; padding: 0 !important; background: transparent !important; }
-            .map-print-area { position: absolute; top: 0; left: 0; width: 100vw !important; height: 100vh !important; border: none !important; display: flex; flex-direction: column; }
-            .print-only-title { display: block !important; }
-            .print-legend { position: relative; bottom: 0; margin-top: auto; }
+            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body * { visibility: hidden; }
+            .map-print-area, .map-print-area * { visibility: visible; }
+            .map-print-area { 
+                position: absolute; 
+                top: 0; 
+                left: 0; 
+                width: 100vw; 
+                height: 100vh; 
+                padding: 0 !important; 
+                margin: 0 !important; 
+                border: none !important; 
+                display: flex !important; 
+                flex-direction: column !important; 
+                justify-content: center !important;
+                align-items: center !important;
+            }
+            .print-only-title { 
+                display: block !important; 
+                text-align: center !important; 
+                margin-bottom: 10px !important; 
+                font-size: 24px !important; 
+                color: black !important;
+            }
+            .print-legend { 
+                position: relative !important; 
+                justify-content: center !important; 
+                border-top: none !important; 
+                padding: 10px !important; 
+                margin-top: 10px !important; 
+            }
+            #fazenda-map-svg-manual {
+                height: 80vh !important;
+                width: auto !important;
+            }
         }
       `}</style>
         </div>
