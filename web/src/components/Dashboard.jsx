@@ -153,9 +153,11 @@ export default function Dashboard({ logo }) {
     const [showManualForm, setShowManualForm] = useState(false);
     const [showManualRegistros, setShowManualRegistros] = useState(false);
     const [manualFormData, setManualFormData] = useState({ id: null, atividade: 'Adubação', produto: '', data: format(new Date(), 'yyyy-MM-dd'), cor: '#3b82f6', observacao: '' });
+    const mapContainerRef = useRef(null);
 
     const [rainStartDate, setRainStartDate] = useState(format(subMonths(new Date(), 1), 'yyyy-MM-dd'));
     const [rainEndDate, setRainEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+
     const [showRainForm, setShowRainForm] = useState(false);
     const [rainFormData, setRainFormData] = useState({ data: format(new Date(), 'yyyy-MM-dd'), mm: '', local: 'Sede' });
 
@@ -1284,56 +1286,57 @@ export default function Dashboard({ logo }) {
         .filter-select { padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: white; font-weight: 600; }
         .input-field { padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); }
         
-        /* CSS BLINDADO PARA IMPRESSÃO EM 1 PÁGINA */
+        /* CSS BLINDADO PARA IMPRESSÃO EM 1 PÁGINA (SEM ESCONDER O SVG) */
         @media print {
-            @page { size: landscape; margin: 0; }
-            body { margin: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .no-print { display: none !important; }
-            .premium-card { box-shadow: none !important; border: none !important; padding: 0 !important; background: transparent !important; }
+            @page { size: landscape; margin: 5mm; }
+            body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body * { visibility: hidden; }
+            
+            .map-print-area, .map-print-area * { visibility: visible; }
             
             .map-print-area { 
-                position: fixed !important; 
-                top: 0 !important; 
-                left: 0 !important; 
-                width: 100vw !important; 
-                height: 100vh !important; 
-                padding: 10mm !important; 
+                position: absolute; 
+                top: 0; 
+                left: 0; 
+                width: 100%; 
+                padding: 0 !important; 
                 margin: 0 !important; 
                 border: none !important; 
-                display: flex !important; 
-                flex-direction: column !important; 
-                justify-content: center !important;
-                align-items: center !important;
-                box-sizing: border-box !important;
-                background: white !important;
-                z-index: 99999 !important;
+                display: block !important; 
+                text-align: center !important;
             }
+            
             .print-only-title { 
                 display: block !important; 
                 text-align: center !important; 
                 margin-bottom: 5mm !important; 
                 font-size: 20px !important; 
                 color: black !important;
-                flex: 0 0 auto;
             }
+
+            .map-print-area > div:nth-child(2) {
+                display: block !important;
+                width: 100% !important;
+            }
+
             #fazenda-map-svg-manual {
-                flex: 1 1 auto;
-                height: auto !important;
+                display: inline-block !important;
+                height: 140mm !important; /* Altura cravada em mm impede que o navegador esconda o SVG */
                 width: auto !important;
-                max-height: 70vh !important;
                 max-width: 100% !important;
             }
+            
             .print-legend { 
-                flex: 0 0 auto;
-                position: relative !important; 
+                display: flex !important;
                 justify-content: center !important; 
                 border-top: 1px solid #e2e8f0 !important; 
                 padding-top: 5mm !important; 
                 margin-top: 5mm !important; 
                 width: 100% !important;
             }
-            body * { visibility: hidden; }
-            .map-print-area, .map-print-area * { visibility: visible; }
+            
+            .no-print { display: none !important; }
+            .premium-card { box-shadow: none !important; border: none !important; padding: 0 !important; background: transparent !important; }
         }
       `}</style>
         </div>
