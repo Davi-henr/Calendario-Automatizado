@@ -22,7 +22,7 @@ const Prescriptions = ({ logo }) => {
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState(null); 
     
-    // NOVO: Estado para controlar o modal de histórico
+    // Estado para controlar o modal de histórico
     const [showHistoryModal, setShowHistoryModal] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -277,18 +277,31 @@ const Prescriptions = ({ logo }) => {
         }
     };
 
-    // NOVO: Função para buscar a última OS Finalizada da quadra selecionada
+    // ATUALIZADO: Lógica de inteligência para Leprose
     const getLastFinalizedOS = () => {
         if (!formData.quadra) return null;
         
-        const finalized = ordens.filter(os => 
+        // Pega as finalizadas daquela quadra
+        let finalized = ordens.filter(os => 
             os.quadra === formData.quadra && os.situacao === 'Finalizada'
         );
+
+        // Se a operação que eu vou fazer agora for Leprose, busca a última exclusiva de Leprose
+        if (formData.operacao === 'Leprose') {
+            finalized = finalized.filter(os => os.operacao === 'Leprose');
+        }
         
         if (finalized.length === 0) return null;
         
-        // Ordena da mais recente para a mais antiga
-        return finalized.sort((a, b) => new Date(b.data_prescricao) - new Date(a.data_prescricao))[0];
+        // Ordena da mais recente para a mais antiga (Data e depois ID)
+        return finalized.sort((a, b) => {
+            const dateA = new Date(a.data_prescricao).getTime();
+            const dateB = new Date(b.data_prescricao).getTime();
+            if (dateB === dateA) {
+                return (b.numero_os || 0) - (a.numero_os || 0);
+            }
+            return dateB - dateA;
+        })[0];
     };
 
     const exportToPDF = async (os) => {
@@ -623,10 +636,9 @@ const Prescriptions = ({ logo }) => {
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                             <div className="form-group">
-                                {/* NOVO: Label alterada para incluir o botão de Histórico com a Lupa */}
                                 <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                     <span><Search size={14} /> Quadra</span>
-                                    {formData.quadra && (
+                                    {formData.quadra && formData.operacao && (
                                         <button 
                                             type="button" 
                                             onClick={(e) => { e.preventDefault(); setShowHistoryModal(true); }}
@@ -635,7 +647,7 @@ const Prescriptions = ({ logo }) => {
                                                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', 
                                                 fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 8px', borderRadius: '6px' 
                                             }}
-                                            title="Ver última aplicação finalizada"
+                                            title="Ver histórico de produtos na quadra"
                                         >
                                             <Search size={12} /> Histórico
                                         </button>
@@ -863,13 +875,13 @@ const Prescriptions = ({ logo }) => {
                 )}
             </div>
 
-            {/* NOVO: MODAL DE HISTÓRICO DA QUADRA */}
+            {/* MODAL DE HISTÓRICO ATUALIZADO */}
             {showHistoryModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div className="premium-card glass" style={{ background: '#fff', padding: '2rem', borderRadius: '15px', width: '90%', maxWidth: '700px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
                             <h3 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <Clock size={20} /> Última Aplicação Finalizada - Quadra {formData.quadra}
+                                <Clock size={20} /> Última Aplicação ({formData.operacao === 'Leprose' ? 'Leprose' : 'Geral'}) - Quadra {formData.quadra}
                             </h3>
                             <button type="button" onClick={() => setShowHistoryModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                                 <X size={24} />
@@ -878,10 +890,21 @@ const Prescriptions = ({ logo }) => {
                         
                         {(() => {
                             const lastOS = getLastFinalizedOS();
-                            if (!lastOS) return <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhuma aplicação <b>FINALIZADA</b> encontrada no histórico para esta quadra.</p>;
+                            if (!lastOS) return <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhuma aplicação <b>FINALIZADA</b> de {formData.operacao === 'Leprose' ? 'Leprose' : 'qualquer operação'} encontrada no histórico para esta quadra.</p>;
                             
-                            // Lógica condicional do Header da tabela baseada na Operação atual (Leprose vira Acaricida)
                             const headerProduto = formData.operacao === 'Leprose' ? 'Acaricida Utilizado' : 'Inseticida Utilizado';
+                            
+                            // NOVO: Cruza os dados da OS antiga com o cadastro para achar apenas Inseticidas/Acaricidas
+                            const insumosFiltradosParaExibicao = lastOS.insumos ? lastOS.insumos.filter(ins => {
+                                const matchedMaterial = insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material?.toLowerCase().trim());
+                                const classificacao = (matchedMaterial?.classificacao || ins.finalidade || '').toLowerCase();
+                                
+                                if (formData.operacao === 'Leprose') {
+                                    return classificacao.includes('acaricida');
+                                } else {
+                                    return classificacao.includes('inseticida');
+                                }
+                            }) : [];
                             
                             return (
                                 <div className="table-responsive">
@@ -900,11 +923,17 @@ const Prescriptions = ({ logo }) => {
                                                 <td style={{ padding: '1rem', fontWeight: 'bold' }}>{lastOS.quadra}</td>
                                                 <td style={{ padding: '1rem' }}>{lastOS.operacao}</td>
                                                 <td style={{ padding: '1rem' }}>
-                                                    {lastOS.insumos && lastOS.insumos.map((i, idx) => (
-                                                        <div key={idx} style={{ fontSize: '0.85rem', marginBottom: '0.2rem' }}>
-                                                            • {i.material}
-                                                        </div>
-                                                    ))}
+                                                    {insumosFiltradosParaExibicao.length > 0 ? (
+                                                        insumosFiltradosParaExibicao.map((i, idx) => (
+                                                            <div key={idx} style={{ fontSize: '0.85rem', marginBottom: '0.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                                                                • {i.material}
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                                                            Nenhum {formData.operacao === 'Leprose' ? 'acaricida' : 'inseticida'} identificado no cadastro.
+                                                        </span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         </tbody>
