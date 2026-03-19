@@ -13,7 +13,7 @@ import autoTable from 'jspdf-autotable';
 const Prescriptions = ({ logo }) => {
     const [ordens, setOrdens] = useState([]);
     const [searchTerm, setSearchTerm] = useState(''); 
-    const [statusFilter, setStatusFilter] = useState('Pendente'); // NOVO: Filtro de Situação iniciando em Pendente
+    const [statusFilter, setStatusFilter] = useState('Pendente');
     const [insumosMeta, setInsumosMeta] = useState([]);
     const [quadrasMeta, setQuadrasMeta] = useState([]);
     const [entradasMeta, setEntradasMeta] = useState([]);
@@ -21,6 +21,10 @@ const Prescriptions = ({ logo }) => {
     const [showForm, setShowForm] = useState(false);
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState(null); 
+    
+    // NOVO: Estado para controlar o modal de histórico
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+
     const [formData, setFormData] = useState({
         quadra: '',
         operacao: '',
@@ -77,7 +81,6 @@ const Prescriptions = ({ logo }) => {
             const operacao = (os.operacao || '').toLowerCase();
             
             const matchSearch = osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
-            // NOVO: Adicionada a lógica para filtrar pelo Status Selecionado
             const matchStatus = statusFilter === 'Todos' || os.situacao === statusFilter;
 
             return matchSearch && matchStatus;
@@ -272,6 +275,20 @@ const Prescriptions = ({ logo }) => {
                 alert('Erro ao excluir: ' + error.message);
             }
         }
+    };
+
+    // NOVO: Função para buscar a última OS Finalizada da quadra selecionada
+    const getLastFinalizedOS = () => {
+        if (!formData.quadra) return null;
+        
+        const finalized = ordens.filter(os => 
+            os.quadra === formData.quadra && os.situacao === 'Finalizada'
+        );
+        
+        if (finalized.length === 0) return null;
+        
+        // Ordena da mais recente para a mais antiga
+        return finalized.sort((a, b) => new Date(b.data_prescricao) - new Date(a.data_prescricao))[0];
     };
 
     const exportToPDF = async (os) => {
@@ -606,7 +623,24 @@ const Prescriptions = ({ logo }) => {
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                             <div className="form-group">
-                                <label><Search size={14} /> Quadra</label>
+                                {/* NOVO: Label alterada para incluir o botão de Histórico com a Lupa */}
+                                <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                    <span><Search size={14} /> Quadra</span>
+                                    {formData.quadra && (
+                                        <button 
+                                            type="button" 
+                                            onClick={(e) => { e.preventDefault(); setShowHistoryModal(true); }}
+                                            style={{ 
+                                                background: 'rgba(25, 118, 210, 0.1)', border: 'none', color: '#1976d2', 
+                                                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', 
+                                                fontSize: '0.75rem', fontWeight: 'bold', padding: '4px 8px', borderRadius: '6px' 
+                                            }}
+                                            title="Ver última aplicação finalizada"
+                                        >
+                                            <Search size={12} /> Histórico
+                                        </button>
+                                    )}
+                                </label>
                                 <select 
                                     value={formData.quadra} 
                                     onChange={handleQuadraChange} 
@@ -719,7 +753,6 @@ const Prescriptions = ({ logo }) => {
             <div className="premium-card glass">
                 {!showForm && ordens.length > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', gap: '1rem' }}>
-                        {/* NOVO FILTRO AQUI */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <Filter size={16} style={{ color: '#94a3b8' }} />
                             <select 
@@ -829,6 +862,59 @@ const Prescriptions = ({ logo }) => {
                     </div>
                 )}
             </div>
+
+            {/* NOVO: MODAL DE HISTÓRICO DA QUADRA */}
+            {showHistoryModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div className="premium-card glass" style={{ background: '#fff', padding: '2rem', borderRadius: '15px', width: '90%', maxWidth: '700px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+                            <h3 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Clock size={20} /> Última Aplicação Finalizada - Quadra {formData.quadra}
+                            </h3>
+                            <button type="button" onClick={() => setShowHistoryModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        {(() => {
+                            const lastOS = getLastFinalizedOS();
+                            if (!lastOS) return <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhuma aplicação <b>FINALIZADA</b> encontrada no histórico para esta quadra.</p>;
+                            
+                            // Lógica condicional do Header da tabela baseada na Operação atual (Leprose vira Acaricida)
+                            const headerProduto = formData.operacao === 'Leprose' ? 'Acaricida Utilizado' : 'Inseticida Utilizado';
+                            
+                            return (
+                                <div className="table-responsive">
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '2px solid var(--border)', backgroundColor: '#f8fafc' }}>
+                                                <th style={{ padding: '1rem', fontSize: '0.85rem' }}>Data Aplicação</th>
+                                                <th style={{ padding: '1rem', fontSize: '0.85rem' }}>Quadra</th>
+                                                <th style={{ padding: '1rem', fontSize: '0.85rem' }}>Atividade</th>
+                                                <th style={{ padding: '1rem', fontSize: '0.85rem' }}>{headerProduto}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                                <td style={{ padding: '1rem', fontWeight: 'bold' }}>{format(parseISO(lastOS.data_prescricao), 'dd/MM/yyyy')}</td>
+                                                <td style={{ padding: '1rem', fontWeight: 'bold' }}>{lastOS.quadra}</td>
+                                                <td style={{ padding: '1rem' }}>{lastOS.operacao}</td>
+                                                <td style={{ padding: '1rem' }}>
+                                                    {lastOS.insumos && lastOS.insumos.map((i, idx) => (
+                                                        <div key={idx} style={{ fontSize: '0.85rem', marginBottom: '0.2rem' }}>
+                                                            • {i.material}
+                                                        </div>
+                                                    ))}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
