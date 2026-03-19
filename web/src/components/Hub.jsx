@@ -26,10 +26,9 @@ const MODULES = [
         Icon: BarChart2,
         gradient: 'linear-gradient(135deg, #2e7d32 0%, #66bb6a 100%)',
         glow: 'rgba(46,125,50,0.25)',
-        border: '#2e7d32',
         badge: 'ENCARREGADO AGRÍCOLA',
-        badgeColor: '#2e7d32',
-        badgeBg: '#e8f5e9',
+        badgeColor: '#b45309',
+        badgeBg: '#fef3c7',
     },
     {
         key: 'admin',
@@ -38,10 +37,9 @@ const MODULES = [
         Icon: Shield,
         gradient: 'linear-gradient(135deg, #5c35d5 0%, #9c6fef 100%)',
         glow: 'rgba(92,53,213,0.2)',
-        border: '#7c3aed',
         badge: 'ADMNISTRADOR',
-        badgeColor: '#5c35d5',
-        badgeBg: '#ede9fe',
+        badgeColor: '#b45309',
+        badgeBg: '#fef3c7',
     },
     {
         key: 'inventory',
@@ -50,7 +48,6 @@ const MODULES = [
         Icon: Package,
         gradient: 'linear-gradient(135deg, #d97706 0%, #fbbf24 100%)',
         glow: 'rgba(217,119,6,0.2)',
-        border: '#d97706',
         badge: 'ALMOXARIFE',
         badgeColor: '#b45309',
         badgeBg: '#fef3c7',
@@ -83,7 +80,7 @@ export default function Hub({ onNavigate, logo }) {
 
         // 2. Se for um usuário da lista antiga, verifica o acesso do módulo. Se for e-mail novo, deixa passar pra testar a senha.
         if (USER_MAP[inputStr] && !MODULE_ACCESS[selectedModule].includes(inputStr)) {
-            setError(`Usuário "${inputStr}" não tem acesso a esta área.`); 
+            setError(`Usuário "${inputStr}" Você não tem acesso a esta área.`); 
             setLoading(false); 
             return;
         }
@@ -280,7 +277,7 @@ export default function Hub({ onNavigate, logo }) {
                                     type="text"
                                     value={username}
                                     onChange={e => setUsername(e.target.value)}
-                                    placeholder="Ex: celso ou seu@email.com"
+                                    placeholder="Ex: greening@citrus.com"
                                     autoFocus required
                                     style={{ width: '100%', boxSizing: 'border-box', padding: '0.85rem 1.1rem', borderRadius: '14px', border: '1.5px solid var(--border)', background: '#f8fafc', color: 'var(--text)', fontSize: '1rem', outline: 'none', fontFamily: 'inherit', fontWeight: '600' }}
                                 />
