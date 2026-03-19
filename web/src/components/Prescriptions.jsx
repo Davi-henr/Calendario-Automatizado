@@ -277,23 +277,19 @@ const Prescriptions = ({ logo }) => {
         }
     };
 
-    // ATUALIZADO: Lógica de inteligência para Leprose
     const getLastFinalizedOS = () => {
         if (!formData.quadra) return null;
         
-        // Pega as finalizadas daquela quadra
         let finalized = ordens.filter(os => 
             os.quadra === formData.quadra && os.situacao === 'Finalizada'
         );
 
-        // Se a operação que eu vou fazer agora for Leprose, busca a última exclusiva de Leprose
         if (formData.operacao === 'Leprose') {
             finalized = finalized.filter(os => os.operacao === 'Leprose');
         }
         
         if (finalized.length === 0) return null;
         
-        // Ordena da mais recente para a mais antiga (Data e depois ID)
         return finalized.sort((a, b) => {
             const dateA = new Date(a.data_prescricao).getTime();
             const dateB = new Date(b.data_prescricao).getTime();
@@ -636,9 +632,10 @@ const Prescriptions = ({ logo }) => {
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                             <div className="form-group">
+                                {/* O botão agora aparece apenas exigindo a Quadra */}
                                 <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                     <span><Search size={14} /> Quadra</span>
-                                    {formData.quadra && formData.operacao && (
+                                    {formData.quadra && (
                                         <button 
                                             type="button" 
                                             onClick={(e) => { e.preventDefault(); setShowHistoryModal(true); }}
@@ -875,7 +872,6 @@ const Prescriptions = ({ logo }) => {
                 )}
             </div>
 
-            {/* MODAL DE HISTÓRICO ATUALIZADO */}
             {showHistoryModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                     <div className="premium-card glass" style={{ background: '#fff', padding: '2rem', borderRadius: '15px', width: '90%', maxWidth: '700px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
@@ -890,16 +886,17 @@ const Prescriptions = ({ logo }) => {
                         
                         {(() => {
                             const lastOS = getLastFinalizedOS();
-                            if (!lastOS) return <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhuma aplicação <b>FINALIZADA</b> de {formData.operacao === 'Leprose' ? 'Leprose' : 'qualquer operação'} encontrada no histórico para esta quadra.</p>;
+                            const isLeprose = formData.operacao === 'Leprose';
                             
-                            const headerProduto = formData.operacao === 'Leprose' ? 'Acaricida Utilizado' : 'Inseticida Utilizado';
+                            if (!lastOS) return <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '2rem 0' }}>Nenhuma aplicação <b>FINALIZADA</b> de {isLeprose ? 'Leprose' : 'qualquer operação'} encontrada no histórico para esta quadra.</p>;
                             
-                            // NOVO: Cruza os dados da OS antiga com o cadastro para achar apenas Inseticidas/Acaricidas
+                            const headerProduto = isLeprose ? 'Acaricida Utilizado' : 'Inseticida Utilizado';
+                            
                             const insumosFiltradosParaExibicao = lastOS.insumos ? lastOS.insumos.filter(ins => {
                                 const matchedMaterial = insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material?.toLowerCase().trim());
                                 const classificacao = (matchedMaterial?.classificacao || ins.finalidade || '').toLowerCase();
                                 
-                                if (formData.operacao === 'Leprose') {
+                                if (isLeprose) {
                                     return classificacao.includes('acaricida');
                                 } else {
                                     return classificacao.includes('inseticida');
@@ -926,12 +923,13 @@ const Prescriptions = ({ logo }) => {
                                                     {insumosFiltradosParaExibicao.length > 0 ? (
                                                         insumosFiltradosParaExibicao.map((i, idx) => (
                                                             <div key={idx} style={{ fontSize: '0.85rem', marginBottom: '0.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                                                                • {i.material}
+                                                                {/* ADICIONADO A DOSAGEM AQUI */}
+                                                                • {i.material} ({i.dosagem})
                                                             </div>
                                                         ))
                                                     ) : (
                                                         <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
-                                                            Nenhum {formData.operacao === 'Leprose' ? 'acaricida' : 'inseticida'} identificado no cadastro.
+                                                            Nenhum {isLeprose ? 'acaricida' : 'inseticida'} identificado no cadastro.
                                                         </span>
                                                     )}
                                                 </td>
