@@ -27,12 +27,47 @@ import autoTable from 'jspdf-autotable';
 import { saidasService, ordensSaidaService, quadrasService, atividadesService, insumosService, osService, settingsService } from '../lib/services';
 import { format } from 'date-fns';
 
+// NOVO: Função para cálculo dinâmico de situação baseado em data e hora
+const getDynamicStatus = (item) => {
+    // Se já estiver conferida no banco, mantém.
+    if (item.situacao === 'Conferida') return 'Conferida';
+
+    // Pega a data dependendo se é uma Ordem de Saída (data) ou Receita (data_prescricao)
+    const dataRef = item.data || item.data_prescricao;
+    if (!dataRef) return 'Pendente';
+
+    const today = new Date();
+    const refDate = new Date(dataRef + 'T00:00:00');
+
+    // Normaliza para comparar apenas os dias
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const refStart = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate()).getTime();
+
+    if (refStart > todayStart) {
+        // Data no futuro
+        return 'Programado';
+    } else if (refStart === todayStart) {
+        // Data de Hoje
+        const currentHour = today.getHours();
+        const isDayNow = currentHour >= 5 && currentHour < 18; // Considera "Dia" das 05:00 às 17:59
+
+        if (item.turno && item.turno.toUpperCase() === 'NOITE') {
+            if (isDayNow) {
+                return 'Programado'; // É hoje de noite, mas ainda estamos de dia
+            }
+        }
+        return 'Pendente'; // É hoje, e é de dia (ou já estamos de noite no turno da noite)
+    } else {
+        // Datas passadas
+        return 'Pendente';
+    }
+};
+
 export default function InventoryHistory({ subview }) {
     const [saidas, setSaidas] = useState([]);
     const [ordens, setOrdens] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    // NOVO: Estado para controlar o filtro, iniciando em 'Pendente'
     const [statusFilter, setStatusFilter] = useState('Pendente'); 
     const [logo, setLogo] = useState(null);
 
@@ -244,7 +279,6 @@ export default function InventoryHistory({ subview }) {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    {/* NOVO: Filtro Visível apenas na aba de Receitas */}
                     {subview !== 'geral' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#f8fafc', padding: '0.2rem 0.5rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)' }}>
                             <Filter size={16} style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }} />
@@ -258,6 +292,7 @@ export default function InventoryHistory({ subview }) {
                             >
                                 <option value="Todos">Todas as Situações</option>
                                 <option value="Pendente">Pendentes</option>
+                                <option value="Programado">Programadas</option>
                                 <option value="Conferida">Conferidas</option>
                             </select>
                         </div>
@@ -288,7 +323,7 @@ export default function InventoryHistory({ subview }) {
                     <RecipeView
                         ordens={ordens}
                         searchTerm={searchTerm}
-                        statusFilter={statusFilter} // Passando o filtro novo para a tabela
+                        statusFilter={statusFilter}
                         onEdit={setEditingOrder}
                         onCheck={setCheckingOrder}
                         onDelete={handleDeleteOrder}
@@ -327,7 +362,6 @@ function GeneralView({ saidas, searchTerm }) {
             s.ordens_saida?.numero_receita?.toLowerCase().includes(search)
         );
     }).sort((a, b) => {
-        // Ordenação: 1º Data (Decrescente), 2º Turno (Crescente), 3º Carreta (Crescente)
         const dateA = new Date(a.data_saida || 0).getTime();
         const dateB = new Date(b.data_saida || 0).getTime();
         if (dateB !== dateA) return dateB - dateA;
@@ -380,7 +414,6 @@ function GeneralView({ saidas, searchTerm }) {
     );
 }
 
-// NOVO: statusFilter foi adicionado às props
 function RecipeView({ ordens, searchTerm, statusFilter, onEdit, onCheck, onDelete, onPrint }) {
     const filtered = ordens.filter(o => {
         const search = searchTerm.toLowerCase();
@@ -390,12 +423,12 @@ function RecipeView({ ordens, searchTerm, statusFilter, onEdit, onCheck, onDelet
             o.atividades?.nome?.toLowerCase().includes(search)
         );
         
-        // Aplica o filtro de situação
-        const matchStatus = statusFilter === 'Todos' || o.situacao === statusFilter;
+        // Aplica cálculo dinâmico para filtrar adequadamente
+        const dynamicStatus = getDynamicStatus(o);
+        const matchStatus = statusFilter === 'Todos' || dynamicStatus === statusFilter;
         
         return matchSearch && matchStatus;
     }).sort((a, b) => {
-        // Ordenação: 1º Data (Decrescente), 2º Turno (Crescente), 3º Carreta (Crescente)
         const dateA = new Date(a.data || 0).getTime();
         const dateB = new Date(b.data || 0).getTime();
         if (dateB !== dateA) return dateB - dateA;
@@ -433,13 +466,29 @@ function RecipeView({ ordens, searchTerm, statusFilter, onEdit, onCheck, onDelet
                         <td style={{ padding: '1rem', textAlign: 'center' }}>{o.turno || '-'}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>{o.numero_carreta || '-'}</td>
                         <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <span style={{
-                                padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '800',
-                                backgroundColor: o.situacao === 'Conferida' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                color: o.situacao === 'Conferida' ? '#10b981' : '#ef4444'
-                            }}>
-                                {o.situacao}
-                            </span>
+                            {(() => {
+                                const dStatus = getDynamicStatus(o);
+                                let bgColor = 'rgba(239, 68, 68, 0.1)';
+                                let color = '#ef4444'; // Vermelho (Pendente)
+
+                                if (dStatus === 'Conferida') {
+                                    bgColor = 'rgba(16, 185, 129, 0.1)';
+                                    color = '#10b981'; // Verde (Conferida)
+                                } else if (dStatus === 'Programado') {
+                                    bgColor = 'rgba(59, 130, 246, 0.1)';
+                                    color = '#3b82f6'; // Azul (Programado)
+                                }
+
+                                return (
+                                    <span style={{
+                                        padding: '0.4rem 0.8rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: '800',
+                                        backgroundColor: bgColor,
+                                        color: color
+                                    }}>
+                                        {dStatus}
+                                    </span>
+                                );
+                            })()}
                         </td>
                         <td style={{ padding: '1rem', textAlign: 'right', borderRadius: '0 12px 12px 0' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
@@ -470,7 +519,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
     const [quadras, setQuadras] = useState([]);
     const [atividades, setAtividades] = useState([]);
     const [targetOS, setTargetOS] = useState(null);
-    const [itemDestinations, setItemDestinations] = useState({}); // { itemId: 'estoque' | 'transfer' }
+    const [itemDestinations, setItemDestinations] = useState({});
     const [pendingOS, setPendingOS] = useState([]);
     const [showLookup, setShowLookup] = useState(false);
     const [osSearchTerm, setOsSearchTerm] = useState('');
@@ -735,6 +784,19 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         border: '1px solid #e2e8f0', marginTop: '5px', maxHeight: '200px', overflowY: 'auto'
                                     }}>
                                         {pendingOS.filter(os => {
+                                            // Filtra apenas para permitir transferência para as que estão "Pendentes"
+                                            const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
+                                            let itemStatus = 'Pendente';
+                                            
+                                            if (unconfirmedOrders.length > 0) {
+                                                itemStatus = getDynamicStatus(unconfirmedOrders[0]);
+                                            } else {
+                                                itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: null });
+                                            }
+
+                                            // Bloqueia as programadas e conferidas da lista de destinos de transferência
+                                            if (itemStatus !== 'Pendente') return false; 
+
                                             const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
                                             return (
                                                 recipeNo.includes(osSearchTerm) ||
