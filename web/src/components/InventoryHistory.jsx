@@ -534,9 +534,31 @@ function OrderModal({ order, onClose, onSave, mode }) {
             atividadesService.getAll(),
             osService.getPending()
         ]);
+
+        // NOVO: Busca invisível e rápida para enriquecer os dados que faltam (turno e data) nas ordens pendentes
+        let posEnriched = pos;
+        try {
+            const { data: ordensPendentes } = await supabase
+                .from('ordens_saida')
+                .select('id, turno, data, situacao')
+                .neq('situacao', 'Conferida');
+
+            if (ordensPendentes) {
+                posEnriched = pos.map(os => {
+                    const enrichedOrdens = os.ordens_saida?.map(o => {
+                        const realData = ordensPendentes.find(op => op.id === o.id);
+                        return realData ? { ...o, ...realData } : o;
+                    }) || [];
+                    return { ...os, ordens_saida: enrichedOrdens };
+                });
+            }
+        } catch (e) {
+            console.error("Erro silencioso ao enriquecer ordens pendentes", e);
+        }
+
         setQuadras(q);
         setAtividades(a);
-        setPendingOS(pos);
+        setPendingOS(posEnriched);
 
         if (!header.quadra_id && order.quadras?.nome) {
             const foundQuadra = q.find(quadra => quadra.nome === order.quadras.nome);
@@ -784,7 +806,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         border: '1px solid #e2e8f0', marginTop: '5px', maxHeight: '200px', overflowY: 'auto'
                                     }}>
                                         {pendingOS.filter(os => {
-                                            // 1. Verifica a situação usando a função de data e hora
+                                            // 1. Verifica a situação usando a função de data e hora e os dados enriquecidos
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             let itemStatus = 'Pendente';
                                             
@@ -809,8 +831,8 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             const hasUnconfirmed = unconfirmedOrders.length > 0;
                                             
-                                            // Pega o turno: Se já tem saída lançada, usa o turno da saída. Senão, usa da receita (ou exibe N/D).
-                                            const turnoExibicao = hasUnconfirmed ? unconfirmedOrders[0].turno : (os.turno || 'N/D');
+                                            // Graças ao enriquecimento, agora o 'turno' existe de fato aqui!
+                                            const turnoExibicao = hasUnconfirmed ? (unconfirmedOrders[0].turno || 'N/D') : (os.turno || 'N/D');
                                             
                                             const productList = os.insumos?.map(i => i.material || i.insumo).join(', ') || 'Nenhum insumo';
 
@@ -860,7 +882,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                             );
                                         })}
                                         
-                                        {/* Feedback caso nenhuma receita pendente passe no filtro */}
+                                        {/* Feedback visual elegante caso não haja nenhuma receita Pendente passando no filtro */}
                                         {pendingOS.filter(os => {
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             let itemStatus = 'Pendente';
