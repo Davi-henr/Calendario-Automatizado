@@ -535,7 +535,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
             osService.getPending()
         ]);
 
-        // NOVO: Busca invisível e rápida para enriquecer os dados que faltam (turno e data) nas ordens pendentes
         let posEnriched = pos;
         try {
             const { data: ordensPendentes } = await supabase
@@ -806,7 +805,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         border: '1px solid #e2e8f0', marginTop: '5px', maxHeight: '200px', overflowY: 'auto'
                                     }}>
                                         {pendingOS.filter(os => {
-                                            // 1. Verifica a situação usando a função de data e hora e os dados enriquecidos
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             let itemStatus = 'Pendente';
                                             
@@ -816,10 +814,8 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                 itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
                                             }
 
-                                            // 2. EXIGE QUE SEJA APENAS "PENDENTE" (Bloqueia Programadas e Conferidas)
                                             if (itemStatus !== 'Pendente') return false; 
 
-                                            // 3. Aplica o filtro da barra de pesquisa
                                             const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
                                             return (
                                                 recipeNo.includes(osSearchTerm) ||
@@ -831,7 +827,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             const hasUnconfirmed = unconfirmedOrders.length > 0;
                                             
-                                            // Graças ao enriquecimento, agora o 'turno' existe de fato aqui!
                                             const turnoExibicao = hasUnconfirmed ? (unconfirmedOrders[0].turno || 'N/D') : (os.turno || 'N/D');
                                             
                                             const productList = os.insumos?.map(i => i.material || i.insumo).join(', ') || 'Nenhum insumo';
@@ -882,7 +877,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                             );
                                         })}
                                         
-                                        {/* Feedback visual elegante caso não haja nenhuma receita Pendente passando no filtro */}
                                         {pendingOS.filter(os => {
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             let itemStatus = 'Pendente';
@@ -923,14 +917,18 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                 {mode === 'check' && <th style={{ padding: '0.8rem' }}>Devolução Prevista</th>}
                                 <th style={{ padding: '0.8rem' }}>Devolução</th>
                                 {mode === 'check' && <th style={{ padding: '0.8rem' }}>Destino Sobra</th>}
-                                {mode === 'check' && <th style={{ padding: '0.8rem' }}>Divergência</th>}
+                                {mode === 'check' && <th style={{ padding: '0.8rem' }}>Situação</th>}
                             </tr>
                         </thead>
                         <tbody>
                             {items.map((item, idx) => {
                                 const bombasAplicadas = parseFloat(header.bombas_aplicadas || 0);
                                 const predictedReturn = (parseFloat(item.quantidade) - (bombasAplicadas * parseFloat(item.dosagem))).toFixed(2);
-                                const isDivergent = mode === 'check' && (parseFloat(item.devolucao || 0) != predictedReturn);
+                                
+                                // Nova lógica para os botões de Ok e Divergente
+                                const hasDevolucao = item.devolucao !== undefined && item.devolucao !== '';
+                                const isOk = hasDevolucao && parseFloat(item.devolucao) == parseFloat(predictedReturn);
+                                const isDivergent = hasDevolucao && parseFloat(item.devolucao) != parseFloat(predictedReturn);
 
                                 return (
                                     <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
@@ -986,7 +984,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         </td>
                                         {mode === 'check' && (
                                             <td style={{ padding: '0.8rem' }}>
-                                                <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                                                <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '8px', width: 'fit-content' }}>
                                                     <button
                                                         onClick={() => setItemDestinations({ ...itemDestinations, [item.id]: 'estoque' })}
                                                         style={{
@@ -1010,15 +1008,44 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         )}
                                         {mode === 'check' && (
                                             <td style={{ padding: '0.8rem' }}>
-                                                {isDivergent ? (
-                                                    <div style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}>
-                                                        <AlertTriangle size={14} /> Divergente
-                                                    </div>
-                                                ) : (
-                                                    <div style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}>
+                                                <div style={{ display: 'flex', gap: '4px', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '8px', width: 'fit-content' }}>
+                                                    <button
+                                                        title="Preencher com a sobra prevista"
+                                                        onClick={() => {
+                                                            const newItems = [...items];
+                                                            newItems[idx].devolucao = predictedReturn;
+                                                            setItems(newItems);
+                                                        }}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', gap: '4px',
+                                                            padding: '4px 8px', borderRadius: '6px', border: 'none', fontSize: '0.65rem', fontWeight: '800', cursor: 'pointer',
+                                                            backgroundColor: isOk ? 'white' : 'transparent',
+                                                            boxShadow: isOk ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                                                            color: isOk ? '#10b981' : 'var(--text-muted)'
+                                                        }}
+                                                    >
                                                         <CheckCircle size={14} /> Ok
-                                                    </div>
-                                                )}
+                                                    </button>
+                                                    <button
+                                                        title="Digitar sobra real manualmente"
+                                                        onClick={() => {
+                                                            if (isOk || !hasDevolucao) {
+                                                                const newItems = [...items];
+                                                                newItems[idx].devolucao = '';
+                                                                setItems(newItems);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', gap: '4px',
+                                                            padding: '4px 8px', borderRadius: '6px', border: 'none', fontSize: '0.65rem', fontWeight: '800', cursor: 'pointer',
+                                                            backgroundColor: isDivergent ? 'white' : 'transparent',
+                                                            boxShadow: isDivergent ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                                                            color: isDivergent ? '#ef4444' : 'var(--text-muted)'
+                                                        }}
+                                                    >
+                                                        <AlertTriangle size={14} /> Divergente
+                                                    </button>
+                                                </div>
                                             </td>
                                         )}
                                     </tr>
