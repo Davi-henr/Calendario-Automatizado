@@ -784,19 +784,20 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         border: '1px solid #e2e8f0', marginTop: '5px', maxHeight: '200px', overflowY: 'auto'
                                     }}>
                                         {pendingOS.filter(os => {
-                                            // Filtra apenas para permitir transferência para as que estão "Pendentes"
+                                            // 1. Verifica a situação usando a função de data e hora
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             let itemStatus = 'Pendente';
                                             
                                             if (unconfirmedOrders.length > 0) {
                                                 itemStatus = getDynamicStatus(unconfirmedOrders[0]);
                                             } else {
-                                                itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: null });
+                                                itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
                                             }
 
-                                            // Bloqueia as programadas e conferidas da lista de destinos de transferência
+                                            // 2. EXIGE QUE SEJA APENAS "PENDENTE" (Bloqueia Programadas e Conferidas)
                                             if (itemStatus !== 'Pendente') return false; 
 
+                                            // 3. Aplica o filtro da barra de pesquisa
                                             const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
                                             return (
                                                 recipeNo.includes(osSearchTerm) ||
@@ -807,6 +808,10 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                             const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             const hasUnconfirmed = unconfirmedOrders.length > 0;
+                                            
+                                            // Pega o turno: Se já tem saída lançada, usa o turno da saída. Senão, usa da receita (ou exibe N/D).
+                                            const turnoExibicao = hasUnconfirmed ? unconfirmedOrders[0].turno : (os.turno || 'N/D');
+                                            
                                             const productList = os.insumos?.map(i => i.material || i.insumo).join(', ') || 'Nenhum insumo';
 
                                             return (
@@ -826,7 +831,15 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                     onMouseLeave={e => e.currentTarget.style.backgroundColor = hasUnconfirmed ? 'rgba(16, 185, 129, 0.02)' : 'rgba(239, 68, 68, 0.02)'}
                                                 >
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                                                        <span><strong>{recipeNo}</strong> - Quadra: {os.quadra}</span>
+                                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <strong>{recipeNo}</strong> 
+                                                            <span style={{ opacity: 0.3 }}>|</span> 
+                                                            Quadra: {os.quadra}
+                                                            <span style={{ opacity: 0.3 }}>|</span> 
+                                                            <span style={{ color: 'var(--text-muted)' }}>
+                                                                Turno: <strong style={{ color: 'var(--text)' }}>{turnoExibicao}</strong>
+                                                            </span>
+                                                        </span>
                                                         <span style={{
                                                             fontSize: '0.65rem', fontWeight: '900', padding: '2px 6px', borderRadius: '4px',
                                                             backgroundColor: hasUnconfirmed ? '#10b981' : '#ef4444', color: 'white'
@@ -846,6 +859,21 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                 </div>
                                             );
                                         })}
+                                        
+                                        {/* Feedback caso nenhuma receita pendente passe no filtro */}
+                                        {pendingOS.filter(os => {
+                                            const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
+                                            let itemStatus = 'Pendente';
+                                            if (unconfirmedOrders.length > 0) itemStatus = getDynamicStatus(unconfirmedOrders[0]);
+                                            else itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
+                                            if (itemStatus !== 'Pendente') return false; 
+                                            const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
+                                            return recipeNo.includes(osSearchTerm) || os.numero_os?.toString().includes(osSearchTerm) || os.quadra?.toString().toLowerCase().includes(osSearchTerm.toLowerCase());
+                                        }).length === 0 && (
+                                            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                                Nenhuma receita pendente encontrada.
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
