@@ -520,10 +520,15 @@ export const ordensSaidaService = {
     },
 
     async delete(id) {
-        // Proteção Soft Delete
-        const { error } = await supabase.from('ordens_saida').update({ ativo: false }).eq('id', id);
-        if (error) throw error;
+        // Proteção Soft Delete do Cabeçalho
+        const { error: headerError } = await supabase.from('ordens_saida').update({ ativo: false }).eq('id', id);
+        if (headerError) throw headerError;
+
+        // NOVO: Aplica a mesma proteção (Soft Delete) em todos os itens que pertencem a esta ordem
+        const { error: itemsError } = await supabase.from('saidas').update({ ativo: false }).eq('ordem_saida_id', id);
+        if (itemsError) throw itemsError;
     },
+    
     async getByOsId(osId) {
         if (!osId) return [];
         const { data, error } = await supabase
