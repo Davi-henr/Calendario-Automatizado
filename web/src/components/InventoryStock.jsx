@@ -32,13 +32,13 @@ export default function InventoryStock() {
                     .filter(e => e.insumo_id === insumo.id)
                     .reduce((sum, e) => sum + Number(e.quantidade || 0), 0);
 
-                // CORREÇÃO: Ignora itens cuja ordem de saída (cabeçalho pai) foi inativada
+                // Lê saídas, ignorando as apagadas
                 const totalSaidas = (saidas || [])
                     .filter(s => s.insumo_id === insumo.id && s.ordens_saida?.ativo !== false)
                     .reduce((sum, s) => sum + Number(s.quantidade || 0), 0);
 
-                // CORREÇÃO DEFINITIVA: Ignora os inativos e usa APENAS a coluna 'devolucao' 
-                // para não duplicar o saldo quando houver transferência de quadras
+                // LÓGICA SIMPLES E CORRETA: Apenas soma as devoluções, ignorando as apagadas.
+                // Como a transferência já gera a saída acima, a conta se anula perfeitamente.
                 const totalDevolucoes = (saidas || [])
                     .filter(s => s.insumo_id === insumo.id && s.ordens_saida?.ativo !== false)
                     .reduce((sum, s) => sum + Number(s.devolucao || 0), 0);
@@ -47,7 +47,6 @@ export default function InventoryStock() {
                 const consumoReal = totalSaidas - totalDevolucoes;
                 const saldoAtual = saldoInicial + totalEntradas - consumoReal;
 
-                // CORREÇÃO: parseFloat com toFixed(2) força o corte dos decimais infinitos do JavaScript
                 return {
                     id: insumo.id,
                     insumo: insumo.insumo,
