@@ -27,23 +27,30 @@ export default function InventoryStock() {
                 saidasService.getAll()
             ]);
 
+            // TRAVA DE SEGURANÇA: Função para evitar que números com vírgula quebrem o cálculo e causem furos no estoque
+            const safeNum = (val) => {
+                if (!val) return 0;
+                const parsed = parseFloat(val.toString().replace(',', '.'));
+                return isNaN(parsed) ? 0 : parsed;
+            };
+
             const consolidated = insumos.map(insumo => {
                 const totalEntradas = (entradas || [])
                     .filter(e => e.insumo_id === insumo.id)
-                    .reduce((sum, e) => sum + Number(e.quantidade || 0), 0);
+                    .reduce((sum, e) => sum + safeNum(e.quantidade), 0);
 
                 // Lê saídas, ignorando as apagadas
                 const totalSaidas = (saidas || [])
                     .filter(s => s.insumo_id === insumo.id && s.ordens_saida?.ativo !== false)
-                    .reduce((sum, s) => sum + Number(s.quantidade || 0), 0);
+                    .reduce((sum, s) => sum + safeNum(s.quantidade), 0);
 
                 // LÓGICA SIMPLES E CORRETA: Apenas soma as devoluções, ignorando as apagadas.
                 // Como a transferência já gera a saída acima, a conta se anula perfeitamente.
                 const totalDevolucoes = (saidas || [])
                     .filter(s => s.insumo_id === insumo.id && s.ordens_saida?.ativo !== false)
-                    .reduce((sum, s) => sum + Number(s.devolucao || 0), 0);
+                    .reduce((sum, s) => sum + safeNum(s.devolucao), 0);
 
-                const saldoInicial = Number(insumo.saldo_inicial || 0);
+                const saldoInicial = safeNum(insumo.saldo_inicial);
                 const consumoReal = totalSaidas - totalDevolucoes;
                 const saldoAtual = saldoInicial + totalEntradas - consumoReal;
 
