@@ -30,15 +30,17 @@ export default function InventoryStock() {
             const consolidated = insumos.map(insumo => {
                 const totalEntradas = (entradas || [])
                     .filter(e => e.insumo_id === insumo.id)
-                    .reduce((sum, e) => sum + Number(e.quantidade), 0);
+                    .reduce((sum, e) => sum + Number(e.quantidade || 0), 0);
 
+                // CORREÇÃO: Ignora itens cuja ordem de saída (cabeçalho pai) foi inativada
                 const totalSaidas = (saidas || [])
-                    .filter(s => s.insumo_id === insumo.id)
-                    .reduce((sum, s) => sum + Number(s.quantidade), 0);
+                    .filter(s => s.insumo_id === insumo.id && s.ordens_saida?.ativo !== false)
+                    .reduce((sum, s) => sum + Number(s.quantidade || 0), 0);
 
+                // CORREÇÃO: Ignora os inativos e SOMA a 'quantidade_sobra' para abater do consumo real
                 const totalDevolucoes = (saidas || [])
-                    .filter(s => s.insumo_id === insumo.id)
-                    .reduce((sum, s) => sum + Number(s.devolucao || 0), 0);
+                    .filter(s => s.insumo_id === insumo.id && s.ordens_saida?.ativo !== false)
+                    .reduce((sum, s) => sum + Number(s.devolucao || s.quantidade_sobra || 0), 0);
 
                 const saldoInicial = Number(insumo.saldo_inicial || 0);
                 const consumoReal = totalSaidas - totalDevolucoes;
