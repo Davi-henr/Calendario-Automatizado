@@ -37,10 +37,11 @@ export default function InventoryStock() {
                     .filter(s => s.insumo_id === insumo.id && s.ordens_saida?.ativo !== false)
                     .reduce((sum, s) => sum + Number(s.quantidade || 0), 0);
 
-                // CORREÇÃO: Ignora os inativos e SOMA a 'quantidade_sobra' para abater do consumo real
+                // CORREÇÃO DEFINITIVA: Ignora os inativos e usa APENAS a coluna 'devolucao' 
+                // para não duplicar o saldo quando houver transferência de quadras
                 const totalDevolucoes = (saidas || [])
                     .filter(s => s.insumo_id === insumo.id && s.ordens_saida?.ativo !== false)
-                    .reduce((sum, s) => sum + Number(s.devolucao || s.quantidade_sobra || 0), 0);
+                    .reduce((sum, s) => sum + Number(s.devolucao || 0), 0);
 
                 const saldoInicial = Number(insumo.saldo_inicial || 0);
                 const consumoReal = totalSaidas - totalDevolucoes;
