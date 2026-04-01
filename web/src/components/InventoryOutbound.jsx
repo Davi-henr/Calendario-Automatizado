@@ -144,7 +144,6 @@ export default function InventoryOutbound({ logo }) {
 
     const selectPrescription = (os) => {
         const quadra = quadras.find(q => q.nome === os.quadra);
-        // Assuming activity name matches operation roughly
         const atividade = atividades.find(a => a.nome === os.operacao);
 
         setHeader({
@@ -167,8 +166,8 @@ export default function InventoryOutbound({ logo }) {
             return {
                 id: crypto.randomUUID(),
                 insumo_id: meta?.id || '',
-                codigo: meta?.codigo || ins.codigo, // Usa o código local se possível
-                insumo_nome: meta?.insumo || ins.material, // Mostra o nome local se houver match, para transparência
+                codigo: meta?.codigo || ins.codigo,
+                insumo_nome: meta?.insumo || ins.material,
                 dosagem: ins.dosagem.toString().replace(',', '.'),
                 quantidade: (parseFloat(header.quantidade_bombas || 0) * parseFloat(ins.dosagem.toString().replace(',', '.'))).toFixed(2),
                 quantidade_sobra: 0
@@ -226,7 +225,9 @@ export default function InventoryOutbound({ logo }) {
         doc.setFont('helvetica', 'bold');
         doc.setLineWidth(0.3);
 
-        // 1. TOP HEADER - LOGO & TITLE
+        // ==========================================
+        // 1. PRIMEIRA PARTE: ORDEM DE SAÍDA INTACTA
+        // ==========================================
         doc.rect(5, 5, pw - 10, 12);
         if (logo) {
             try {
@@ -238,12 +239,10 @@ export default function InventoryOutbound({ logo }) {
         doc.setFontSize(14);
         doc.text('ORDEM DE SAIDA DE DEFENSIVOS AGRICOLA', pw / 2 + 10, 12.5, { align: 'center' });
 
-        // 2. INFORMATION GRID
         doc.setFontSize(8);
         let currentY = 17;
         const rowH = 7;
 
-        // Row 1: DATA, TURNO, QTD BOMBAS
         doc.rect(5, currentY, 50, rowH);
         doc.text('DATA:', 7, currentY + 4.5);
         doc.setFont('helvetica', 'normal');
@@ -263,7 +262,6 @@ export default function InventoryOutbound({ logo }) {
 
         currentY += rowH;
 
-        // Row 2: CARRETA, QUADRA, OPERACAO, RECEITA
         doc.rect(5, currentY, 40, rowH);
         doc.setFont('helvetica', 'bold');
         doc.text('CARRETA N°:', 7, currentY + 4.5);
@@ -290,7 +288,6 @@ export default function InventoryOutbound({ logo }) {
 
         currentY += rowH;
 
-        // SubHeader Note
         doc.rect(5, currentY, pw - 10, 5);
         doc.setFontSize(6);
         doc.setFont('helvetica', 'bold');
@@ -316,7 +313,7 @@ export default function InventoryOutbound({ logo }) {
                 item ? item.insumo_nome : '',
                 item ? formatVal(item.dosagem) : '',
                 item ? formatVal(item.quantidade) : '',
-                '', // Second Qtd Lacrada (empty for manual filling)
+                '', // Second Qtd Lacrada
                 checkContent,
                 '', // Second Qtd Lacrada 2
                 '', // Second Qtd Sobra 2
@@ -334,7 +331,7 @@ export default function InventoryOutbound({ logo }) {
             columnStyles: {
                 0: { halign: 'left', cellWidth: 45 },
                 1: { cellWidth: 15 },
-                2: { cellWidth: 20, textColor: [180, 180, 180] }, // <-- MODIFICAÇÃO: Cor Cinza Claro Aplicada
+                2: { cellWidth: 20, textColor: [180, 180, 180] }, // <-- Cor Cinza Claro Aplicada
                 3: { cellWidth: 20 },
                 4: { cellWidth: 25, fontSize: 5, halign: 'left' },
                 5: { cellWidth: 20 },
@@ -354,38 +351,50 @@ export default function InventoryOutbound({ logo }) {
             doc.text(header.observacao || '', 7, finalY + 8, { maxWidth: 65 });
         }
 
-        // --- NOVA TABELA: CONTROLE DE BOMBAS ---
-        const pumpControlY = finalY + 22;
+
+        // ==========================================
+        // 2. NOVA PARTE: REGISTRO DE BOMBAS APLICADAS
+        // ==========================================
+        const pumpControlStartY = finalY + 24;
+
+        // Novo Cabeçalho com Logo
+        doc.rect(5, pumpControlStartY, pw - 10, 12);
+        if (logo) {
+            try {
+                doc.addImage(logo, 'PNG', 7, pumpControlStartY + 1.5, 18, 9);
+            } catch (e) {
+                console.error('Logo error:', e);
+            }
+        }
         
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REGISTRO DE BOMBAS APLICADAS', pw / 2 + 10, pumpControlStartY + 7.5, { align: 'center' });
+
+        // Nova Tabela com as colunas solicitadas e 6 linhas vazias
         autoTable(doc, {
-            startY: pumpControlY,
-            head: [[{ content: 'CONTROLE DE BOMBAS', colSpan: 10, styles: { halign: 'center', fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold' } }]],
-            body: [
-                ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-                ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20'],
-                ['21', '22', '23', '24', '25', '26', '27', '28', '29', '30'],
-                ['31', '32', '33', '34', '35', '36', '37', '38', '39', '40']
-            ],
+            startY: pumpControlStartY + 13, // Logo abaixo do novo cabeçalho
+            head: [['Trator', 'Operador', 'Horário 1º Bomba', 'Horário Última bomba', 'Qtde. bombas']],
+            body: Array(6).fill(['', '', '', '', '']), // 6 linhas vazias para o campo
             theme: 'grid',
             styles: { 
                 halign: 'center', 
-                valign: 'top', 
-                fontSize: 10, 
-                fontStyle: 'bold', 
-                textColor: [100, 100, 100], // Numeração em cinza escuro para facilitar a visualização sem ofuscar a caneta
+                valign: 'middle', 
+                fontSize: 9, 
                 cellPadding: 1, 
                 lineColor: 0, 
                 lineWidth: 0.1, 
-                minCellHeight: 10 // Altura excelente para marcar/assinar por cima
+                minCellHeight: 12 // Altura espaçosa para escrever os nomes e horários confortavelmente
             },
-            headStyles: { minCellHeight: 6 },
+            headStyles: { fillColor: 245, textColor: 0, fontStyle: 'bold', minCellHeight: 8 },
             margin: { left: 5, right: 5 }
         });
 
         const afterPumpY = doc.lastAutoTable.finalY + 15;
 
-        // Signatures (movidas para baixo do controle de bombas)
+        // Signatures (As assinaturas vão logo abaixo da nova tabela)
         doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
         doc.line(80, afterPumpY, 115, afterPumpY); doc.text('Administrador:', 80, afterPumpY + 3.5);
         doc.line(120, afterPumpY, 155, afterPumpY); doc.text('Encarregado:', 120, afterPumpY + 3.5);
         doc.line(160, afterPumpY, pw - 5, afterPumpY); doc.text('Almoxarife:', 160, afterPumpY + 3.5);
