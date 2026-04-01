@@ -334,7 +334,7 @@ export default function InventoryOutbound({ logo }) {
             columnStyles: {
                 0: { halign: 'left', cellWidth: 45 },
                 1: { cellWidth: 15 },
-                2: { cellWidth: 20 },
+                2: { cellWidth: 20, textColor: [180, 180, 180] }, // <-- MODIFICAÇÃO: Cor Cinza Claro Aplicada
                 3: { cellWidth: 20 },
                 4: { cellWidth: 25, fontSize: 5, halign: 'left' },
                 5: { cellWidth: 20 },
@@ -354,16 +354,45 @@ export default function InventoryOutbound({ logo }) {
             doc.text(header.observacao || '', 7, finalY + 8, { maxWidth: 65 });
         }
 
-        // Signatures
-        const sigY = finalY + 14;
+        // --- NOVA TABELA: CONTROLE DE BOMBAS ---
+        const pumpControlY = finalY + 22;
+        
+        autoTable(doc, {
+            startY: pumpControlY,
+            head: [[{ content: 'CONTROLE DE BOMBAS', colSpan: 10, styles: { halign: 'center', fillColor: [0, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold' } }]],
+            body: [
+                ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
+                ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20'],
+                ['21', '22', '23', '24', '25', '26', '27', '28', '29', '30'],
+                ['31', '32', '33', '34', '35', '36', '37', '38', '39', '40']
+            ],
+            theme: 'grid',
+            styles: { 
+                halign: 'center', 
+                valign: 'top', 
+                fontSize: 10, 
+                fontStyle: 'bold', 
+                textColor: [100, 100, 100], // Numeração em cinza escuro para facilitar a visualização sem ofuscar a caneta
+                cellPadding: 1, 
+                lineColor: 0, 
+                lineWidth: 0.1, 
+                minCellHeight: 10 // Altura excelente para marcar/assinar por cima
+            },
+            headStyles: { minCellHeight: 6 },
+            margin: { left: 5, right: 5 }
+        });
+
+        const afterPumpY = doc.lastAutoTable.finalY + 15;
+
+        // Signatures (movidas para baixo do controle de bombas)
         doc.setFontSize(7);
-        doc.line(80, sigY, 115, sigY); doc.text('Administrador:', 80, sigY + 3.5);
-        doc.line(120, sigY, 155, sigY); doc.text('Encarregado:', 120, sigY + 3.5);
-        doc.line(160, sigY, pw - 5, sigY); doc.text('Almoxarife:', 160, sigY + 3.5);
+        doc.line(80, afterPumpY, 115, afterPumpY); doc.text('Administrador:', 80, afterPumpY + 3.5);
+        doc.line(120, afterPumpY, 155, afterPumpY); doc.text('Encarregado:', 120, afterPumpY + 3.5);
+        doc.line(160, afterPumpY, pw - 5, afterPumpY); doc.text('Almoxarife:', 160, afterPumpY + 3.5);
 
         // Footer note
         doc.setFontSize(5.5);
-        doc.text('LEMBRETE: ESSA ORDEM DE SERVIÇO SÓ TERÁ DUAS VIAS, DEVERÁ SER GRAMPEADA JUNTO À RECEITA DE TRATAMENTO. NÃO PODENDO SER EXTRAVIADA.', 5, finalY + 23, { maxWidth: pw - 10 });
+        doc.text('LEMBRETE: ESSA ORDEM DE SERVIÇO SÓ TERÁ DUAS VIAS, DEVERÁ SER GRAMPEADA JUNTO À RECEITA DE TRATAMENTO. NÃO PODENDO SER EXTRAVIADA.', 5, afterPumpY + 12, { maxWidth: pw - 10 });
 
         doc.save(`Ordem_Saida_${header.data}.pdf`);
     };
