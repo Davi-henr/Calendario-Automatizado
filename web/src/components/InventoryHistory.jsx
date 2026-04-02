@@ -231,7 +231,7 @@ export default function InventoryHistory({ subview }) {
 
         // Signatures
         const sigY = finalY + 14;
-        doc.line(80, sigY, 115, sigY); doc.text('Preparador Calda:', 80, sigY + 3.5);
+        doc.line(80, sigY, 115, sigY); doc.text('Administrador:', 80, sigY + 3.5);
         doc.line(120, sigY, 155, sigY); doc.text('Encarregado:', 120, sigY + 3.5);
         doc.line(160, sigY, pw - 5, sigY); doc.text('Almoxarife:', 160, sigY + 3.5);
 
@@ -543,6 +543,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
             const { data: ordensPendentes } = await supabase
                 .from('ordens_saida')
                 .select('id, turno, data, situacao')
+                .eq('ativo', true) // CORREÇÃO: Respeita o Soft Delete
                 .neq('situacao', 'Conferida');
 
             if (ordensPendentes) {
@@ -571,14 +572,24 @@ function OrderModal({ order, onClose, onSave, mode }) {
     };
 
     const handleSave = async () => {
+        if (mode === 'check' && (!header.bombas_aplicadas || header.bombas_aplicadas <= 0)) {
+            alert('Atenção: Informe a Qtde de Bombas Aplicada para que o sistema calcule a devolução corretamente.');
+            return;
+        }
+
         try {
+            const hasTransfers = mode === 'check' && Object.values(itemDestinations).includes('transfer');
+            if (hasTransfers && !targetOS) {
+                throw new Error('Você selecionou transferência para uma quadra, mas não vinculou a receita de destino na lupa.');
+            }
+
             const headerUpdates = {
                 data: header.data,
                 turno: header.turno,
                 quantidade_bombas: header.quantidade_bombas,
                 bombas_aplicadas: header.bombas_aplicadas,
                 numero_carreta: header.numero_carreta,
-                observacao: header.observacao,
+                observacao: header.observacao || '',
                 situacao: mode === 'check' ? 'Conferida' : header.situacao
             };
 
@@ -594,50 +605,41 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 return { ...item, observacao_divergencia: obs };
             });
 
-            let observationPrefix = header.observacao || '';
-            const transferItems = items.filter(it => (itemDestinations[it.id] === 'transfer') && parseFloat(it.devolucao || 0) > 0);
+            let targetRecipeNo = null;
+            let targetQId = null;
+            let targetAId = null;
 
-            if (transferItems.length > 0 && targetOS) {
-                const targetRecipeNo = `${format(new Date(targetOS.data_prescricao + 'T00:00:00'), 'yy')}/${targetOS.numero_os.toString().padStart(6, '0')}`;
+            if (hasTransfers && targetOS) {
+                targetRecipeNo = `${format(new Date(targetOS.data_prescricao + 'T00:00:00'), 'yy')}/${targetOS.numero_os.toString().padStart(6, '0')}`;
                 const transferNote = `\n[Sobra transferida p/ Receita ${targetRecipeNo} na Quadra ${targetOS.quadra}]`;
-                if (!observationPrefix.includes(transferNote)) {
-                    headerUpdates.observacao = observationPrefix + transferNote;
+                
+                if (!headerUpdates.observacao.includes(transferNote)) {
+                    headerUpdates.observacao += transferNote;
                 }
+
+                targetQId = quadras.find(q => q.nome?.toString().trim().toLowerCase() === targetOS.quadra?.toString().trim().toLowerCase())?.id || header.quadra_id;
+                targetAId = atividades.find(at => at.nome?.trim().toLowerCase() === targetOS.operacao?.trim().toLowerCase())?.id || header.atividade_id;
             }
 
-            await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
-
-            if (mode === 'check' && Object.values(itemDestinations).includes('transfer')) {
-                if (!targetOS) {
-                    throw new Error('Você selecionou transferência para uma quadra, mas não vinculou a receita de destino.');
-                }
-
-                const targetQId = quadras.find(q =>
-                    q.nome?.toString().trim().toLowerCase() === targetOS.quadra?.toString().trim().toLowerCase()
-                )?.id || header.quadra_id;
-
-                const targetAId = atividades.find(at =>
-                    at.nome?.trim().toLowerCase() === targetOS.operacao?.trim().toLowerCase()
-                )?.id || header.atividade_id;
-
-                const targetRecipeNo = `${format(new Date(targetOS.data_prescricao + 'T00:00:00'), 'yy')}/${targetOS.numero_os.toString().padStart(6, '0')}`;
-
+            // 1. FAZ A TRANSFERÊNCIA PRIMEIRO (Busca Segura, s/ bug do INNER JOIN)
+            if (hasTransfers) {
                 for (const item of items) {
                     const destination = itemDestinations[item.id] || 'estoque';
                     const amountToTransfer = parseFloat(item.devolucao || 0);
 
                     if (destination === 'transfer' && amountToTransfer > 0) {
                         try {
-                            const transferItemNote = `\n- ${item.insumos?.insumo}: ${amountToTransfer} unidades transferidas p/ Receita ${targetRecipeNo} (Quadra ${targetOS.quadra})`;
-                            if (!headerUpdates.observacao?.includes(transferItemNote)) {
-                                headerUpdates.observacao = (headerUpdates.observacao || '') + transferItemNote;
+                            const transferItemNote = `\n- ${item.insumos?.insumo}: ${amountToTransfer} unid. transferidas p/ Receita ${targetRecipeNo}`;
+                            if (!headerUpdates.observacao.includes(transferItemNote)) {
+                                headerUpdates.observacao += transferItemNote;
                             }
 
-                            // MUDANÇA 2: Busca Segura em Duas Etapas (Evitando o erro silencioso de !inner no banco)
+                            // MUDANÇA 2: Busca Segura em Duas Etapas COM FILTRO DE ATIVO (Evitando o erro silencioso de !inner no banco)
                             const { data: existingOrdens, error: oError } = await supabase
                                 .from('ordens_saida')
                                 .select('id')
                                 .eq('os_id', targetOS.id)
+                                .eq('ativo', true) // CORREÇÃO: Respeita o Soft Delete
                                 .neq('situacao', 'Conferida')
                                 .order('created_at', { ascending: true }) 
                                 .limit(1);
@@ -651,7 +653,8 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                     .from('saidas')
                                     .select('*')
                                     .eq('ordem_saida_id', targetOrdemId)
-                                    .eq('insumo_id', item.insumo_id);
+                                    .eq('insumo_id', item.insumo_id)
+                                    .eq('ativo', true); // CORREÇÃO: Respeita o Soft Delete
 
                                 if (searchError) throw searchError;
 
@@ -698,7 +701,10 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 }
             }
 
-            alert('Sucesso!');
+            // 2. ATUALIZA A ORDEM ATUAL (Só dá o OK depois de garantir as transferências)
+            await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
+
+            alert('Conferência salva e transferências realizadas com sucesso!');
             onSave();
             onClose();
         } catch (error) {
