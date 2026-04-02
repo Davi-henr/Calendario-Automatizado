@@ -231,7 +231,7 @@ export default function InventoryHistory({ subview }) {
 
         // Signatures
         const sigY = finalY + 14;
-        doc.line(80, sigY, 115, sigY); doc.text('Administrador:', 80, sigY + 3.5);
+        doc.line(80, sigY, 115, sigY); doc.text('Preparador Calda:', 80, sigY + 3.5);
         doc.line(120, sigY, 155, sigY); doc.text('Encarregado:', 120, sigY + 3.5);
         doc.line(160, sigY, pw - 5, sigY); doc.text('Almoxarife:', 160, sigY + 3.5);
 
@@ -535,6 +535,9 @@ function OrderModal({ order, onClose, onSave, mode }) {
             osService.getPending()
         ]);
 
+        // MUDANÇA 1: Ordenar pela data de prescrição (Mais antiga primeiro)
+        pos.sort((a, b) => new Date(a.data_prescricao) - new Date(b.data_prescricao));
+
         let posEnriched = pos;
         try {
             const { data: ordensPendentes } = await supabase
@@ -630,60 +633,63 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                 headerUpdates.observacao = (headerUpdates.observacao || '') + transferItemNote;
                             }
 
-                            const { data: existingSaidas, error: searchError } = await supabase
-                                .from('saidas')
-                                .select('*, ordens_saida!inner(id, os_id, situacao)')
-                                .eq('insumo_id', item.insumo_id)
-                                .eq('ordens_saida.os_id', targetOS.id)
-                                .neq('ordens_saida.situacao', 'Conferida');
+                            // MUDANÇA 2: Busca Segura em Duas Etapas (Evitando o erro silencioso de !inner no banco)
+                            const { data: existingOrdens, error: oError } = await supabase
+                                .from('ordens_saida')
+                                .select('id')
+                                .eq('os_id', targetOS.id)
+                                .neq('situacao', 'Conferida')
+                                .order('created_at', { ascending: true }) 
+                                .limit(1);
 
-                            if (searchError) throw searchError;
+                            if (oError) throw oError;
 
-                            if (existingSaidas && existingSaidas.length > 0) {
-                                const targetSaida = existingSaidas[0];
-                                const newQty = parseFloat(targetSaida.quantidade || 0) + amountToTransfer;
-                                await saidasService.update(targetSaida.id, { quantidade: newQty });
-                            } else {
-                                const { data: existingOrdens, error: oError } = await supabase
-                                    .from('ordens_saida')
-                                    .select('id')
-                                    .eq('os_id', targetOS.id)
-                                    .neq('situacao', 'Conferida')
-                                    .limit(1);
+                            if (existingOrdens && existingOrdens.length > 0) {
+                                const targetOrdemId = existingOrdens[0].id;
+                                
+                                const { data: existingSaidas, error: searchError } = await supabase
+                                    .from('saidas')
+                                    .select('*')
+                                    .eq('ordem_saida_id', targetOrdemId)
+                                    .eq('insumo_id', item.insumo_id);
 
-                                if (oError) throw oError;
+                                if (searchError) throw searchError;
 
-                                if (existingOrdens && existingOrdens.length > 0) {
+                                if (existingSaidas && existingSaidas.length > 0) {
+                                    const targetSaida = existingSaidas[0];
+                                    const newQty = parseFloat(targetSaida.quantidade || 0) + amountToTransfer;
+                                    await saidasService.update(targetSaida.id, { quantidade: newQty });
+                                } else {
                                     const newItem = {
                                         insumo_id: item.insumo_id,
                                         dosagem: item.dosagem,
                                         quantidade: amountToTransfer,
-                                        ordem_saida_id: existingOrdens[0].id,
+                                        ordem_saida_id: targetOrdemId,
                                         data_saida: format(new Date(), 'yyyy-MM-dd'),
                                         quadra_id: targetQId,
                                         atividade_id: targetAId
                                     };
                                     await saidasService.create(newItem);
-                                } else {
-                                    const newHeader = {
-                                        data: format(new Date(), 'yyyy-MM-dd'),
-                                        turno: header.turno,
-                                        quantidade_bombas: targetOS.quantidade_bombas || 0,
-                                        numero_carreta: header.numero_carreta,
-                                        os_id: targetOS.id,
-                                        quadra_id: targetQId,
-                                        atividade_id: targetAId,
-                                        numero_receita: targetRecipeNo,
-                                        observacao: `Recebido por transferência da Receita #[${header.numero_receita || order.numero_receita}]`,
-                                        situacao: 'Pendente'
-                                    };
-                                    const newItem = {
-                                        insumo_id: item.insumo_id,
-                                        dosagem: item.dosagem,
-                                        quantidade: amountToTransfer
-                                    };
-                                    await ordensSaidaService.create(newHeader, [newItem]);
                                 }
+                            } else {
+                                const newHeader = {
+                                    data: format(new Date(), 'yyyy-MM-dd'),
+                                    turno: header.turno,
+                                    quantidade_bombas: targetOS.quantidade_bombas || 0,
+                                    numero_carreta: header.numero_carreta,
+                                    os_id: targetOS.id,
+                                    quadra_id: targetQId,
+                                    atividade_id: targetAId,
+                                    numero_receita: targetRecipeNo,
+                                    observacao: `Recebido por transferência da Receita #[${header.numero_receita || order.numero_receita}]`,
+                                    situacao: 'Pendente'
+                                };
+                                const newItem = {
+                                    insumo_id: item.insumo_id,
+                                    dosagem: item.dosagem,
+                                    quantidade: amountToTransfer
+                                };
+                                await ordensSaidaService.create(newHeader, [newItem]);
                             }
                         } catch (transferErr) {
                             console.error('Transfer failed for item:', item.insumos?.insumo, transferErr);
