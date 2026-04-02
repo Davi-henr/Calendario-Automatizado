@@ -86,6 +86,11 @@ export default function Inventory({ logo, onBack }) {
             setShowHistorySubmenu(false);
             setShowOrdersSubmenu(false);
         }
+        
+        // Em telas pequenas, se clica em uma aba que tem submenu, mas a aba atual não é ela, muda pra ela primeiro
+        if (isMobile && (tabId === 'cadastro' || tabId === 'saida' || tabId === 'pedidos') && currentTab !== tabId) {
+            setCurrentTab(tabId);
+        }
     };
 
     const handleSubmenuClick = (tabId, subId) => {
@@ -148,12 +153,19 @@ export default function Inventory({ logo, onBack }) {
                             <Sprout size={isMobile ? 18 : 22} color="white" />
                         </div>
                     )}
-                    {!isMobile && (
+                    
+                    {!isMobile ? (
                         <div style={{ borderLeft: '1.5px solid rgba(0,0,0,0.1)', paddingLeft: '1.25rem' }}>
                             <h1 style={{ fontSize: '1rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-0.3px', margin: 0, lineHeight: 1 }}>
                                 Estoque <span style={{ color: 'var(--primary)' }}>Defensivos</span>
                             </h1>
                             <p style={{ fontSize: '0.65rem', fontWeight: '800', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '2px' }}>Gestão de Insumos</p>
+                        </div>
+                    ) : (
+                        <div style={{ paddingLeft: '0.5rem' }}>
+                            <h1 style={{ fontSize: '1.1rem', fontWeight: '900', color: 'var(--text)', margin: 0, lineHeight: 1 }}>
+                                Estoque
+                            </h1>
                         </div>
                     )}
                 </div>
@@ -186,7 +198,7 @@ export default function Inventory({ logo, onBack }) {
                                         {tab.hasSubmenu && <ChevronDown size={14} style={{ opacity: 0.5 }} />}
                                     </button>
 
-                                    {/* Submenus */}
+                                    {/* Submenus Desktop */}
                                     {tab.id === 'cadastro' && showRegisterSubmenu && (
                                         <div style={{ position: 'absolute', top: '110%', left: 0, backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid rgba(0,0,0,0.05)', padding: '0.5rem', minWidth: '180px', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                             {submenus.register.map(sub => (
@@ -230,6 +242,11 @@ export default function Inventory({ logo, onBack }) {
                                 </button>
                             </div>
                         )}
+                        {isMobile && (
+                            <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#ef4444', display: 'flex', alignItems: 'center' }}>
+                                <ArrowLeft size={24} />
+                            </button>
+                        )}
                         <div style={{ width: '42px', height: '42px', backgroundColor: '#f1f5f9', border: '1.5px solid var(--border)', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 8px rgba(0,0,0,0.04)' }}>
                             <User size={20} color="var(--primary)" />
                         </div>
@@ -237,11 +254,102 @@ export default function Inventory({ logo, onBack }) {
                 </div>
             </header>
 
-            <main style={{ padding: isMobile ? '1rem' : '2.5rem', flex: 1, position: 'relative', zIndex: 1 }}>
+            <main style={{ padding: isMobile ? '1rem 0.5rem 80px 0.5rem' : '2.5rem', flex: 1, position: 'relative', zIndex: 1, overflowY: 'auto' }}>
                 <div className="container" style={{ padding: 0 }}>
                     {renderTabContent()}
                 </div>
             </main>
+
+            {/* BOTTOM NAVIGATION MOBILE */}
+            {isMobile && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: 0,
+                    left: 0,
+                    width: '100%',
+                    backgroundColor: 'white',
+                    borderTop: '1px solid rgba(0,0,0,0.1)',
+                    boxShadow: '0 -4px 20px rgba(0,0,0,0.05)',
+                    zIndex: 2000,
+                    display: 'flex',
+                    flexDirection: 'column'
+                }}>
+                    
+                    {/* Area dos Submenus (Abre em cima da barra inferior) */}
+                    {(showRegisterSubmenu || showHistorySubmenu || showOrdersSubmenu) && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '0.5rem',
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#f8fafc',
+                            borderBottom: '1px solid #e2e8f0',
+                            overflowX: 'auto',
+                            WebkitOverflowScrolling: 'touch',
+                            scrollbarWidth: 'none' // Esconde scroll no Firefox
+                        }}>
+                            {showRegisterSubmenu && submenus.register.map(sub => (
+                                <button key={sub.id} onClick={() => handleSubmenuClick('cadastro', sub.id)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid', background: registerSubview === sub.id ? 'var(--primary)' : 'white', borderColor: registerSubview === sub.id ? 'var(--primary)' : '#cbd5e1', color: registerSubview === sub.id ? 'white' : 'var(--text)', fontWeight: '700', fontSize: '0.8rem' }}>
+                                    {React.cloneElement(sub.icon, { size: 16 })} {sub.label}
+                                </button>
+                            ))}
+                            {showHistorySubmenu && submenus.history.map(sub => (
+                                <button key={sub.id} onClick={() => handleSubmenuClick('saida', sub.id)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid', background: historySubview === sub.id ? 'var(--primary)' : 'white', borderColor: historySubview === sub.id ? 'var(--primary)' : '#cbd5e1', color: historySubview === sub.id ? 'white' : 'var(--text)', fontWeight: '700', fontSize: '0.8rem' }}>
+                                    {React.cloneElement(sub.icon, { size: 16 })} {sub.label}
+                                </button>
+                            ))}
+                            {showOrdersSubmenu && submenus.orders.map(sub => (
+                                <button key={sub.id} onClick={() => handleSubmenuClick('pedidos', sub.id)} style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid', background: ordersSubview === sub.id ? '#f59e0b' : 'white', borderColor: ordersSubview === sub.id ? '#f59e0b' : '#cbd5e1', color: ordersSubview === sub.id ? 'white' : 'var(--text)', fontWeight: '700', fontSize: '0.8rem' }}>
+                                    {React.cloneElement(sub.icon, { size: 16 })} {sub.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Barra de Icones Principais */}
+                    <nav style={{
+                        display: 'flex',
+                        overflowX: 'auto',
+                        padding: '0.5rem',
+                        gap: '0.5rem',
+                        WebkitOverflowScrolling: 'touch',
+                        scrollbarWidth: 'none'
+                    }}>
+                        {tabs.map((tab) => {
+                            const isActive = currentTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => handleTabClick(tab.id)}
+                                    style={{
+                                        minWidth: '70px',
+                                        flex: '1 0 auto',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: '0.5rem 0',
+                                        borderRadius: '12px',
+                                        border: 'none',
+                                        backgroundColor: isActive ? 'rgba(46, 125, 50, 0.1)' : 'transparent',
+                                        color: isActive ? 'var(--primary)' : 'var(--text-muted)',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <div style={{ position: 'relative', marginBottom: '4px' }}>
+                                        {React.cloneElement(tab.icon, { size: 24, strokeWidth: isActive ? 2.5 : 2 })}
+                                        {tab.hasSubmenu && (
+                                            <div style={{ position: 'absolute', top: '-2px', right: '-8px', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isActive ? 'var(--primary)' : '#cbd5e1' }} />
+                                        )}
+                                    </div>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: isActive ? '900' : '700', whiteSpace: 'nowrap' }}>
+                                        {tab.label.split(' ')[0]} {/* Pega a primeira palavra para caber no mobile */}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+                </div>
+            )}
         </div>
     );
 }
