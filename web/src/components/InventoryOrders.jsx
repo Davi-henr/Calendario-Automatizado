@@ -52,18 +52,35 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                 saidasService.getAll()
             ]);
 
-            // CORREÇÃO: Cálculo do saldo atual agora considera devoluções!
+            // TRAVA DE SEGURANÇA para números com vírgula
+            const safeNum = (val) => {
+                if (!val) return 0;
+                const parsed = parseFloat(val.toString().replace(',', '.'));
+                return isNaN(parsed) ? 0 : parsed;
+            };
+
+            // CORREÇÃO: Cálculo com ponto de corte do inventário e exclusão lógica (ativo !== false)
             const currentStock = {};
             insumosData.forEach(insumo => {
-                const entradas = entradasData
-                    .filter(e => e.insumo_id === insumo.id)
-                    .reduce((sum, e) => sum + Number(e.quantidade || 0), 0);
+                const cutoffDate = insumo.data_saldo_inicial || '1970-01-01';
+
+                const totalEntradas = entradasData
+                    .filter(e => e.insumo_id === insumo.id && e.data_entrada >= cutoffDate)
+                    .reduce((sum, e) => sum + safeNum(e.quantidade), 0);
                 
-                const saidas = saidasData
-                    .filter(s => s.insumo_id === insumo.id)
-                    .reduce((sum, s) => sum + (Number(s.quantidade || 0) - Number(s.devolucao || 0)), 0);
+                const validSaidas = saidasData.filter(s => 
+                    s.insumo_id === insumo.id && 
+                    s.ordens_saida?.ativo !== false && 
+                    s.data_saida >= cutoffDate
+                );
+
+                const totalSaidas = validSaidas.reduce((sum, s) => sum + safeNum(s.quantidade), 0);
+                const totalDevolucoes = validSaidas.reduce((sum, s) => sum + safeNum(s.devolucao), 0);
                 
-                let saldo = Number(insumo.saldo_inicial || 0) + entradas - saidas;
+                const saldoInicial = safeNum(insumo.saldo_inicial);
+                const consumoReal = totalSaidas - totalDevolucoes;
+                
+                let saldo = saldoInicial + totalEntradas - consumoReal;
                 currentStock[insumo.id] = saldo % 1 === 0 ? saldo.toString() : saldo.toFixed(2);
             });
 
