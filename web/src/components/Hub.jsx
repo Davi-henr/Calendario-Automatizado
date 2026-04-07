@@ -8,7 +8,7 @@ const USER_MAP = {
     celso: 'celso@fazendavale.com',
     davi: 'davi@fazendavale.com',
     jean: 'jean@fazendavale.com',
-    escritorio: 'escritorio@vale.com',
+    escritorio: 'escritorio@fazendavale.com',
     
 };
 
