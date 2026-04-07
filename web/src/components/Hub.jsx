@@ -8,14 +8,15 @@ const USER_MAP = {
     celso: 'celso@fazendavale.com',
     davi: 'davi@fazendavale.com',
     jean: 'jean@fazendavale.com',
+    escritorio: 'escritorio@vale.com',
     
 };
 
 // Mantivemos a lista, mas a trava agora é inteligente para e-mails novos
 const MODULE_ACCESS = {
     calendar: ['celso', 'djair', 'davi'],
-    admin: ['jean', 'davi'],
-    inventory: ['davi'],
+    admin: ['jean', 'davi', 'escritorio'],
+    inventory: ['davi', 'escritorio'],
 };
 
 const MODULES = [
