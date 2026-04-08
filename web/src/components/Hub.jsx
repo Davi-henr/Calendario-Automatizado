@@ -18,6 +18,7 @@ const MODULE_ACCESS = {
     inventory: ['davi', 'vania', 'almoxarife'],
 };
 
+// Mantivemos os ícones e gradientes no array apenas para serem usados dentro do Modal de Login
 const MODULES = [
     {
         key: 'calendar',
@@ -26,38 +27,26 @@ const MODULES = [
         Icon: BarChart2,
         gradient: 'linear-gradient(135deg, #2e7d32 0%, #66bb6a 100%)',
         glow: 'rgba(46,125,50,0.25)',
-        border: '#2e7d32',
-        badge: 'ENCARREGADO AGRÍCOLA',
-        badgeColor: '#b45309',
-        badgeBg: '#fef3c7',
     },
     {
         key: 'admin',
-        title: 'Área ADM',
+        title: 'Área Administrativa',
         desc: 'Dashboard estratégico e calendário para administração.',
         Icon: Shield,
         gradient: 'linear-gradient(135deg, #5c35d5 0%, #9c6fef 100%)',
         glow: 'rgba(92,53,213,0.2)',
-        border: '#2e7d32',
-        badge: 'ADMNISTRADOR',
-        badgeColor: '#b45309',
-        badgeBg: '#fef3c7',
     },
     {
         key: 'inventory',
-        title: 'Estoque Defensivos',
+        title: 'Estoque de Defensivos',
         desc: 'Controle de estoque de defensivos agrícolas.',
         Icon: Package,
         gradient: 'linear-gradient(135deg, #d97706 0%, #fbbf24 100%)',
         glow: 'rgba(217,119,6,0.2)',
-        border: '#2e7d32',
-        badge: 'ALMOXARIFE',
-        badgeColor: '#b45309',
-        badgeBg: '#fef3c7',
     },
 ];
 
-// COMPONENTE DA LOGO ANIMADA (Agora aceita a logo oficial da empresa)
+// COMPONENTE DA LOGO ANIMADA
 const ParticleLogo = ({ customLogo }) => {
     const particles = Array.from({ length: 24 });
 
@@ -80,7 +69,6 @@ const ParticleLogo = ({ customLogo }) => {
                 }
             `}</style>
 
-            {/* Logo Central (Dinâmica: Usa a foto ou o ícone) */}
             <div style={{
                 animation: 'logo-anim 6s infinite cubic-bezier(0.4, 0, 0.2, 1)',
                 width: customLogo ? 'auto' : '80px', 
@@ -99,13 +87,12 @@ const ParticleLogo = ({ customLogo }) => {
                 )}
             </div>
 
-            {/* Partículas */}
             {particles.map((_, i) => {
                 const angle = (i / particles.length) * 360;
-                const distance = 50 + Math.random() * 50; // Distância da explosão ajustada
+                const distance = 50 + Math.random() * 50; 
                 const tx = `${Math.cos(angle * Math.PI / 180) * distance}px`;
                 const ty = `${Math.sin(angle * Math.PI / 180) * distance}px`;
-                const size = 4 + Math.random() * 6; // Tamanho de 4 a 10px
+                const size = 4 + Math.random() * 6; 
                 const rot = `${Math.random() * 360}deg`;
 
                 return (
@@ -145,17 +132,14 @@ export default function Hub({ onNavigate, logo }) {
         
         const inputStr = username.trim().toLowerCase();
         
-        // 1. Identifica se é um usuário antigo (celso) ou um e-mail novo direto do Supabase
         const loginEmail = USER_MAP[inputStr] || inputStr;
 
-        // 2. Se for um usuário da lista antiga, verifica o acesso do módulo. Se for e-mail novo, deixa passar pra testar a senha.
         if (USER_MAP[inputStr] && !MODULE_ACCESS[selectedModule].includes(inputStr)) {
             setError(`Usuário "${inputStr}" Você não tem acesso a esta área.`); 
             setLoading(false); 
             return;
         }
 
-        // 3. Validação oficial de segurança com o Supabase
         const { error: authError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
         
         if (authError) { 
@@ -164,7 +148,6 @@ export default function Hub({ onNavigate, logo }) {
             return; 
         }
 
-        // 4. Liberado!
         onNavigate(selectedModule);
         closeModal(); 
         setLoading(false);
@@ -179,7 +162,7 @@ export default function Hub({ onNavigate, logo }) {
             fontFamily: 'var(--font-display, "Inter", sans-serif)',
             position: 'relative', overflow: 'hidden'
         }}>
-            {/* Organic/Geometric accents based on company photo */}
+            {/* Elementos de Fundo */}
             <div style={{ position: 'fixed', top: '-10%', right: '-5%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(74, 222, 128, 0.08) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
             <div style={{ position: 'fixed', bottom: '-10%', left: '-5%', width: '35vw', height: '35vw', background: 'radial-gradient(circle, rgba(251, 140, 0, 0.06) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
@@ -219,77 +202,97 @@ export default function Hub({ onNavigate, logo }) {
 
             {/* Hero */}
             <div style={{ textAlign: 'center', padding: '4rem 2rem 3rem', position: 'relative', zIndex: 1 }}>
-                
-                {/* AQUI A LOGO ANIMADA É CHAMADA, PASSANDO A LOGO CADASTRADA */}
                 <ParticleLogo customLogo={logo} />
-
                 <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-1.5px', marginBottom: '0.8rem', lineHeight: 1.1 }}>
                     ONDE A PRODUTIVIDADE IMPERA, <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> O GREENING NÃO PROSPERA.</span>
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '1.1rem' }}>Identifique-se para acessar os módulos</p>
             </div>
 
-            {/* Cards */}
+            {/* Novo Design Minimalista dos Cards */}
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))',
-                gap: '1.25rem',
-                maxWidth: '900px', width: '100%',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '1.5rem',
+                maxWidth: '950px', width: '100%',
                 margin: '0 auto',
                 padding: '0 1.5rem 4rem',
                 zIndex: 1,
             }}>
-                {MODULES.map(({ key, title, desc, Icon, gradient, glow, border, badge, badgeColor, badgeBg }) => (
+                {MODULES.map(({ key, title }) => (
                     <button
                         key={key}
                         onClick={() => openModal(key)}
                         style={{
-                            background: 'white',
-                            border: '1px solid var(--border)',
-                            borderRadius: '24px',
-                            cursor: 'pointer', textAlign: 'left',
-                            display: 'flex', flexDirection: 'column',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
                             position: 'relative',
-                            height: '100%',
-                            padding: 0,
-                            overflow: 'visible'
+                            padding: '2px', // Espessura da Borda Gradiente
+                            background: 'linear-gradient(135deg, #fb8c00 0%, #ffffff 50%, #2e7d32 100%)', // Laranja, Branco e Verde
+                            borderRadius: '16px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            outline: 'none',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            textDecoration: 'none'
                         }}
-                        className="hub-card"
                         onMouseEnter={e => {
-                            e.currentTarget.style.transform = 'translateY(-8px)';
-                            e.currentTarget.style.boxShadow = '0 25px 50px rgba(0,0,0,0.1)';
+                            e.currentTarget.style.transform = 'translateY(-6px)';
+                            e.currentTarget.style.boxShadow = '0 15px 35px rgba(0,0,0,0.1)';
                         }}
                         onMouseLeave={e => {
-                            e.currentTarget.style.transform = 'none';
-                            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.03)';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.05)';
                         }}
                     >
-                        <div className="hub-card-inner">
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: gradient }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 20px ${glow}` }}>
-                                    <Icon size={24} color="white" />
-                                </div>
-                                <span style={{ fontSize: '0.62rem', fontWeight: '800', color: badgeColor, background: badgeBg, padding: '3px 8px', borderRadius: '6px', letterSpacing: '0.8px' }}>
-                                    {badge}
-                                </span>
-                            </div>
-
+                        <div style={{
+                            background: '#ffffff', // Fundo Sólido Branco do Cartão
+                            borderRadius: '14px', // Raio ligeiramente menor para encaixar dentro do wrapper
+                            padding: '2.5rem 2rem',
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            boxSizing: 'border-box'
+                        }}>
                             <div>
-                                <h3 style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text)', marginBottom: '0.5rem', letterSpacing: '-0.3px' }}>{title}</h3>
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '600', lineHeight: 1.6 }}>{desc}</p>
+                                <h3 style={{ 
+                                    fontWeight: '900', 
+                                    fontSize: '1.35rem', 
+                                    color: 'var(--text)', 
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: '-0.5px', 
+                                    margin: 0,
+                                    lineHeight: 1.2
+                                }}>
+                                    {title}
+                                </h3>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '0.8rem', borderTop: '1px solid var(--border)' }}>
-                                <LogIn size={15} color="var(--primary)" />
+                            <div style={{ marginTop: '3.5rem' }}>
+                                {/* A linha separadora sutil */}
+                                <div style={{ height: '1px', width: '100%', backgroundColor: '#e2e8f0', marginBottom: '1.2rem' }} />
+                                
+                                {/* O texto minimalista de acesso */}
+                                <span style={{ 
+                                    fontSize: '0.8rem', 
+                                    fontWeight: '800', 
+                                    color: '#94a3b8', // Cor cinza suave
+                                    textTransform: 'uppercase', 
+                                    letterSpacing: '3px' 
+                                }}>
+                                    Acessar
+                                </span>
                             </div>
                         </div>
                     </button>
                 ))}
             </div>
 
-            {/* Login Modal */}
+            {/* Login Modal (INTACTO) */}
             {selectedModule && mod && (
                 <div
                     style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}
