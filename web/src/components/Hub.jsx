@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { settingsService } from '../lib/services';
 import { BarChart2, Shield, Package, X, Eye, EyeOff, LogIn, Sprout, ClipboardList } from 'lucide-react';
@@ -45,16 +45,15 @@ const MODULES = [
     },
 ];
 
-// --- NOVO: FUNDO INTERATIVO COM LARANJAS FLUTUANTES ---
+// FUNDO INTERATIVO COM LARANJAS FLUTUANTES
 const InteractiveOrchardBackground = () => {
     const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
-    // Gera posições e tamanhos aleatórios para 15 laranjas
     const [oranges] = useState(() => Array.from({ length: 15 }).map(() => ({
         id: Math.random(),
-        baseX: Math.random() * 100, // %
-        baseY: Math.random() * 100, // %
-        size: 16 + Math.random() * 14, // 16 a 30px
-        floatSpeed: 3 + Math.random() * 4, // 3s a 7s
+        baseX: Math.random() * 100, 
+        baseY: Math.random() * 100, 
+        size: 16 + Math.random() * 14, 
+        floatSpeed: 3 + Math.random() * 4, 
         rotation: Math.random() * 360,
     })));
 
@@ -78,7 +77,6 @@ const InteractiveOrchardBackground = () => {
                 }
             `}</style>
             {oranges.map((orange) => {
-                // Cálculo de repulsão do mouse
                 const windowWidth = window.innerWidth;
                 const windowHeight = window.innerHeight;
                 const orangePixelX = (orange.baseX / 100) * windowWidth;
@@ -87,14 +85,14 @@ const InteractiveOrchardBackground = () => {
                 const dx = orangePixelX - mousePos.x;
                 const dy = orangePixelY - mousePos.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                const repelRadius = 150; // Distância que o mouse afeta a laranja
+                const repelRadius = 150; 
                 
                 let repelX = 0;
                 let repelY = 0;
                 
                 if (distance < repelRadius) {
                     const force = (repelRadius - distance) / repelRadius;
-                    repelX = (dx / distance) * force * 40; // Empurra até 40px
+                    repelX = (dx / distance) * force * 40; 
                     repelY = (dy / distance) * force * 40;
                 }
 
@@ -106,7 +104,7 @@ const InteractiveOrchardBackground = () => {
                             left: `${orange.baseX}%`,
                             top: `${orange.baseY}%`,
                             fontSize: `${orange.size}px`,
-                            opacity: 0.15, // Sutileza para não atrapalhar a leitura
+                            opacity: 0.15, 
                             transform: `translate(${repelX}px, ${repelY}px) rotate(${orange.rotation}deg)`,
                             transition: 'transform 0.2s ease-out',
                         }}
@@ -123,26 +121,29 @@ const InteractiveOrchardBackground = () => {
     );
 };
 
-
+// COMPONENTE DA LOGO ANIMADA COM FÍSICA MAIS REALISTA
 const ParticleLogo = ({ customLogo }) => {
-    const particles = Array.from({ length: 24 });
+    const particles = Array.from({ length: 26 });
 
     return (
         <div style={{ position: 'relative', height: '100px', margin: '0 auto 1.5rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <style>{`
                 @keyframes logo-anim {
                     0%, 10% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0px rgba(46,125,50,1)); }
-                    15% { transform: scale(1.15); filter: drop-shadow(0 0 15px rgba(46,125,50,0.8)); opacity: 1; }
-                    20%, 80% { transform: scale(0); opacity: 0; }
-                    85% { transform: scale(1.15); filter: drop-shadow(0 0 15px rgba(46,125,50,0.8)); opacity: 1; }
-                    90%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0px rgba(46,125,50,1)); }
+                    15% { transform: scale(1.15) translateY(-5px); filter: drop-shadow(0 10px 25px rgba(46,125,50,0.6)); opacity: 1; }
+                    20%, 75% { transform: scale(0); opacity: 0; }
+                    80% { transform: scale(1.15) translateY(-5px); filter: drop-shadow(0 10px 25px rgba(46,125,50,0.6)); opacity: 1; }
+                    85%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0px rgba(46,125,50,1)); }
                 }
                 @keyframes particle-anim {
                     0%, 15% { transform: translate(0, 0) scale(0); opacity: 0; }
-                    20% { transform: translate(0, 0) scale(1.2); opacity: 1; background: #2e7d32; }
-                    50% { transform: translate(var(--tx), var(--ty)) scale(0.6) rotate(var(--rot)); opacity: 0.7; background: #fb8c00; }
-                    80% { transform: translate(0, 0) scale(1.2); opacity: 1; background: #2e7d32; }
-                    85%, 100% { transform: translate(0, 0) scale(0); opacity: 0; }
+                    18% { transform: translate(0, 0) scale(1.2); opacity: 1; background: #2e7d32; }
+                    35% { transform: translate(var(--tx), var(--ty)) scale(1) rotate(var(--rot)); opacity: 0.9; background: #fb8c00; }
+                    /* Fase flutuando com gravidade (cai levemente) */
+                    60% { transform: translate(calc(var(--tx) * 1.15), calc(var(--ty) * 1.15 + 15px)) scale(0.6) rotate(calc(var(--rot) + 90deg)); opacity: 0.6; background: #2e7d32; }
+                    /* Sugado de volta rápido */
+                    75% { transform: translate(0, 0) scale(1.2); opacity: 1; background: #fb8c00; }
+                    80%, 100% { transform: translate(0, 0) scale(0); opacity: 0; }
                 }
             `}</style>
 
@@ -166,10 +167,10 @@ const ParticleLogo = ({ customLogo }) => {
 
             {particles.map((_, i) => {
                 const angle = (i / particles.length) * 360;
-                const distance = 50 + Math.random() * 50; 
+                const distance = 45 + Math.random() * 55; // Variação de distância mais orgânica
                 const tx = `${Math.cos(angle * Math.PI / 180) * distance}px`;
                 const ty = `${Math.sin(angle * Math.PI / 180) * distance}px`;
-                const size = 4 + Math.random() * 6; 
+                const size = 3 + Math.random() * 7; 
                 const rot = `${Math.random() * 360}deg`;
 
                 return (
@@ -239,8 +240,8 @@ export default function Hub({ onNavigate, logo }) {
             fontFamily: 'var(--font-display, "Inter", sans-serif)',
             position: 'relative', overflow: 'hidden'
         }}>
-            {/* ELEMENTOS DE FUNDO */}
             <InteractiveOrchardBackground />
+            
             <div style={{ position: 'fixed', top: '-10%', right: '-5%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(74, 222, 128, 0.08) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
             <div style={{ position: 'fixed', bottom: '-10%', left: '-5%', width: '35vw', height: '35vw', background: 'radial-gradient(circle, rgba(251, 140, 0, 0.06) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
 
@@ -278,12 +279,55 @@ export default function Hub({ onNavigate, logo }) {
                 </div>
             </header>
 
-            {/* Hero */}
+            {/* Hero Section Animado */}
             <div style={{ textAlign: 'center', padding: '4rem 2rem 3rem', position: 'relative', zIndex: 1 }}>
                 <ParticleLogo customLogo={logo} />
-                <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-1.5px', marginBottom: '0.8rem', lineHeight: 1.1 }}>
-                    DORIVAL   <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> FORTES</span>
+                
+                {/* Texto Animado em Câmera Lenta */}
+                <h1 style={{ 
+                    fontSize: '2.5rem', 
+                    fontWeight: '900', 
+                    letterSpacing: '-1.5px', 
+                    marginBottom: '1.2rem', 
+                    lineHeight: 1.1,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: '0.6rem',
+                    overflow: 'hidden'
+                }}>
+                    <span style={{ 
+                        color: 'var(--text)', 
+                        display: 'inline-block',
+                        animation: 'slide-in-left 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+                        opacity: 0,
+                        transform: 'translateX(-40px)'
+                    }}>
+                        DORIVAL
+                    </span>
+                    <span style={{ 
+                        background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', 
+                        WebkitBackgroundClip: 'text', 
+                        WebkitTextFillColor: 'transparent',
+                        display: 'inline-block',
+                        animation: 'slide-in-right 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+                        opacity: 0,
+                        transform: 'translateX(40px)'
+                    }}>
+                        FORTES
+                    </span>
                 </h1>
+
+                {/* Linha Gradiente Animada Correndo */}
+                <div style={{
+                    width: '180px',
+                    height: '3px',
+                    margin: '0 auto 1.5rem',
+                    borderRadius: '4px',
+                    background: 'linear-gradient(90deg, #fb8c00, #ffffff, #2e7d32, #fb8c00, #ffffff, #2e7d32)',
+                    backgroundSize: '200% 100%',
+                    animation: 'gradient-slide 2.5s linear infinite'
+                }} />
+
                 <p style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '1.1rem' }}>Identifique-se para acessar os módulos</p>
             </div>
 
@@ -303,8 +347,8 @@ export default function Hub({ onNavigate, logo }) {
                         onClick={() => openModal(key)}
                         style={{
                             position: 'relative',
-                            padding: '2px', // Espessura da Borda Gradiente
-                            background: 'linear-gradient(135deg, #fb8c00 0%, #ffffff 50%, #2e7d32 100%)', // Laranja, Branco e Verde
+                            padding: '2px', 
+                            background: 'linear-gradient(135deg, #fb8c00 0%, #ffffff 50%, #2e7d32 100%)', 
                             borderRadius: '16px',
                             border: 'none',
                             cursor: 'pointer',
@@ -326,7 +370,7 @@ export default function Hub({ onNavigate, logo }) {
                         }}
                     >
                         <div style={{
-                            background: '#ffffff', // Fundo Sólido Branco do Cartão
+                            background: '#ffffff', 
                             borderRadius: '14px', 
                             padding: '2.5rem 2rem',
                             width: '100%',
@@ -351,10 +395,7 @@ export default function Hub({ onNavigate, logo }) {
                             </div>
 
                             <div style={{ marginTop: '3.5rem' }}>
-                                {/* A linha separadora sutil */}
                                 <div style={{ height: '1px', width: '100%', backgroundColor: '#e2e8f0', marginBottom: '1.2rem' }} />
-                                
-                                {/* O texto minimalista de acesso */}
                                 <span style={{ 
                                     fontSize: '0.8rem', 
                                     fontWeight: '800', 
@@ -453,6 +494,18 @@ export default function Hub({ onNavigate, logo }) {
 
             <style>{`
                 @keyframes popIn { from { opacity:0; transform:scale(0.88) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+                @keyframes slide-in-left {
+                    0% { opacity: 0; transform: translateX(-60px); filter: blur(8px); }
+                    100% { opacity: 1; transform: translateX(0); filter: blur(0); }
+                }
+                @keyframes slide-in-right {
+                    0% { opacity: 0; transform: translateX(60px); filter: blur(8px); }
+                    100% { opacity: 1; transform: translateX(0); filter: blur(0); }
+                }
+                @keyframes gradient-slide {
+                    0% { background-position: 200% 0; }
+                    100% { background-position: -200% 0; }
+                }
                 input::placeholder { color: #94a3b8 !important; }
                 input:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.1) !important; }
             `}</style>
