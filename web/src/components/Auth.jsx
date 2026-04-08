@@ -2,6 +2,63 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Sprout, KeyRound, ArrowLeft } from 'lucide-react';
 
+// NOVO: Componente que faz a animação da logo explodindo em partículas
+const ParticleLogo = () => {
+    const particles = Array.from({ length: 24 });
+
+    return (
+        <div style={{ position: 'relative', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <style>{`
+                @keyframes logo-anim {
+                    0%, 10% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0px var(--secondary)); }
+                    15% { transform: scale(1.15); filter: drop-shadow(0 0 10px var(--secondary)); opacity: 1; }
+                    20%, 80% { transform: scale(0); opacity: 0; }
+                    85% { transform: scale(1.15); filter: drop-shadow(0 0 10px var(--secondary)); opacity: 1; }
+                    90%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0px var(--secondary)); }
+                }
+                @keyframes particle-anim {
+                    0%, 15% { transform: translate(0, 0) scale(0); opacity: 0; }
+                    20% { transform: translate(0, 0) scale(1.2); opacity: 1; background: var(--secondary); }
+                    50% { transform: translate(var(--tx), var(--ty)) scale(0.6) rotate(var(--rot)); opacity: 0.7; background: var(--primary); }
+                    80% { transform: translate(0, 0) scale(1.2); opacity: 1; background: var(--secondary); }
+                    85%, 100% { transform: translate(0, 0) scale(0); opacity: 0; }
+                }
+            `}</style>
+
+            <div style={{
+                animation: 'logo-anim 6s infinite cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                zIndex: 2,
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+                <Sprout size={32} color="var(--secondary)" />
+            </div>
+
+            {particles.map((_, i) => {
+                const angle = (i / particles.length) * 360;
+                const distance = 25 + Math.random() * 25; // Raio da explosão
+                const tx = `${Math.cos(angle * Math.PI / 180) * distance}px`;
+                const ty = `${Math.sin(angle * Math.PI / 180) * distance}px`;
+                const size = 3 + Math.random() * 4; // Tamanho das partículas
+                const rot = `${Math.random() * 360}deg`;
+
+                return (
+                    <div key={i} style={{
+                        position: 'absolute',
+                        width: `${size}px`, height: `${size}px`,
+                        borderRadius: i % 3 === 0 ? '3px' : '50%',
+                        top: '50%', left: '50%',
+                        marginLeft: `-${size / 2}px`, marginTop: `-${size / 2}px`,
+                        '--tx': tx, '--ty': ty, '--rot': rot,
+                        animation: 'particle-anim 6s infinite cubic-bezier(0.4, 0, 0.2, 1)',
+                        zIndex: 1
+                    }} />
+                )
+            })}
+        </div>
+    );
+};
+
 export default function Auth({ onSession }) {
     const [loading, setLoading] = useState(false);
     const [view, setView] = useState('login'); // login, reset
@@ -59,7 +116,7 @@ export default function Auth({ onSession }) {
         }}>
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-                    <Sprout size={32} color="var(--secondary)" />
+                    <ParticleLogo />
                     <h1 style={{ fontSize: '2.2rem', fontWeight: '900', color: 'var(--primary)', margin: 0 }}>AgroControl</h1>
                 </div>
                 <p style={{ color: 'var(--text-muted)', fontWeight: '600', marginTop: '0.5rem' }}>Gestão de Safra e Pulverização</p>
