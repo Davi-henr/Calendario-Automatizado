@@ -204,7 +204,7 @@ export default function Hub({ onNavigate, logo }) {
             <div style={{ textAlign: 'center', padding: '4rem 2rem 3rem', position: 'relative', zIndex: 1 }}>
                 <ParticleLogo customLogo={logo} />
                 <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-1.5px', marginBottom: '0.8rem', lineHeight: 1.1 }}>
-                    DORIVAL <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> FORTES</span>
+                    DORIVAL   <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> FORTES</span>
                 </h1>
                 <p style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '1.1rem' }}>Identifique-se para acessar os módulos</p>
             </div>
