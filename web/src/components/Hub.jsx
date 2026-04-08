@@ -10,11 +10,8 @@ const USER_MAP = {
     jean: 'jean@fazendavale.com',
     vania: 'escritorio@fazendavale.com',
     almoxarife: 'almoxarife@fazendavale.com',
-   
-    
 };
 
-// Mantivemos a lista, mas a trava agora é inteligente para e-mails novos
 const MODULE_ACCESS = {
     calendar: ['celso', 'djair', 'davi'],
     admin: ['jean', 'davi', 'vania'],
@@ -60,6 +57,69 @@ const MODULES = [
     },
 ];
 
+// COMPONENTE DA LOGO ANIMADA
+const ParticleLogo = () => {
+    const particles = Array.from({ length: 24 });
+
+    return (
+        <div style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 1.5rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <style>{`
+                @keyframes logo-anim {
+                    0%, 10% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0px rgba(46,125,50,1)); }
+                    15% { transform: scale(1.15); filter: drop-shadow(0 0 15px rgba(46,125,50,0.8)); opacity: 1; }
+                    20%, 80% { transform: scale(0); opacity: 0; }
+                    85% { transform: scale(1.15); filter: drop-shadow(0 0 15px rgba(46,125,50,0.8)); opacity: 1; }
+                    90%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0px rgba(46,125,50,1)); }
+                }
+                @keyframes particle-anim {
+                    0%, 15% { transform: translate(0, 0) scale(0); opacity: 0; }
+                    20% { transform: translate(0, 0) scale(1.2); opacity: 1; background: #2e7d32; }
+                    50% { transform: translate(var(--tx), var(--ty)) scale(0.6) rotate(var(--rot)); opacity: 0.7; background: #fb8c00; }
+                    80% { transform: translate(0, 0) scale(1.2); opacity: 1; background: #2e7d32; }
+                    85%, 100% { transform: translate(0, 0) scale(0); opacity: 0; }
+                }
+            `}</style>
+
+            {/* Logo Central */}
+            <div style={{
+                animation: 'logo-anim 6s infinite cubic-bezier(0.4, 0, 0.2, 1)',
+                width: '80px', height: '80px',
+                background: 'var(--primary-gradient)',
+                borderRadius: '22px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 10px 30px rgba(46, 125, 50, 0.2)',
+                position: 'relative',
+                zIndex: 2
+            }}>
+                <Sprout size={42} color="white" />
+            </div>
+
+            {/* Partículas */}
+            {particles.map((_, i) => {
+                const angle = (i / particles.length) * 360;
+                const distance = 40 + Math.random() * 45; // Distância da explosão
+                const tx = `${Math.cos(angle * Math.PI / 180) * distance}px`;
+                const ty = `${Math.sin(angle * Math.PI / 180) * distance}px`;
+                const size = 4 + Math.random() * 6; // Tamanho de 4 a 10px
+                const rot = `${Math.random() * 360}deg`;
+
+                return (
+                    <div key={i} style={{
+                        position: 'absolute',
+                        width: `${size}px`, height: `${size}px`,
+                        borderRadius: i % 3 === 0 ? '4px' : '50%',
+                        top: '50%', left: '50%',
+                        marginLeft: `-${size / 2}px`, marginTop: `-${size / 2}px`,
+                        '--tx': tx, '--ty': ty, '--rot': rot,
+                        animation: 'particle-anim 6s infinite cubic-bezier(0.4, 0, 0.2, 1)',
+                        zIndex: 1
+                    }} />
+                )
+            })}
+        </div>
+    );
+};
+
 export default function Hub({ onNavigate, logo }) {
     const [selectedModule, setSelectedModule] = useState(null);
     const [username, setUsername] = useState('');
@@ -67,7 +127,6 @@ export default function Hub({ onNavigate, logo }) {
     const [showPw, setShowPw] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-
 
     const openModal = (key) => {
         setSelectedModule(key);
@@ -161,9 +220,8 @@ export default function Hub({ onNavigate, logo }) {
                         <img src={logo} alt="Logo empresa" style={{ height: '90px', width: 'auto', objectFit: 'contain', marginBottom: '1.5rem' }} />
                     </div>
                 ) : (
-                    <div style={{ width: '80px', height: '80px', background: 'var(--primary-gradient)', borderRadius: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: '0 10px 30px rgba(46,125,50,0.2)' }}>
-                        <Sprout size={42} color="white" />
-                    </div>
+                    // LOGO ANIMADA APLICADA AQUI
+                    <ParticleLogo />
                 )}
                 <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-1.5px', marginBottom: '0.8rem', lineHeight: 1.1 }}>
                     ONDE A PRODUTIVIDADE IMPERA, <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> O GREENING NÃO PROSPERA.</span>
@@ -208,9 +266,7 @@ export default function Hub({ onNavigate, logo }) {
                         }}
                     >
                         <div className="hub-card-inner">
-                            {/* Background subtle gradient line */}
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: gradient }} />
-                            {/* Icon + Badge row */}
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 20px ${glow}` }}>
                                     <Icon size={24} color="white" />
@@ -220,13 +276,11 @@ export default function Hub({ onNavigate, logo }) {
                                 </span>
                             </div>
 
-                            {/* Text */}
                             <div>
                                 <h3 style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text)', marginBottom: '0.5rem', letterSpacing: '-0.3px' }}>{title}</h3>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: '600', lineHeight: 1.6 }}>{desc}</p>
                             </div>
 
-                            {/* CTA */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', paddingTop: '0.8rem', borderTop: '1px solid var(--border)' }}>
                                 <LogIn size={15} color="var(--primary)" />
                             </div>
@@ -250,7 +304,6 @@ export default function Hub({ onNavigate, logo }) {
                         boxShadow: `0 40px 100px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.02)`,
                         animation: 'popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
                     }}>
-                        {/* Modal Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                 <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: mod.gradient, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 16px ${mod.glow}` }}>
@@ -268,14 +321,12 @@ export default function Hub({ onNavigate, logo }) {
                             </button>
                         </div>
 
-                        {/* Error */}
                         {error && (
                             <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', color: '#f87171', padding: '0.7rem 1rem', borderRadius: '10px', fontSize: '0.82rem', fontWeight: '700', marginBottom: '1rem' }}>
                                 {error}
                             </div>
                         )}
 
-                        {/* Form */}
                         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
                             <div>
                                 <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.4rem', display: 'block', letterSpacing: '1px' }}>E-MAIL OU USUÁRIO</label>
