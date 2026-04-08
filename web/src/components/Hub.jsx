@@ -57,12 +57,12 @@ const MODULES = [
     },
 ];
 
-// COMPONENTE DA LOGO ANIMADA
-const ParticleLogo = () => {
+// COMPONENTE DA LOGO ANIMADA (Agora aceita a logo oficial da empresa)
+const ParticleLogo = ({ customLogo }) => {
     const particles = Array.from({ length: 24 });
 
     return (
-        <div style={{ position: 'relative', width: '80px', height: '80px', margin: '0 auto 1.5rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'relative', height: '100px', margin: '0 auto 1.5rem auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <style>{`
                 @keyframes logo-anim {
                     0%, 10% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 0px rgba(46,125,50,1)); }
@@ -80,24 +80,29 @@ const ParticleLogo = () => {
                 }
             `}</style>
 
-            {/* Logo Central */}
+            {/* Logo Central (Dinâmica: Usa a foto ou o ícone) */}
             <div style={{
                 animation: 'logo-anim 6s infinite cubic-bezier(0.4, 0, 0.2, 1)',
-                width: '80px', height: '80px',
-                background: 'var(--primary-gradient)',
-                borderRadius: '22px',
+                width: customLogo ? 'auto' : '80px', 
+                height: customLogo ? '90px' : '80px',
+                background: customLogo ? 'transparent' : 'var(--primary-gradient)',
+                borderRadius: customLogo ? '0' : '22px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 10px 30px rgba(46, 125, 50, 0.2)',
+                boxShadow: customLogo ? 'none' : '0 10px 30px rgba(46, 125, 50, 0.2)',
                 position: 'relative',
                 zIndex: 2
             }}>
-                <Sprout size={42} color="white" />
+                {customLogo ? (
+                    <img src={customLogo} alt="Logo empresa" style={{ height: '100%', width: 'auto', objectFit: 'contain' }} />
+                ) : (
+                    <Sprout size={42} color="white" />
+                )}
             </div>
 
             {/* Partículas */}
             {particles.map((_, i) => {
                 const angle = (i / particles.length) * 360;
-                const distance = 40 + Math.random() * 45; // Distância da explosão
+                const distance = 50 + Math.random() * 50; // Distância da explosão ajustada
                 const tx = `${Math.cos(angle * Math.PI / 180) * distance}px`;
                 const ty = `${Math.sin(angle * Math.PI / 180) * distance}px`;
                 const size = 4 + Math.random() * 6; // Tamanho de 4 a 10px
@@ -214,15 +219,10 @@ export default function Hub({ onNavigate, logo }) {
 
             {/* Hero */}
             <div style={{ textAlign: 'center', padding: '4rem 2rem 3rem', position: 'relative', zIndex: 1 }}>
-                {logo ? (
-                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <div style={{ position: 'absolute', inset: '-20px', background: 'linear-gradient(135deg, rgba(46,125,50,0.1), rgba(251,140,0,0.1))', filter: 'blur(30px)', borderRadius: '50%', zIndex: -1 }} />
-                        <img src={logo} alt="Logo empresa" style={{ height: '90px', width: 'auto', objectFit: 'contain', marginBottom: '1.5rem' }} />
-                    </div>
-                ) : (
-                    // LOGO ANIMADA APLICADA AQUI
-                    <ParticleLogo />
-                )}
+                
+                {/* AQUI A LOGO ANIMADA É CHAMADA, PASSANDO A LOGO CADASTRADA */}
+                <ParticleLogo customLogo={logo} />
+
                 <h1 style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--text)', letterSpacing: '-1.5px', marginBottom: '0.8rem', lineHeight: 1.1 }}>
                     ONDE A PRODUTIVIDADE IMPERA, <span style={{ background: 'linear-gradient(90deg, #2e7d32, #fb8c00)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> O GREENING NÃO PROSPERA.</span>
                 </h1>
