@@ -139,9 +139,7 @@ const ParticleLogo = ({ customLogo }) => {
                     0%, 15% { transform: translate(0, 0) scale(0); opacity: 0; }
                     18% { transform: translate(0, 0) scale(1.2); opacity: 1; background: #2e7d32; }
                     35% { transform: translate(var(--tx), var(--ty)) scale(1) rotate(var(--rot)); opacity: 0.9; background: #fb8c00; }
-                    /* Fase flutuando com gravidade (cai levemente) */
                     60% { transform: translate(calc(var(--tx) * 1.15), calc(var(--ty) * 1.15 + 15px)) scale(0.6) rotate(calc(var(--rot) + 90deg)); opacity: 0.6; background: #2e7d32; }
-                    /* Sugado de volta rápido */
                     75% { transform: translate(0, 0) scale(1.2); opacity: 1; background: #fb8c00; }
                     80%, 100% { transform: translate(0, 0) scale(0); opacity: 0; }
                 }
@@ -167,7 +165,7 @@ const ParticleLogo = ({ customLogo }) => {
 
             {particles.map((_, i) => {
                 const angle = (i / particles.length) * 360;
-                const distance = 45 + Math.random() * 55; // Variação de distância mais orgânica
+                const distance = 45 + Math.random() * 55; 
                 const tx = `${Math.cos(angle * Math.PI / 180) * distance}px`;
                 const ty = `${Math.sin(angle * Math.PI / 180) * distance}px`;
                 const size = 3 + Math.random() * 7; 
@@ -251,13 +249,14 @@ export default function Hub({ onNavigate, logo }) {
                 borderRadius: '50%', transform: 'rotate(-25deg)', pointerEvents: 'none', zIndex: 0
             }} />
 
-            {/* Top Bar */}
+            {/* TOP BAR / CABEÇALHO ANIMADO E COM GRADIENTE */}
             <header style={{
                 padding: '1.2rem 2rem',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 borderBottom: '1px solid rgba(0,0,0,0.06)',
                 backdropFilter: 'blur(12px)',
-                backgroundColor: 'rgba(255,255,255,0.85)',
+                // Fundo Branco (onde fica o texto) e Laranja + Verde (na direita)
+                background: 'linear-gradient(90deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.95) 40%, rgba(251,140,0,0.85) 75%, rgba(46,125,50,0.85) 100%)',
                 position: 'sticky', top: 0, zIndex: 100,
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -268,14 +267,31 @@ export default function Hub({ onNavigate, logo }) {
                             <Sprout size={22} color="white" />
                         </div>
                     )}
-                    <div>
-                        <p style={{ color: 'var(--text)', fontWeight: '800', fontSize: '0.95rem', letterSpacing: '-0.3px' }}>ERP Sistema de Operações Agrícola</p>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Desenvolvido por Davi Henrique</p>
+                    
+                    {/* CONTAINER DO TEXTO DIGITANDO */}
+                    <div style={{ minWidth: '280px' }}>
+                        <div style={{
+                            overflow: 'hidden',
+                            whiteSpace: 'nowrap',
+                            borderRight: '2px solid var(--primary)',
+                            animation: 'type-reveal 8s steps(40, end) infinite, blink-cursor .75s step-end infinite',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center'
+                        }}>
+                            <p style={{ color: 'var(--text)', fontWeight: '800', fontSize: '0.95rem', letterSpacing: '-0.3px', margin: 0 }}>
+                                ERP Sistema de Operações Agrícola
+                            </p>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.5px', margin: '2px 0 0 0' }}>
+                                Desenvolvido por Davi Henrique
+                            </p>
+                        </div>
                     </div>
                 </div>
+
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px rgba(34, 197, 94, 0.4)' }} />
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem', fontWeight: '700' }}>ON</span>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffffff', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }} />
+                    <span style={{ color: '#ffffff', fontSize: '0.7rem', fontWeight: '700' }}>ON</span>
                 </div>
             </header>
 
@@ -283,7 +299,6 @@ export default function Hub({ onNavigate, logo }) {
             <div style={{ textAlign: 'center', padding: '4rem 2rem 3rem', position: 'relative', zIndex: 1 }}>
                 <ParticleLogo customLogo={logo} />
                 
-                {/* Texto Animado em Câmera Lenta */}
                 <h1 style={{ 
                     fontSize: '2.5rem', 
                     fontWeight: '900', 
@@ -317,7 +332,6 @@ export default function Hub({ onNavigate, logo }) {
                     </span>
                 </h1>
 
-                {/* Linha Gradiente Animada Correndo */}
                 <div style={{
                     width: '180px',
                     height: '3px',
@@ -506,6 +520,18 @@ export default function Hub({ onNavigate, logo }) {
                     0% { background-position: 200% 0; }
                     100% { background-position: -200% 0; }
                 }
+                
+                /* EFEITO DE MAQUINA DE ESCREVER */
+                @keyframes type-reveal {
+                    0%, 10% { width: 0px; }
+                    35%, 80% { width: 280px; } /* Digita e aguarda */
+                    90%, 100% { width: 0px; } /* Apaga e reseta */
+                }
+                @keyframes blink-cursor {
+                    from, to { border-color: transparent; }
+                    50% { border-color: var(--primary); }
+                }
+
                 input::placeholder { color: #94a3b8 !important; }
                 input:focus { border-color: var(--primary) !important; box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.1) !important; }
             `}</style>
