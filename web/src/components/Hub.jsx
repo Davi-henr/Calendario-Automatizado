@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { settingsService } from '../lib/services';
 import { BarChart2, Shield, Package, X, Eye, EyeOff, LogIn, Sprout, ClipboardList } from 'lucide-react';
@@ -18,7 +18,6 @@ const MODULE_ACCESS = {
     inventory: ['davi', 'vania', 'almoxarife'],
 };
 
-// Mantivemos os ícones e gradientes no array apenas para serem usados dentro do Modal de Login
 const MODULES = [
     {
         key: 'calendar',
@@ -46,7 +45,85 @@ const MODULES = [
     },
 ];
 
-// COMPONENTE DA LOGO ANIMADA
+// --- NOVO: FUNDO INTERATIVO COM LARANJAS FLUTUANTES ---
+const InteractiveOrchardBackground = () => {
+    const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
+    // Gera posições e tamanhos aleatórios para 15 laranjas
+    const [oranges] = useState(() => Array.from({ length: 15 }).map(() => ({
+        id: Math.random(),
+        baseX: Math.random() * 100, // %
+        baseY: Math.random() * 100, // %
+        size: 16 + Math.random() * 14, // 16 a 30px
+        floatSpeed: 3 + Math.random() * 4, // 3s a 7s
+        rotation: Math.random() * 360,
+    })));
+
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            setMousePos({ x: e.clientX, y: e.clientY });
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
+
+    return (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            overflow: 'hidden', pointerEvents: 'none', zIndex: 0
+        }}>
+            <style>{`
+                @keyframes float {
+                    0%, 100% { transform: translateY(0px) rotate(0deg); }
+                    50% { transform: translateY(-15px) rotate(10deg); }
+                }
+            `}</style>
+            {oranges.map((orange) => {
+                // Cálculo de repulsão do mouse
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+                const orangePixelX = (orange.baseX / 100) * windowWidth;
+                const orangePixelY = (orange.baseY / 100) * windowHeight;
+                
+                const dx = orangePixelX - mousePos.x;
+                const dy = orangePixelY - mousePos.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const repelRadius = 150; // Distância que o mouse afeta a laranja
+                
+                let repelX = 0;
+                let repelY = 0;
+                
+                if (distance < repelRadius) {
+                    const force = (repelRadius - distance) / repelRadius;
+                    repelX = (dx / distance) * force * 40; // Empurra até 40px
+                    repelY = (dy / distance) * force * 40;
+                }
+
+                return (
+                    <div
+                        key={orange.id}
+                        style={{
+                            position: 'absolute',
+                            left: `${orange.baseX}%`,
+                            top: `${orange.baseY}%`,
+                            fontSize: `${orange.size}px`,
+                            opacity: 0.15, // Sutileza para não atrapalhar a leitura
+                            transform: `translate(${repelX}px, ${repelY}px) rotate(${orange.rotation}deg)`,
+                            transition: 'transform 0.2s ease-out',
+                        }}
+                    >
+                        <div style={{
+                            animation: `float ${orange.floatSpeed}s ease-in-out infinite`,
+                        }}>
+                            🍊
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
+
 const ParticleLogo = ({ customLogo }) => {
     const particles = Array.from({ length: 24 });
 
@@ -162,14 +239,15 @@ export default function Hub({ onNavigate, logo }) {
             fontFamily: 'var(--font-display, "Inter", sans-serif)',
             position: 'relative', overflow: 'hidden'
         }}>
-            {/* Elementos de Fundo */}
-            <div style={{ position: 'fixed', top: '-10%', right: '-5%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(74, 222, 128, 0.08) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-            <div style={{ position: 'fixed', bottom: '-10%', left: '-5%', width: '35vw', height: '35vw', background: 'radial-gradient(circle, rgba(251, 140, 0, 0.06) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            {/* ELEMENTOS DE FUNDO */}
+            <InteractiveOrchardBackground />
+            <div style={{ position: 'fixed', top: '-10%', right: '-5%', width: '40vw', height: '40vw', background: 'radial-gradient(circle, rgba(74, 222, 128, 0.08) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
+            <div style={{ position: 'fixed', bottom: '-10%', left: '-5%', width: '35vw', height: '35vw', background: 'radial-gradient(circle, rgba(251, 140, 0, 0.06) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
 
             <div style={{
                 position: 'fixed', top: '20%', left: '-50px', width: '200px', height: '400px',
                 background: 'linear-gradient(135deg, rgba(46, 125, 50, 0.05), rgba(251, 140, 0, 0.05))',
-                borderRadius: '50%', transform: 'rotate(-25deg)', pointerEvents: 'none'
+                borderRadius: '50%', transform: 'rotate(-25deg)', pointerEvents: 'none', zIndex: 0
             }} />
 
             {/* Top Bar */}
@@ -209,7 +287,7 @@ export default function Hub({ onNavigate, logo }) {
                 <p style={{ color: 'var(--text-muted)', fontWeight: '600', fontSize: '1.1rem' }}>Identifique-se para acessar os módulos</p>
             </div>
 
-            {/* Novo Design Minimalista dos Cards */}
+            {/* Design Minimalista dos Cards */}
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
@@ -249,7 +327,7 @@ export default function Hub({ onNavigate, logo }) {
                     >
                         <div style={{
                             background: '#ffffff', // Fundo Sólido Branco do Cartão
-                            borderRadius: '14px', // Raio ligeiramente menor para encaixar dentro do wrapper
+                            borderRadius: '14px', 
                             padding: '2.5rem 2rem',
                             width: '100%',
                             height: '100%',
@@ -280,7 +358,7 @@ export default function Hub({ onNavigate, logo }) {
                                 <span style={{ 
                                     fontSize: '0.8rem', 
                                     fontWeight: '800', 
-                                    color: '#94a3b8', // Cor cinza suave
+                                    color: '#94a3b8', 
                                     textTransform: 'uppercase', 
                                     letterSpacing: '3px' 
                                 }}>
@@ -292,7 +370,7 @@ export default function Hub({ onNavigate, logo }) {
                 ))}
             </div>
 
-            {/* Login Modal (INTACTO) */}
+            {/* Login Modal */}
             {selectedModule && mod && (
                 <div
                     style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}
