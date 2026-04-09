@@ -129,15 +129,13 @@ const getPathCenter = (id, d) => {
 
 const formatQuadraLabel = (id) => id.replace(/^0+/, '');
 
-// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE (BLINDADA CONTRA ERROS DE ESTOQUE) ---
+// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE (AGORA COM POP-UPS PARA DEBUG) ---
 const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque) => {
     try {
-        // 1. Pega os registros que já foram baixados para carregar a página (mais rápido e seguro)
         const ordensLeprose = registrosAtivos.filter(r => r.receita === 'Leprose' && r.situacao === 'Finalizada');
 
         if (!ordensLeprose || ordensLeprose.length === 0) return;
 
-        // 2. Encontra a última aplicação de cada quadra
         const ultimasAplicacoes = {};
         ordensLeprose.forEach(reg => {
             if (!ultimasAplicacoes[reg.quadra] || new Date(reg.data_inicial) > new Date(ultimasAplicacoes[reg.quadra].data_inicial)) {
@@ -150,15 +148,16 @@ const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque) =
         const grupoB = ['envidor', 'oberon'];
         const acaricidasConhecidos = [...grupoA, ...grupoB];
 
+        let disparosFeitos = 0; // Contador para não mandar 50 avisos na tela
+
         for (const quadra in ultimasAplicacoes) {
             const ultimoRegistro = ultimasAplicacoes[quadra];
             const dataApp = new Date(ultimoRegistro.data_inicial + 'T00:00:00');
             const diasPassados = Math.floor((hoje - dataApp) / (1000 * 60 * 60 * 24));
 
-            // Se for maior ou igual a 180 e a coluna ainda for falsa
-            if (diasPassados >= 20 && ultimoRegistro.alerta_leprose_enviado !== true) {
+            // ESTE É O LOCAL DO SEU TESTE (Mantenha 20 apenas para testes, depois volte para 180)
+            if (diasPassados >= 20 && ultimoRegistro.alerta_leprose_enviado === false) {
                 
-                // 3. Lê o acaricida direto do texto de observacao
                 const obsFormatada = (ultimoRegistro.observacao || '').toLowerCase();
                 let produtoUsadoNome = 'Não identificado';
                 
@@ -171,7 +170,6 @@ const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque) =
 
                 let produtosValidos = [];
 
-                // 4. Lógica de Rotação BLINDADA (Ignora insumos corrompidos no estoque)
                 if (grupoA.some(a => obsFormatada.includes(a))) {
                     produtosValidos = insumosEstoque.filter(insumo => 
                         insumo?.insumo && grupoB.some(b => insumo.insumo.toLowerCase().includes(b)) && parseFloat(insumo.saldo_atual || 0) > 0
@@ -199,21 +197,30 @@ const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque) =
                 };
 
                 try {
-                    // ENVIO VIA EMAILJS
+                    // TENTA ENVIAR O EMAIL
                     await emailjs.send('service_tybtcoc', 'template_rismosj', templateParams, '7_OdWq1mfyUmAIhEc');
 
-                    // Atualiza flag na tabela REGISTROS
+                    // ATUALIZA O BANCO
                     await supabase
                         .from('registros')
                         .update({ alerta_leprose_enviado: true })
                         .eq('id', ultimoRegistro.id);
                         
                     console.log(`✅ Sucesso! E-mail de alerta enviado para a Quadra ${ultimoRegistro.quadra}`);
+                    disparosFeitos++;
+                    
                 } catch (error) {
-                    console.error(`❌ Erro no envio do e-mail da Quadra ${ultimoRegistro.quadra}:`, error);
+                    console.error(`❌ Erro no envio EmailJS para Quadra ${ultimoRegistro.quadra}:`, error);
+                    // ESTE AVISO VAI PULAR NA SUA TELA SE O EMAILJS FALHAR!
+                    alert(`Ocorreu um erro ao enviar e-mail da Quadra ${ultimoRegistro.quadra}. Detalhes: ${error.text || error.message || 'Desconhecido'}`);
                 }
             }
         }
+        
+        if (disparosFeitos > 0) {
+            alert(`SUCESSO! O sistema acabou de disparar ${disparosFeitos} e-mail(s) de Leprose e atualizou o banco.`);
+        }
+
     } catch (err) {
         console.error('❌ Erro geral na função de verificação de leprose:', err);
     }
@@ -270,7 +277,7 @@ export default function Dashboard({ logo }) {
             setChuvas(rainData);
             setInsumos(insData);
             
-            // Dispara a verificação passando os dados já baixados
+            // NOVO: Chamada silenciosa da função de alertas
             verificarEEnviarAlertasLeprose(regData, insData).catch(console.error);
 
         } catch (err) {
