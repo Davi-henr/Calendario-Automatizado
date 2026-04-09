@@ -129,22 +129,17 @@ const getPathCenter = (id, d) => {
 
 const formatQuadraLabel = (id) => id.replace(/^0+/, '');
 
-// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE VIA EMAILJS (ATUALIZADA PARA TABELA REGISTROS) ---
-const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
+// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE (BLINDADA CONTRA ERROS DE ESTOQUE) ---
+const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque) => {
     try {
-        // 1. Busca na tabela certa: registros (receita = Leprose, situacao = Finalizada)
-        const { data: registrosLeprose, error } = await supabase
-            .from('registros')
-            .select('*')
-            .eq('receita', 'Leprose')
-            .eq('situacao', 'Finalizada')
-            .eq('ativo', true);
+        // 1. Pega os registros que já foram baixados para carregar a página (mais rápido e seguro)
+        const ordensLeprose = registrosAtivos.filter(r => r.receita === 'Leprose' && r.situacao === 'Finalizada');
 
-        if (error || !registrosLeprose) throw error;
+        if (!ordensLeprose || ordensLeprose.length === 0) return;
 
         // 2. Encontra a última aplicação de cada quadra
         const ultimasAplicacoes = {};
-        registrosLeprose.forEach(reg => {
+        ordensLeprose.forEach(reg => {
             if (!ultimasAplicacoes[reg.quadra] || new Date(reg.data_inicial) > new Date(ultimasAplicacoes[reg.quadra].data_inicial)) {
                 ultimasAplicacoes[reg.quadra] = reg;
             }
@@ -160,36 +155,35 @@ const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
             const dataApp = new Date(ultimoRegistro.data_inicial + 'T00:00:00');
             const diasPassados = Math.floor((hoje - dataApp) / (1000 * 60 * 60 * 24));
 
-            // PARA TESTAR: Mude o 180 abaixo para 0!
+            // Se for maior ou igual a 180 e a coluna ainda for falsa
             if (diasPassados >= 180 && ultimoRegistro.alerta_leprose_enviado !== true) {
                 
-                // 3. Lê o acaricida direto do texto de observacao (Ex: "ENVIDOR 240 SC - FR 400ML (0.8)")
+                // 3. Lê o acaricida direto do texto de observacao
                 const obsFormatada = (ultimoRegistro.observacao || '').toLowerCase();
                 let produtoUsadoNome = 'Não identificado';
                 
                 const acaricidaEncontrado = acaricidasConhecidos.find(ac => obsFormatada.includes(ac));
                 if (acaricidaEncontrado) {
-                    produtoUsadoNome = acaricidaEncontrado.toUpperCase(); // Ex: OBNY, ENVIDOR
+                    produtoUsadoNome = acaricidaEncontrado.toUpperCase();
                 } else if (ultimoRegistro.observacao) {
-                    produtoUsadoNome = ultimoRegistro.observacao; // Fallback para o texto original
+                    produtoUsadoNome = ultimoRegistro.observacao;
                 }
 
                 let produtosValidos = [];
 
-                // 4. Lógica de Rotação baseada nos grupos
+                // 4. Lógica de Rotação BLINDADA (Ignora insumos corrompidos no estoque)
                 if (grupoA.some(a => obsFormatada.includes(a))) {
                     produtosValidos = insumosEstoque.filter(insumo => 
-                        grupoB.some(b => insumo.insumo.toLowerCase().includes(b)) && parseFloat(insumo.saldo_atual || 0) > 0
+                        insumo?.insumo && grupoB.some(b => insumo.insumo.toLowerCase().includes(b)) && parseFloat(insumo.saldo_atual || 0) > 0
                     );
                 } else if (grupoB.some(b => obsFormatada.includes(b))) {
                     produtosValidos = insumosEstoque.filter(insumo => 
-                        grupoA.some(a => insumo.insumo.toLowerCase().includes(a)) && parseFloat(insumo.saldo_atual || 0) > 0
+                        insumo?.insumo && grupoA.some(a => insumo.insumo.toLowerCase().includes(a)) && parseFloat(insumo.saldo_atual || 0) > 0
                     );
                 } else {
-                    // Fallback de segurança se não for nenhum dos dois grupos
                     produtosValidos = insumosEstoque.filter(insumo => 
-                        insumo.classificacao?.toLowerCase() === 'acaricida' && 
-                        (!acaricidaEncontrado || !insumo.insumo.toLowerCase().includes(acaricidaEncontrado)) &&
+                        insumo?.classificacao?.toLowerCase() === 'acaricida' && 
+                        insumo?.insumo && (!acaricidaEncontrado || !insumo.insumo.toLowerCase().includes(acaricidaEncontrado)) &&
                         parseFloat(insumo.saldo_atual || 0) > 0
                     );
                 }
@@ -214,14 +208,14 @@ const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
                         .update({ alerta_leprose_enviado: true })
                         .eq('id', ultimoRegistro.id);
                         
-                    console.log(`Alerta de Leprose enviado para a Quadra ${ultimoRegistro.quadra}`);
+                    console.log(`✅ Sucesso! E-mail de alerta enviado para a Quadra ${ultimoRegistro.quadra}`);
                 } catch (error) {
-                    console.error('Erro ao enviar alerta via EmailJS:', error);
+                    console.error(`❌ Erro no envio do e-mail da Quadra ${ultimoRegistro.quadra}:`, error);
                 }
             }
         }
     } catch (err) {
-        console.error('Erro geral na verificação de leprose:', err);
+        console.error('❌ Erro geral na função de verificação de leprose:', err);
     }
 };
 
@@ -276,8 +270,8 @@ export default function Dashboard({ logo }) {
             setChuvas(rainData);
             setInsumos(insData);
             
-            // NOVO: Chamada silenciosa da função de alertas
-            verificarEEnviarAlertasLeprose(insData).catch(console.error);
+            // Dispara a verificação passando os dados já baixados
+            verificarEEnviarAlertasLeprose(regData, insData).catch(console.error);
 
         } catch (err) {
             console.error(err);
@@ -686,7 +680,6 @@ export default function Dashboard({ logo }) {
             let foundNome = '-';
             let foundDosagem = '-';
             
-            // Verifica na base de estoque
             for (const aca of acaricidas) {
                 const regex = new RegExp(`${aca.insumo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:\\(([^)]+)\\))?`, 'i');
                 const match = observacao.match(regex);
@@ -697,7 +690,6 @@ export default function Dashboard({ logo }) {
                 }
             }
             
-            // Fallback se for digitado livre sem estar no estoque exato
             if (foundNome === '-') {
                foundNome = observacao;
             }
