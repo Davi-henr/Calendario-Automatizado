@@ -14,9 +14,10 @@ import {
     CheckCircle
 } from 'lucide-react';
 import { pedidosService, insumosService, entradasService, saidasService } from '../lib/services';
-import { format } from 'date-fns';
+import { format, nextTuesday } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import emailjs from '@emailjs/browser'; // IMPORTADO PARA ENVIAR O EMAIL
 
 export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
     const [pedidos, setPedidos] = useState([]);
@@ -109,8 +110,9 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
             return;
         }
 
-        if (window.confirm(`Confirmar o pedido de ${itemsToOrder.length} insumo(s)?`)) {
+        if (window.confirm(`Confirmar e enviar o pedido de ${itemsToOrder.length} insumo(s)?`)) {
             try {
+                // 1. Salvar no banco de dados primeiro
                 for (const [id, qty] of itemsToOrder) {
                     await pedidosService.create({
                         insumo_id: id,
@@ -118,11 +120,60 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                         status: 'Pendente'
                     });
                 }
-                setOrderQuantities({}); // ISSO AQUI ZERA OS CAMPOS APÓS BAIXAR O PEDIDO
-                alert('Pedidos registrados com sucesso! Acompanhe-os no Relatório.');
+
+                // 2. Preparar dados para o E-mail
+                const dataEntrega = nextTuesday(new Date()); // Acha a próxima terça-feira
+                const dataEntregaCompleta = format(dataEntrega, 'dd/MM/yyyy');
+                const dataEntregaCurta = format(dataEntrega, 'dd/MM');
+
+                // Montar as linhas da tabela HTML dinamicamente
+                let tabelaHTML = `
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #ccc; text-align: left;">
+                                <th style="padding: 10px; font-size: 16px; color: #333;">DESCRIÇÃO</th>
+                                <th style="padding: 10px; font-size: 16px; color: #333;">QUANTIDADE</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                itemsToOrder.forEach(([id, qty]) => {
+                    const insumo = insumos.find(i => i.id === id);
+                    const nomeProduto = insumo ? insumo.insumo : 'Produto Desconhecido';
+                    // Deduz a unidade baseada no nome ou usa LTS como padrão (você pode melhorar isso depois se quiser)
+                    const unidade = (insumo?.classificacao?.toLowerCase()?.includes('adubo') || nomeProduto.toLowerCase().includes('kg')) ? 'KG' : 'LTS';
+
+                    tabelaHTML += `
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px; font-size: 15px; color: #444;">${nomeProduto}</td>
+                            <td style="padding: 10px; font-size: 15px; color: #444;">${qty} ${unidade}</td>
+                        </tr>
+                    `;
+                });
+
+                tabelaHTML += `
+                        </tbody>
+                    </table>
+                `;
+
+                const templateParams = {
+                    data_entrega_completa: dataEntregaCompleta,
+                    data_entrega_curta: dataEntregaCurta,
+                    tabela_produtos: tabelaHTML,
+                    email: "davi.fvl@markbemcitrus.com.br"
+                };
+
+                // 3. Enviar o E-mail
+                await emailjs.send('service_tybtcoc', 'template_digqj1d', templateParams, '7_OdWq1mfyUmAIhEc');
+
+                setOrderQuantities({}); // ZERA OS CAMPOS APÓS BAIXAR O PEDIDO
+                alert('Pedido registrado e enviado por e-mail com sucesso! Acompanhe-os no Relatório.');
                 if (onNavigate) onNavigate('relatorio');
+
             } catch (err) {
-                alert('Erro ao salvar pedidos: ' + err.message);
+                console.error(err);
+                alert('O pedido foi salvo, mas houve um erro ao enviar o e-mail: ' + err.message);
             }
         }
     };
@@ -417,7 +468,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
             }}>
                 {subview === 'fazer' ? (
                     <button onClick={handleBaixarPedido} className="btn btn-primary" style={{ padding: '0.8rem 2.5rem', background: '#f59e0b' }}>
-                        <div className="btn-inner" style={{ fontSize: '1rem' }}><Save size={20} /> Baixar Pedido</div>
+                        <div className="btn-inner" style={{ fontSize: '1rem' }}><Save size={20} /> Baixar e Enviar Pedido</div>
                     </button>
                 ) : (
                     <>
