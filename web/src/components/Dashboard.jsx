@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import emailjs from '@emailjs/browser';
 import { supabase } from '../lib/supabase';
 import { registrosService, chuvasService, insumosService, settingsService } from '../lib/services';
 import PageHeader from './PageHeader';
@@ -129,85 +128,6 @@ const getPathCenter = (id, d) => {
 
 const formatQuadraLabel = (id) => id.replace(/^0+/, '');
 
-// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE (SEM SALDO DE ESTOQUE, APENAS ROTAÇÃO) ---
-const verificarEEnviarAlertasLeprose = async (registrosAtivos) => {
-    try {
-        const ordensLeprose = registrosAtivos.filter(r => r.receita === 'Leprose' && r.situacao === 'Finalizada');
-        if (!ordensLeprose || ordensLeprose.length === 0) return;
-
-        const ultimasAplicacoes = {};
-        ordensLeprose.forEach(reg => {
-            if (!ultimasAplicacoes[reg.quadra] || new Date(reg.data_inicial) > new Date(ultimasAplicacoes[reg.quadra].data_inicial)) {
-                ultimasAplicacoes[reg.quadra] = reg;
-            }
-        });
-
-        const grupoA = ['obny', 'okay'];
-        const grupoB = ['envidor', 'oberon'];
-        const acaricidasConhecidos = [...grupoA, ...grupoB];
-
-        let disparosFeitos = 0;
-
-        for (const quadra in ultimasAplicacoes) {
-            const ultimoRegistro = ultimasAplicacoes[quadra];
-            
-            // Usa o differenceInDays idêntico ao da tabela
-            const diasPassados = differenceInDays(new Date(), parseISO(ultimoRegistro.data_inicial));
-
-            if (diasPassados >= 180 && ultimoRegistro.alerta_leprose_enviado === false) {
-                
-                const obsFormatada = (ultimoRegistro.observacao || '').toLowerCase();
-                let produtoUsadoNome = 'Não identificado';
-                let produtoRecomendadoStr = 'um acaricida de grupo químico diferente';
-                
-                const acaricidaEncontrado = acaricidasConhecidos.find(ac => obsFormatada.includes(ac));
-                
-                // Lógica simples e direta: se usou do A, recomenda o B. Se usou do B, recomenda o A.
-                if (acaricidaEncontrado) {
-                    produtoUsadoNome = acaricidaEncontrado.toUpperCase();
-                    if (grupoA.includes(acaricidaEncontrado)) {
-                        produtoRecomendadoStr = 'ENVIDOR ou OBERON';
-                    } else if (grupoB.includes(acaricidaEncontrado)) {
-                        produtoRecomendadoStr = 'OBNY ou OKAY';
-                    }
-                } else if (ultimoRegistro.observacao) {
-                    produtoUsadoNome = ultimoRegistro.observacao;
-                }
-
-                // Não passamos mais o 'saldo' aqui
-                const templateParams = {
-                    quadra: ultimoRegistro.quadra,
-                    produto_antigo: produtoUsadoNome,
-                    produto_recomendado: produtoRecomendadoStr,
-                    email: "davi.fvl@markbemcitrus.com.br" 
-                };
-
-                try {
-                    await emailjs.send('service_tybtcoc', 'template_rismosj', templateParams, '7_OdWq1mfyUmAIhEc');
-                    
-                    await supabase
-                        .from('registros')
-                        .update({ alerta_leprose_enviado: true })
-                        .eq('id', ultimoRegistro.id);
-                        
-                    console.log(`✅ Sucesso! Alerta (180 dias) enviado para a Quadra ${ultimoRegistro.quadra}`);
-                    disparosFeitos++;
-                    
-                } catch (error) {
-                    console.error(`❌ Erro no envio EmailJS para Quadra ${ultimoRegistro.quadra}:`, error);
-                }
-            }
-        }
-        
-        if (disparosFeitos > 0) {
-            console.log(`SUCESSO! O sistema acabou de disparar ${disparosFeitos} e-mail(s) de Leprose para quadras com +180 dias e atualizou o banco.`);
-        }
-
-    } catch (err) {
-        console.error('❌ Erro geral na função de verificação de leprose:', err);
-    }
-};
-
 export default function Dashboard({ logo }) {
     const [activeTab, setActiveTab] = useState('chuva'); 
     const [registros, setRegistros] = useState([]);
@@ -250,7 +170,6 @@ export default function Dashboard({ logo }) {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Removidas as chamadas de entradasService e saidasService
             const [regData, rainData, insData] = await Promise.all([
                 registrosService.getAll(),
                 chuvasService.getAll(),
@@ -259,10 +178,6 @@ export default function Dashboard({ logo }) {
             setRegistros(regData);
             setChuvas(rainData);
             setInsumos(insData);
-            
-            // Dispara a verificação apenas com os registrosAtivos
-            verificarEEnviarAlertasLeprose(regData).catch(console.error);
-
         } catch (err) {
             console.error(err);
         } finally {
