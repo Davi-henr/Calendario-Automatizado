@@ -159,7 +159,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                     data_entrega_completa: dataEntregaCompleta,
                     data_entrega_curta: dataEntregaCurta,
                     tabela_produtos: tabelaHTML,
-                    email: "vania.fvl@hotmail.com, fvl.financeiro@markbemcitrus.com.br, f.alegria@markbemcitrus.com.br"
+                    email: "vaniafvl@hotmail.com, fvl.financeiro@markbemcitrus.com.br, f.alegria@markbemcitrus.com.br"
                 };
 
                 // 3. Enviar o E-mail
