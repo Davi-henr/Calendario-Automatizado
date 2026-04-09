@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
+import emailjs from '@emailjs/browser';
+import { differenceInDays, parseISO } from 'date-fns';
 import {
     Sprout,
     PlusSquare,
@@ -23,6 +25,78 @@ import Prescriptions from './components/Prescriptions';
 import Settings from './components/Settings';
 import { settingsService } from './lib/services';
 
+// --- FUNÇÃO VIGIA GLOBAL DE LEPROSE ---
+const verificarAlertasGerais = async () => {
+    try {
+        const { data: registrosLeprose, error } = await supabase
+            .from('registros')
+            .select('*')
+            .eq('receita', 'Leprose')
+            .eq('situacao', 'Finalizada')
+            .eq('ativo', true)
+            .eq('alerta_leprose_enviado', false); 
+
+        if (error || !registrosLeprose || registrosLeprose.length === 0) return;
+
+        const hoje = new Date();
+        const grupoA = ['obny', 'okay'];
+        const grupoB = ['envidor', 'oberon'];
+        const acaricidasConhecidos = [...grupoA, ...grupoB];
+
+        let disparosFeitos = 0;
+
+        for (const reg of registrosLeprose) {
+            const diasPassados = differenceInDays(hoje, parseISO(reg.data_inicial));
+
+            if (diasPassados >= 180) {
+                
+                const obsFormatada = (reg.observacao || '').toLowerCase();
+                let produtoUsadoNome = reg.observacao || 'Não identificado';
+                let produtoRecomendadoStr = 'um acaricida de grupo químico diferente';
+                
+                const acaricidaEncontrado = acaricidasConhecidos.find(ac => obsFormatada.includes(ac));
+                
+                if (acaricidaEncontrado) {
+                    produtoUsadoNome = acaricidaEncontrado.toUpperCase();
+                    if (grupoA.includes(acaricidaEncontrado)) {
+                        produtoRecomendadoStr = 'ENVIDOR ou OBERON';
+                    } else if (grupoB.includes(acaricidaEncontrado)) {
+                        produtoRecomendadoStr = 'OBNY ou OKAY';
+                    }
+                }
+
+                const templateParams = {
+                    quadra: reg.quadra,
+                    produto_antigo: produtoUsadoNome,
+                    produto_recomendado: produtoRecomendadoStr,
+                    email: "davi.fvl@markbemcitrus.com.br" 
+                };
+
+                try {
+                    await emailjs.send('service_tybtcoc', 'template_rismosj', templateParams, '7_OdWq1mfyUmAIhEc');
+                    
+                    await supabase
+                        .from('registros')
+                        .update({ alerta_leprose_enviado: true })
+                        .eq('id', reg.id);
+                        
+                    console.log(`✅ Alerta global enviado: Quadra ${reg.quadra}`);
+                    disparosFeitos++;
+                } catch (err) {
+                    console.error("❌ Erro no disparo do alerta global:", err);
+                }
+            }
+        }
+        
+        if (disparosFeitos > 0) {
+            console.log(`SUCESSO! O sistema global acabou de disparar ${disparosFeitos} e-mail(s) de Leprose.`);
+        }
+        
+    } catch (err) {
+        console.error("❌ Erro na verificação global:", err);
+    }
+};
+
 function App() {
     const [session, setSession] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -42,7 +116,10 @@ function App() {
             setSession(session);
         });
 
-        loadSettings(); // Always load logo regardless of session
+        loadSettings();
+
+        // O vigia roda uma vez quando o App inicializa (quando o usuário entra no sistema)
+        verificarAlertasGerais();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
