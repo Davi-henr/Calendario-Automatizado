@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import emailjs from '@emailjs/browser'; // NOVO: Importação do EmailJS
+import emailjs from '@emailjs/browser';
 import { supabase } from '../lib/supabase';
 import { registrosService, chuvasService, insumosService, settingsService } from '../lib/services';
 import PageHeader from './PageHeader';
@@ -129,23 +129,24 @@ const getPathCenter = (id, d) => {
 
 const formatQuadraLabel = (id) => id.replace(/^0+/, '');
 
-
-// --- NOVO: FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE VIA EMAILJS ---
+// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE VIA EMAILJS (ATUALIZADA PARA TABELA REGISTROS) ---
 const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
     try {
-        const { data: ordensLeprose, error } = await supabase
-            .from('ordens_servico')
+        // 1. Busca na tabela certa: registros (receita = Leprose, situacao = Finalizada)
+        const { data: registrosLeprose, error } = await supabase
+            .from('registros')
             .select('*')
-            .eq('operacao', 'Leprose')
+            .eq('receita', 'Leprose')
             .eq('situacao', 'Finalizada')
             .eq('ativo', true);
 
-        if (error || !ordensLeprose) throw error;
+        if (error || !registrosLeprose) throw error;
 
+        // 2. Encontra a última aplicação de cada quadra
         const ultimasAplicacoes = {};
-        ordensLeprose.forEach(os => {
-            if (!ultimasAplicacoes[os.quadra] || new Date(os.data_prescricao) > new Date(ultimasAplicacoes[os.quadra].data_prescricao)) {
-                ultimasAplicacoes[os.quadra] = os;
+        registrosLeprose.forEach(reg => {
+            if (!ultimasAplicacoes[reg.quadra] || new Date(reg.data_inicial) > new Date(ultimasAplicacoes[reg.quadra].data_inicial)) {
+                ultimasAplicacoes[reg.quadra] = reg;
             }
         });
 
@@ -155,43 +156,40 @@ const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
         const acaricidasConhecidos = [...grupoA, ...grupoB];
 
         for (const quadra in ultimasAplicacoes) {
-            const ultimaOs = ultimasAplicacoes[quadra];
-            const dataApp = new Date(ultimaOs.data_prescricao + 'T00:00:00');
+            const ultimoRegistro = ultimasAplicacoes[quadra];
+            const dataApp = new Date(ultimoRegistro.data_inicial + 'T00:00:00');
             const diasPassados = Math.floor((hoje - dataApp) / (1000 * 60 * 60 * 24));
 
-            // DICA PARA TESTE: Mude o 180 para 0 temporariamente para testar se o email chega!
-            if (diasPassados >= 180 && ultimaOs.alerta_leprose_enviado !== true) {
-                let insumosArray = [];
-                try {
-                    insumosArray = typeof ultimaOs.insumos === 'string' ? JSON.parse(ultimaOs.insumos) : ultimaOs.insumos;
-                } catch(e) {}
-
-                let produtoUsadoNome = '';
-                const insumoAcaricida = insumosArray.find(i => 
-                    acaricidasConhecidos.some(ac => i.material?.toLowerCase().includes(ac))
-                );
-
-                if (insumoAcaricida) {
-                    produtoUsadoNome = insumoAcaricida.material;
-                } else if (insumosArray.length > 0) {
-                    produtoUsadoNome = insumosArray[0].material;
+            // PARA TESTAR: Mude o 180 abaixo para 0!
+            if (diasPassados >= 180 && ultimoRegistro.alerta_leprose_enviado !== true) {
+                
+                // 3. Lê o acaricida direto do texto de observacao (Ex: "ENVIDOR 240 SC - FR 400ML (0.8)")
+                const obsFormatada = (ultimoRegistro.observacao || '').toLowerCase();
+                let produtoUsadoNome = 'Não identificado';
+                
+                const acaricidaEncontrado = acaricidasConhecidos.find(ac => obsFormatada.includes(ac));
+                if (acaricidaEncontrado) {
+                    produtoUsadoNome = acaricidaEncontrado.toUpperCase(); // Ex: OBNY, ENVIDOR
+                } else if (ultimoRegistro.observacao) {
+                    produtoUsadoNome = ultimoRegistro.observacao; // Fallback para o texto original
                 }
 
-                const produtoUsadoFormatado = produtoUsadoNome.toLowerCase().trim();
                 let produtosValidos = [];
 
-                if (grupoA.some(a => produtoUsadoFormatado.includes(a))) {
+                // 4. Lógica de Rotação baseada nos grupos
+                if (grupoA.some(a => obsFormatada.includes(a))) {
                     produtosValidos = insumosEstoque.filter(insumo => 
                         grupoB.some(b => insumo.insumo.toLowerCase().includes(b)) && parseFloat(insumo.saldo_atual || 0) > 0
                     );
-                } else if (grupoB.some(b => produtoUsadoFormatado.includes(b))) {
+                } else if (grupoB.some(b => obsFormatada.includes(b))) {
                     produtosValidos = insumosEstoque.filter(insumo => 
                         grupoA.some(a => insumo.insumo.toLowerCase().includes(a)) && parseFloat(insumo.saldo_atual || 0) > 0
                     );
                 } else {
+                    // Fallback de segurança se não for nenhum dos dois grupos
                     produtosValidos = insumosEstoque.filter(insumo => 
                         insumo.classificacao?.toLowerCase() === 'acaricida' && 
-                        !insumo.insumo.toLowerCase().includes(produtoUsadoFormatado) &&
+                        (!acaricidaEncontrado || !insumo.insumo.toLowerCase().includes(acaricidaEncontrado)) &&
                         parseFloat(insumo.saldo_atual || 0) > 0
                     );
                 }
@@ -199,8 +197,8 @@ const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
                 const produtoRecomendado = produtosValidos.length > 0 ? produtosValidos[0] : null;
 
                 const templateParams = {
-                    quadra: ultimaOs.quadra,
-                    produto_antigo: produtoUsadoNome || 'Não identificado',
+                    quadra: ultimoRegistro.quadra,
+                    produto_antigo: produtoUsadoNome,
                     produto_recomendado: produtoRecomendado ? produtoRecomendado.insumo : 'Requer compra (Sem opções em estoque)',
                     saldo: produtoRecomendado ? produtoRecomendado.saldo_atual : 0,
                     email: "davi.fvl@markbemcitrus.com.br" 
@@ -210,13 +208,13 @@ const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
                     // ENVIO VIA EMAILJS
                     await emailjs.send('service_tybtcoc', 'template_rismosj', templateParams, '7_OdWq1mfyUmAIhEc');
 
-                    // Atualiza flag no Supabase
+                    // Atualiza flag na tabela REGISTROS
                     await supabase
-                        .from('ordens_servico')
+                        .from('registros')
                         .update({ alerta_leprose_enviado: true })
-                        .eq('id', ultimaOs.id);
+                        .eq('id', ultimoRegistro.id);
                         
-                    console.log(`Alerta de Leprose enviado para a Quadra ${ultimaOs.quadra}`);
+                    console.log(`Alerta de Leprose enviado para a Quadra ${ultimoRegistro.quadra}`);
                 } catch (error) {
                     console.error('Erro ao enviar alerta via EmailJS:', error);
                 }
@@ -226,7 +224,6 @@ const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
         console.error('Erro geral na verificação de leprose:', err);
     }
 };
-
 
 export default function Dashboard({ logo }) {
     const [activeTab, setActiveTab] = useState('chuva'); 
@@ -688,6 +685,8 @@ export default function Dashboard({ logo }) {
             const acaricidas = insumos.filter(i => i.classificacao?.toLowerCase().includes('acaricida'));
             let foundNome = '-';
             let foundDosagem = '-';
+            
+            // Verifica na base de estoque
             for (const aca of acaricidas) {
                 const regex = new RegExp(`${aca.insumo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(?:\\(([^)]+)\\))?`, 'i');
                 const match = observacao.match(regex);
@@ -697,6 +696,12 @@ export default function Dashboard({ logo }) {
                     break;
                 }
             }
+            
+            // Fallback se for digitado livre sem estar no estoque exato
+            if (foundNome === '-') {
+               foundNome = observacao;
+            }
+            
             return { nome: foundNome, dosagem: foundDosagem };
         };
 
