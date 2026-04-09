@@ -156,7 +156,7 @@ const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque) =
             const diasPassados = Math.floor((hoje - dataApp) / (1000 * 60 * 60 * 24));
 
             // Se for maior ou igual a 180 e a coluna ainda for falsa
-            if (diasPassados >= 180 && ultimoRegistro.alerta_leprose_enviado !== true) {
+            if (diasPassados >= 20 && ultimoRegistro.alerta_leprose_enviado !== true) {
                 
                 // 3. Lê o acaricida direto do texto de observacao
                 const obsFormatada = (ultimoRegistro.observacao || '').toLowerCase();
