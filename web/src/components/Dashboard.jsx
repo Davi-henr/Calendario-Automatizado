@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import emailjs from '@emailjs/browser';
 import { supabase } from '../lib/supabase';
-// Importação atualizada para trazer as tabelas de entradas e saídas e calcular o estoque real
-import { registrosService, chuvasService, insumosService, settingsService, entradasService, saidasService } from '../lib/services';
+import { registrosService, chuvasService, insumosService, settingsService } from '../lib/services';
 import PageHeader from './PageHeader';
 import InteractiveMap from './InteractiveMap';
 import {
@@ -130,23 +129,12 @@ const getPathCenter = (id, d) => {
 
 const formatQuadraLabel = (id) => id.replace(/^0+/, '');
 
-// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE (COM CALCULO DE ESTOQUE REAL) ---
-const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque, entradasEstoque, saidasEstoque) => {
+// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE (SEM SALDO DE ESTOQUE, APENAS ROTAÇÃO) ---
+const verificarEEnviarAlertasLeprose = async (registrosAtivos) => {
     try {
         const ordensLeprose = registrosAtivos.filter(r => r.receita === 'Leprose' && r.situacao === 'Finalizada');
         if (!ordensLeprose || ordensLeprose.length === 0) return;
 
-        // 1. Calcula o Saldo Real de Estoque de cada Insumo (Entradas - Saidas)
-        const estoqueCalculado = insumosEstoque.map(ins => {
-            const totalEntradas = entradasEstoque.filter(e => e.insumo_id === ins.id).reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
-            const totalSaidas = saidasEstoque.filter(s => s.insumo_id === ins.id).reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
-            return {
-                ...ins,
-                saldo_atual: totalEntradas - totalSaidas
-            };
-        });
-
-        // 2. Acha a última aplicação
         const ultimasAplicacoes = {};
         ordensLeprose.forEach(reg => {
             if (!ultimasAplicacoes[reg.quadra] || new Date(reg.data_inicial) > new Date(ultimasAplicacoes[reg.quadra].data_inicial)) {
@@ -154,80 +142,67 @@ const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque, e
             }
         });
 
-        const hoje = new Date();
         const grupoA = ['obny', 'okay'];
         const grupoB = ['envidor', 'oberon'];
         const acaricidasConhecidos = [...grupoA, ...grupoB];
 
+        let disparosFeitos = 0;
+
         for (const quadra in ultimasAplicacoes) {
             const ultimoRegistro = ultimasAplicacoes[quadra];
-            const dataApp = new Date(ultimoRegistro.data_inicial + 'T00:00:00');
-            const diasPassados = Math.floor((hoje - dataApp) / (1000 * 60 * 60 * 24));
+            
+            // Usa o differenceInDays idêntico ao da tabela
+            const diasPassados = differenceInDays(new Date(), parseISO(ultimoRegistro.data_inicial));
 
-            // VOLTOU PARA 180 DIAS COMO PEDIDO!
-            if (diasPassados >= 180 && ultimoRegistro.alerta_leprose_enviado !== true) {
+            if (diasPassados >= 180 && ultimoRegistro.alerta_leprose_enviado === false) {
                 
                 const obsFormatada = (ultimoRegistro.observacao || '').toLowerCase();
                 let produtoUsadoNome = 'Não identificado';
-                let recomendadosBases = []; // Vai guardar quais os produtos sugerir
+                let produtoRecomendadoStr = 'um acaricida de grupo químico diferente';
                 
-                // 3. Descobre o acaricida usado e qual grupo sugerir
                 const acaricidaEncontrado = acaricidasConhecidos.find(ac => obsFormatada.includes(ac));
+                
+                // Lógica simples e direta: se usou do A, recomenda o B. Se usou do B, recomenda o A.
                 if (acaricidaEncontrado) {
                     produtoUsadoNome = acaricidaEncontrado.toUpperCase();
-                    // Se achou do Grupo A, sugere o Grupo B. Vice-versa.
-                    if (grupoA.includes(acaricidaEncontrado)) recomendadosBases = grupoB;
-                    else if (grupoB.includes(acaricidaEncontrado)) recomendadosBases = grupoA;
+                    if (grupoA.includes(acaricidaEncontrado)) {
+                        produtoRecomendadoStr = 'ENVIDOR ou OBERON';
+                    } else if (grupoB.includes(acaricidaEncontrado)) {
+                        produtoRecomendadoStr = 'OBNY ou OKAY';
+                    }
                 } else if (ultimoRegistro.observacao) {
                     produtoUsadoNome = ultimoRegistro.observacao;
                 }
 
-                // 4. Prepara as strings bonitas para o e-mail
-                let strProdutosRecomendados = "Alternativa do grupo oposto";
-                let strSaldos = "0";
-
-                if (recomendadosBases.length > 0) {
-                    // Texto 1: "ENVIDOR ou OBERON"
-                    strProdutosRecomendados = recomendadosBases.map(b => b.toUpperCase()).join(' ou ');
-                    
-                    // Texto 2: Busca no estoque calculado a quantidade de cada um dos sugeridos
-                    const produtosEncontrados = estoqueCalculado.filter(ins => 
-                        recomendadosBases.some(b => ins.insumo.toLowerCase().includes(b))
-                    );
-
-                    if (produtosEncontrados.length > 0) {
-                        strSaldos = produtosEncontrados.map(ins => {
-                            // Pega o primeiro nome (ex: ENVIDOR em vez de ENVIDOR 240 SC) para ficar enxuto
-                            const nomeCurto = ins.insumo.split(' ')[0].toUpperCase();
-                            return `${nomeCurto}: ${ins.saldo_atual}`;
-                        }).join(' e ');
-                    } else {
-                        // Se por acaso eles nem existirem na lista de insumos
-                        strSaldos = recomendadosBases.map(b => `${b.toUpperCase()}: 0`).join(' e ');
-                    }
-                }
-
+                // Não passamos mais o 'saldo' aqui
                 const templateParams = {
                     quadra: ultimoRegistro.quadra,
                     produto_antigo: produtoUsadoNome,
-                    produto_recomendado: strProdutosRecomendados,
-                    saldo: strSaldos,
+                    produto_recomendado: produtoRecomendadoStr,
                     email: "davi.fvl@markbemcitrus.com.br" 
                 };
 
                 try {
                     await emailjs.send('service_tybtcoc', 'template_rismosj', templateParams, '7_OdWq1mfyUmAIhEc');
+                    
                     await supabase
                         .from('registros')
                         .update({ alerta_leprose_enviado: true })
                         .eq('id', ultimoRegistro.id);
                         
-                    console.log(`✅ Sucesso! Alerta de Leprose 180+ enviado para a Quadra ${ultimoRegistro.quadra}`);
+                    console.log(`✅ Sucesso! Alerta (180 dias) enviado para a Quadra ${ultimoRegistro.quadra}`);
+                    disparosFeitos++;
+                    
                 } catch (error) {
                     console.error(`❌ Erro no envio EmailJS para Quadra ${ultimoRegistro.quadra}:`, error);
                 }
             }
         }
+        
+        if (disparosFeitos > 0) {
+            console.log(`SUCESSO! O sistema acabou de disparar ${disparosFeitos} e-mail(s) de Leprose para quadras com +180 dias e atualizou o banco.`);
+        }
+
     } catch (err) {
         console.error('❌ Erro geral na função de verificação de leprose:', err);
     }
@@ -275,20 +250,18 @@ export default function Dashboard({ logo }) {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // MÁGICA FINAL: Busca entradas e saídas junto com os outros dados
-            const [regData, rainData, insData, entData, saiData] = await Promise.all([
+            // Removidas as chamadas de entradasService e saidasService
+            const [regData, rainData, insData] = await Promise.all([
                 registrosService.getAll(),
                 chuvasService.getAll(),
-                insumosService.getAll(),
-                entradasService.getAll(), 
-                saidasService.getAll()    
+                insumosService.getAll()
             ]);
             setRegistros(regData);
             setChuvas(rainData);
             setInsumos(insData);
             
-            // Passa todos os dados limpos para a inteligência de alerta
-            verificarEEnviarAlertasLeprose(regData, insData, entData, saiData).catch(console.error);
+            // Dispara a verificação apenas com os registrosAtivos
+            verificarEEnviarAlertasLeprose(regData).catch(console.error);
 
         } catch (err) {
             console.error(err);
