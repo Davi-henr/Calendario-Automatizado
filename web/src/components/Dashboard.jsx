@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import emailjs from '@emailjs/browser'; // NOVO: Importação do EmailJS
+import { supabase } from '../lib/supabase';
 import { registrosService, chuvasService, insumosService, settingsService } from '../lib/services';
 import PageHeader from './PageHeader';
 import InteractiveMap from './InteractiveMap';
@@ -127,6 +129,105 @@ const getPathCenter = (id, d) => {
 
 const formatQuadraLabel = (id) => id.replace(/^0+/, '');
 
+
+// --- NOVO: FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE VIA EMAILJS ---
+const verificarEEnviarAlertasLeprose = async (insumosEstoque) => {
+    try {
+        const { data: ordensLeprose, error } = await supabase
+            .from('ordens_servico')
+            .select('*')
+            .eq('operacao', 'Leprose')
+            .eq('situacao', 'Finalizada')
+            .eq('ativo', true);
+
+        if (error || !ordensLeprose) throw error;
+
+        const ultimasAplicacoes = {};
+        ordensLeprose.forEach(os => {
+            if (!ultimasAplicacoes[os.quadra] || new Date(os.data_prescricao) > new Date(ultimasAplicacoes[os.quadra].data_prescricao)) {
+                ultimasAplicacoes[os.quadra] = os;
+            }
+        });
+
+        const hoje = new Date();
+        const grupoA = ['obny', 'okay'];
+        const grupoB = ['envidor', 'oberon'];
+        const acaricidasConhecidos = [...grupoA, ...grupoB];
+
+        for (const quadra in ultimasAplicacoes) {
+            const ultimaOs = ultimasAplicacoes[quadra];
+            const dataApp = new Date(ultimaOs.data_prescricao + 'T00:00:00');
+            const diasPassados = Math.floor((hoje - dataApp) / (1000 * 60 * 60 * 24));
+
+            // DICA PARA TESTE: Mude o 180 para 0 temporariamente para testar se o email chega!
+            if (diasPassados >= 180 && ultimaOs.alerta_leprose_enviado !== true) {
+                let insumosArray = [];
+                try {
+                    insumosArray = typeof ultimaOs.insumos === 'string' ? JSON.parse(ultimaOs.insumos) : ultimaOs.insumos;
+                } catch(e) {}
+
+                let produtoUsadoNome = '';
+                const insumoAcaricida = insumosArray.find(i => 
+                    acaricidasConhecidos.some(ac => i.material?.toLowerCase().includes(ac))
+                );
+
+                if (insumoAcaricida) {
+                    produtoUsadoNome = insumoAcaricida.material;
+                } else if (insumosArray.length > 0) {
+                    produtoUsadoNome = insumosArray[0].material;
+                }
+
+                const produtoUsadoFormatado = produtoUsadoNome.toLowerCase().trim();
+                let produtosValidos = [];
+
+                if (grupoA.some(a => produtoUsadoFormatado.includes(a))) {
+                    produtosValidos = insumosEstoque.filter(insumo => 
+                        grupoB.some(b => insumo.insumo.toLowerCase().includes(b)) && parseFloat(insumo.saldo_atual || 0) > 0
+                    );
+                } else if (grupoB.some(b => produtoUsadoFormatado.includes(b))) {
+                    produtosValidos = insumosEstoque.filter(insumo => 
+                        grupoA.some(a => insumo.insumo.toLowerCase().includes(a)) && parseFloat(insumo.saldo_atual || 0) > 0
+                    );
+                } else {
+                    produtosValidos = insumosEstoque.filter(insumo => 
+                        insumo.classificacao?.toLowerCase() === 'acaricida' && 
+                        !insumo.insumo.toLowerCase().includes(produtoUsadoFormatado) &&
+                        parseFloat(insumo.saldo_atual || 0) > 0
+                    );
+                }
+
+                const produtoRecomendado = produtosValidos.length > 0 ? produtosValidos[0] : null;
+
+                const templateParams = {
+                    quadra: ultimaOs.quadra,
+                    produto_antigo: produtoUsadoNome || 'Não identificado',
+                    produto_recomendado: produtoRecomendado ? produtoRecomendado.insumo : 'Requer compra (Sem opções em estoque)',
+                    saldo: produtoRecomendado ? produtoRecomendado.saldo_atual : 0,
+                    email: "davi.fvl@markbemcitrus.com.br" 
+                };
+
+                try {
+                    // ENVIO VIA EMAILJS
+                    await emailjs.send('service_tybtcoc', 'template_rismosj', templateParams, '7_OdWq1mfyUmAIhEc');
+
+                    // Atualiza flag no Supabase
+                    await supabase
+                        .from('ordens_servico')
+                        .update({ alerta_leprose_enviado: true })
+                        .eq('id', ultimaOs.id);
+                        
+                    console.log(`Alerta de Leprose enviado para a Quadra ${ultimaOs.quadra}`);
+                } catch (error) {
+                    console.error('Erro ao enviar alerta via EmailJS:', error);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Erro geral na verificação de leprose:', err);
+    }
+};
+
+
 export default function Dashboard({ logo }) {
     const [activeTab, setActiveTab] = useState('chuva'); 
     const [registros, setRegistros] = useState([]);
@@ -177,6 +278,10 @@ export default function Dashboard({ logo }) {
             setRegistros(regData);
             setChuvas(rainData);
             setInsumos(insData);
+            
+            // NOVO: Chamada silenciosa da função de alertas
+            verificarEEnviarAlertasLeprose(insData).catch(console.error);
+
         } catch (err) {
             console.error(err);
         } finally {
@@ -1077,7 +1182,7 @@ export default function Dashboard({ logo }) {
                                         >
                                             {label}
                                         </text>
-                                        {/* RENDERIZAÇÃO NATIVA DO REACT (Resolvido o Erro 310) */}
+                                        {/* RENDERIZAÇÃO NATIVA DO REACT */}
                                         {dateLabel && (
                                             <text 
                                                 x={center.x} 
