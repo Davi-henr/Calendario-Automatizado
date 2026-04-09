@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import emailjs from '@emailjs/browser';
 import { supabase } from '../lib/supabase';
-import { registrosService, chuvasService, insumosService, settingsService } from '../lib/services';
+// Importação atualizada para trazer as tabelas de entradas e saídas e calcular o estoque real
+import { registrosService, chuvasService, insumosService, settingsService, entradasService, saidasService } from '../lib/services';
 import PageHeader from './PageHeader';
 import InteractiveMap from './InteractiveMap';
 import {
@@ -129,13 +130,23 @@ const getPathCenter = (id, d) => {
 
 const formatQuadraLabel = (id) => id.replace(/^0+/, '');
 
-// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE (AGORA COM POP-UPS PARA DEBUG) ---
-const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque) => {
+// --- FUNÇÃO INVISÍVEL DE ALERTA DE LEPROSE (COM CALCULO DE ESTOQUE REAL) ---
+const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque, entradasEstoque, saidasEstoque) => {
     try {
         const ordensLeprose = registrosAtivos.filter(r => r.receita === 'Leprose' && r.situacao === 'Finalizada');
-
         if (!ordensLeprose || ordensLeprose.length === 0) return;
 
+        // 1. Calcula o Saldo Real de Estoque de cada Insumo (Entradas - Saidas)
+        const estoqueCalculado = insumosEstoque.map(ins => {
+            const totalEntradas = entradasEstoque.filter(e => e.insumo_id === ins.id).reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
+            const totalSaidas = saidasEstoque.filter(s => s.insumo_id === ins.id).reduce((acc, curr) => acc + (Number(curr.quantidade) || 0), 0);
+            return {
+                ...ins,
+                saldo_atual: totalEntradas - totalSaidas
+            };
+        });
+
+        // 2. Acha a última aplicação
         const ultimasAplicacoes = {};
         ordensLeprose.forEach(reg => {
             if (!ultimasAplicacoes[reg.quadra] || new Date(reg.data_inicial) > new Date(ultimasAplicacoes[reg.quadra].data_inicial)) {
@@ -148,79 +159,75 @@ const verificarEEnviarAlertasLeprose = async (registrosAtivos, insumosEstoque) =
         const grupoB = ['envidor', 'oberon'];
         const acaricidasConhecidos = [...grupoA, ...grupoB];
 
-        let disparosFeitos = 0; // Contador para não mandar 50 avisos na tela
-
         for (const quadra in ultimasAplicacoes) {
             const ultimoRegistro = ultimasAplicacoes[quadra];
             const dataApp = new Date(ultimoRegistro.data_inicial + 'T00:00:00');
             const diasPassados = Math.floor((hoje - dataApp) / (1000 * 60 * 60 * 24));
 
-            // ESTE É O LOCAL DO SEU TESTE (Mantenha 20 apenas para testes, depois volte para 180)
-            if (diasPassados >= 20 && ultimoRegistro.alerta_leprose_enviado === false) {
+            // VOLTOU PARA 180 DIAS COMO PEDIDO!
+            if (diasPassados >= 180 && ultimoRegistro.alerta_leprose_enviado !== true) {
                 
                 const obsFormatada = (ultimoRegistro.observacao || '').toLowerCase();
                 let produtoUsadoNome = 'Não identificado';
+                let recomendadosBases = []; // Vai guardar quais os produtos sugerir
                 
+                // 3. Descobre o acaricida usado e qual grupo sugerir
                 const acaricidaEncontrado = acaricidasConhecidos.find(ac => obsFormatada.includes(ac));
                 if (acaricidaEncontrado) {
                     produtoUsadoNome = acaricidaEncontrado.toUpperCase();
+                    // Se achou do Grupo A, sugere o Grupo B. Vice-versa.
+                    if (grupoA.includes(acaricidaEncontrado)) recomendadosBases = grupoB;
+                    else if (grupoB.includes(acaricidaEncontrado)) recomendadosBases = grupoA;
                 } else if (ultimoRegistro.observacao) {
                     produtoUsadoNome = ultimoRegistro.observacao;
                 }
 
-                let produtosValidos = [];
+                // 4. Prepara as strings bonitas para o e-mail
+                let strProdutosRecomendados = "Alternativa do grupo oposto";
+                let strSaldos = "0";
 
-                if (grupoA.some(a => obsFormatada.includes(a))) {
-                    produtosValidos = insumosEstoque.filter(insumo => 
-                        insumo?.insumo && grupoB.some(b => insumo.insumo.toLowerCase().includes(b)) && parseFloat(insumo.saldo_atual || 0) > 0
+                if (recomendadosBases.length > 0) {
+                    // Texto 1: "ENVIDOR ou OBERON"
+                    strProdutosRecomendados = recomendadosBases.map(b => b.toUpperCase()).join(' ou ');
+                    
+                    // Texto 2: Busca no estoque calculado a quantidade de cada um dos sugeridos
+                    const produtosEncontrados = estoqueCalculado.filter(ins => 
+                        recomendadosBases.some(b => ins.insumo.toLowerCase().includes(b))
                     );
-                } else if (grupoB.some(b => obsFormatada.includes(b))) {
-                    produtosValidos = insumosEstoque.filter(insumo => 
-                        insumo?.insumo && grupoA.some(a => insumo.insumo.toLowerCase().includes(a)) && parseFloat(insumo.saldo_atual || 0) > 0
-                    );
-                } else {
-                    produtosValidos = insumosEstoque.filter(insumo => 
-                        insumo?.classificacao?.toLowerCase() === 'acaricida' && 
-                        insumo?.insumo && (!acaricidaEncontrado || !insumo.insumo.toLowerCase().includes(acaricidaEncontrado)) &&
-                        parseFloat(insumo.saldo_atual || 0) > 0
-                    );
+
+                    if (produtosEncontrados.length > 0) {
+                        strSaldos = produtosEncontrados.map(ins => {
+                            // Pega o primeiro nome (ex: ENVIDOR em vez de ENVIDOR 240 SC) para ficar enxuto
+                            const nomeCurto = ins.insumo.split(' ')[0].toUpperCase();
+                            return `${nomeCurto}: ${ins.saldo_atual}`;
+                        }).join(' e ');
+                    } else {
+                        // Se por acaso eles nem existirem na lista de insumos
+                        strSaldos = recomendadosBases.map(b => `${b.toUpperCase()}: 0`).join(' e ');
+                    }
                 }
-
-                const produtoRecomendado = produtosValidos.length > 0 ? produtosValidos[0] : null;
 
                 const templateParams = {
                     quadra: ultimoRegistro.quadra,
                     produto_antigo: produtoUsadoNome,
-                    produto_recomendado: produtoRecomendado ? produtoRecomendado.insumo : 'Requer compra (Sem opções em estoque)',
-                    saldo: produtoRecomendado ? produtoRecomendado.saldo_atual : 0,
+                    produto_recomendado: strProdutosRecomendados,
+                    saldo: strSaldos,
                     email: "davi.fvl@markbemcitrus.com.br" 
                 };
 
                 try {
-                    // TENTA ENVIAR O EMAIL
                     await emailjs.send('service_tybtcoc', 'template_rismosj', templateParams, '7_OdWq1mfyUmAIhEc');
-
-                    // ATUALIZA O BANCO
                     await supabase
                         .from('registros')
                         .update({ alerta_leprose_enviado: true })
                         .eq('id', ultimoRegistro.id);
                         
-                    console.log(`✅ Sucesso! E-mail de alerta enviado para a Quadra ${ultimoRegistro.quadra}`);
-                    disparosFeitos++;
-                    
+                    console.log(`✅ Sucesso! Alerta de Leprose 180+ enviado para a Quadra ${ultimoRegistro.quadra}`);
                 } catch (error) {
                     console.error(`❌ Erro no envio EmailJS para Quadra ${ultimoRegistro.quadra}:`, error);
-                    // ESTE AVISO VAI PULAR NA SUA TELA SE O EMAILJS FALHAR!
-                    alert(`Ocorreu um erro ao enviar e-mail da Quadra ${ultimoRegistro.quadra}. Detalhes: ${error.text || error.message || 'Desconhecido'}`);
                 }
             }
         }
-        
-        if (disparosFeitos > 0) {
-            alert(`SUCESSO! O sistema acabou de disparar ${disparosFeitos} e-mail(s) de Leprose e atualizou o banco.`);
-        }
-
     } catch (err) {
         console.error('❌ Erro geral na função de verificação de leprose:', err);
     }
@@ -268,17 +275,20 @@ export default function Dashboard({ logo }) {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [regData, rainData, insData] = await Promise.all([
+            // MÁGICA FINAL: Busca entradas e saídas junto com os outros dados
+            const [regData, rainData, insData, entData, saiData] = await Promise.all([
                 registrosService.getAll(),
                 chuvasService.getAll(),
-                insumosService.getAll()
+                insumosService.getAll(),
+                entradasService.getAll(), 
+                saidasService.getAll()    
             ]);
             setRegistros(regData);
             setChuvas(rainData);
             setInsumos(insData);
             
-            // NOVO: Chamada silenciosa da função de alertas
-            verificarEEnviarAlertasLeprose(regData, insData).catch(console.error);
+            // Passa todos os dados limpos para a inteligência de alerta
+            verificarEEnviarAlertasLeprose(regData, insData, entData, saiData).catch(console.error);
 
         } catch (err) {
             console.error(err);
