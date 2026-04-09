@@ -17,7 +17,7 @@ import { pedidosService, insumosService, entradasService, saidasService } from '
 import { format, nextTuesday } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import emailjs from '@emailjs/browser'; // IMPORTADO PARA ENVIAR O EMAIL
+import emailjs from '@emailjs/browser'; 
 
 export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
     const [pedidos, setPedidos] = useState([]);
@@ -123,7 +123,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
 
                 // 2. Preparar dados para o E-mail
                 const dataEntrega = nextTuesday(new Date()); // Acha a próxima terça-feira
-                const dataEntregaCompleta = format(dataEntrega, 'dd/MM/yyyy');
+                const dataEntregaCompleta = format(dataEntrega, 'dd/MM');
                 const dataEntregaCurta = format(dataEntrega, 'dd/MM');
 
                 // Montar as linhas da tabela HTML dinamicamente
@@ -141,13 +141,11 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                 itemsToOrder.forEach(([id, qty]) => {
                     const insumo = insumos.find(i => i.id === id);
                     const nomeProduto = insumo ? insumo.insumo : 'Produto Desconhecido';
-                    // Deduz a unidade baseada no nome ou usa LTS como padrão (você pode melhorar isso depois se quiser)
-                    const unidade = (insumo?.classificacao?.toLowerCase()?.includes('adubo') || nomeProduto.toLowerCase().includes('kg')) ? 'KG' : 'LTS';
 
                     tabelaHTML += `
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 10px; font-size: 15px; color: #444;">${nomeProduto}</td>
-                            <td style="padding: 10px; font-size: 15px; color: #444;">${qty} ${unidade}</td>
+                            <td style="padding: 10px; font-size: 15px; color: #444;">${qty}</td>
                         </tr>
                     `;
                 });
@@ -217,7 +215,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
         }
     };
 
-    // NOVO: Gerador de PDF Profissional
+    // Gerador de PDF Profissional
     const handlePrint = () => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const pw = doc.internal.pageSize.getWidth();
