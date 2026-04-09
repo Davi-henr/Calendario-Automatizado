@@ -69,7 +69,7 @@ const verificarAlertasGerais = async () => {
                     quadra: reg.quadra,
                     produto_antigo: produtoUsadoNome,
                     produto_recomendado: produtoRecomendadoStr,
-                    email: "davi.fvl@markbemcitrus.com.br" 
+                    email: "jeanguimaraes406@gmail.com, vaniafvl@hotmail.com, celsodesouzaerosangela@gmail.com, davi.fvl@markbemcitrus.com.br" 
                 };
 
                 try {
