@@ -65,7 +65,7 @@ export default function Launch({ logo }) {
     const loadPendingOS = async () => {
         try {
             const data = await osService.getPending();
-            const strictlyPending = data.filter(os => os.situacao !== 'Iniciada');
+            const strictlyPending = data.filter(os => os.situacao !== 'Iniciada' && os.situacao !== 'Finalizada');
             setPendingOS(strictlyPending);
         } catch (error) {
             console.error('Error loading OS:', error);
@@ -101,6 +101,10 @@ export default function Launch({ logo }) {
 
             if (editingId) {
                 await registrosService.update(editingId, sanitizedData);
+                // SINCRONIZAÇÃO NA EDIÇÃO
+                if (formData.os_id) {
+                    await osService.update(formData.os_id, { situacao: sanitizedData.situacao });
+                }
                 setEditingId(null);
             } else {
                 const newReg = await registrosService.create({
@@ -109,7 +113,8 @@ export default function Launch({ logo }) {
                 });
 
                 if (selectedOS) {
-                    await osService.update(selectedOS.id, { situacao: 'Iniciada' });
+                    // CORREÇÃO 1: SINCRONIZAÇÃO AO SALVAR (LUPA)
+                    await osService.update(selectedOS.id, { situacao: sanitizedData.situacao });
                 }
             }
             setShowForm(false);
@@ -187,6 +192,7 @@ export default function Launch({ logo }) {
                 nao_agendar: finalizeData.nao_agendar
             });
 
+            // CORREÇÃO 2: SINCRONIZAÇÃO NA FINALIZAÇÃO (CHECK)
             if (finalizingReg.os_id) {
                 await osService.update(finalizingReg.os_id, { situacao: 'Finalizada' });
             }
@@ -283,7 +289,8 @@ export default function Launch({ logo }) {
         }
 
         try {
-            // Busca TODAS as OS no banco de dados para encontrar a correta
+            // CORREÇÃO 3: BUSCA PRECISA PARA O PDF DA RECEITA (OS)
+            // Agora ele busca especificamente a OS pelo ID vinculado, sem erro de duplicidade.
             const allOS = await osService.getAll();
             const os = allOS.find(o => o.id === regItem.os_id);
             if (!os) {
@@ -356,7 +363,7 @@ export default function Launch({ logo }) {
             doc.rect(5, row3Y, 25, 6); doc.text('Operação:', 7, row3Y + 4.5);
             doc.rect(30, row3Y, 60, 6); doc.text(os.operacao || '', 32, row3Y + 4.5);
             doc.rect(90, row3Y, 45, 6); doc.text('N° Lançamento:', 92, row3Y + 4.5);
-            doc.rect(135, row3Y, 40, 6); doc.text('', 137, row3Y + 4.5);
+            doc.rect(135, row3Y, 40, 6); doc.text(String(regItem.id), 137, row3Y + 4.5);
             doc.rect(175, row3Y, 35, 6); doc.text('Data Final:', 177, row3Y + 4.5);
 
             const dataFinalStr = regItem.data_final ? format(parseISO(regItem.data_final), 'dd / MM / yyyy') : '        /        /        ';
@@ -792,10 +799,10 @@ export default function Launch({ logo }) {
                                                     fontWeight: '700',
                                                     color: reg.situacao === 'Finalizada' ? '#2e7d32' : (reg.situacao === 'Iniciada' ? '#f9a825' : '#c62828'),
                                                     fontSize: '0.85rem'
-                                                }}>
-                                                    {reg.situacao}
-                                                </span>
-                                            </div>
+                                                }}><br />
+                                                    {reg.situacao}<br />
+                                                </span><br />
+                                            </div><br />
                                         </td>
                                         <td style={{ padding: '1rem' }}>{format(parseISO(reg.data_inicial), 'dd/MM/yyyy')}</td>
                                         <td style={{ padding: '1rem' }}>{reg.data_final ? format(parseISO(reg.data_final), 'dd/MM/yyyy') : '-'}</td>
@@ -857,7 +864,7 @@ export default function Launch({ logo }) {
                                                     </div>
                                                 </button>
                                                 
-                                                {/* BOTÃO DA IMPRESSORA (APARECE QUANDO FINALIZADA E TEM OS_ID) */}
+                                                {/* BOTÃO DA IMPRESSORA (BLINDADO) */}
                                                 {reg.situacao === 'Finalizada' && reg.os_id && (
                                                     <button onClick={() => exportOS_PDF(reg)} className="btn btn-mini" style={{ color: '#0ea5e9' }} title="Imprimir Receita (OS)">
                                                         <div className="btn-inner">
@@ -918,6 +925,7 @@ export default function Launch({ logo }) {
                                                 ...formData,
                                                 quadra: os.quadra,
                                                 receita: os.operacao,
+                                                os_id: os.id, // GRAVA O ID NO LANÇAMENTO
                                                 situacao: 'Iniciada',
                                                 observacao: insumosStr ? `Produtos da OS: ${insumosStr}` : formData.observacao
                                             });
