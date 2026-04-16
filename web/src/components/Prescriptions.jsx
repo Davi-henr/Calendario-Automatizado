@@ -309,7 +309,7 @@ const Prescriptions = ({ logo }) => {
             const ph = doc.internal.pageSize.getHeight();
 
             const quadraInfo = quadrasMeta.find(q => q.nome === os.quadra) || {};
-            const areaHa = quadraInfo.hectares ? String(quadraInfo.hectares) : (os.area_ha || '');
+            const areaHa = quadraInfo.hectares ? String(quadraInfo.hectares) : String(os.area_ha || '');
             const variety = quadraInfo.variedade || '';
 
             doc.setFont('helvetica', 'normal');
@@ -349,13 +349,13 @@ const Prescriptions = ({ logo }) => {
             doc.rect(175, idStartY, 35, 6); doc.text('Data Inicial:', 177, idStartY + 4.5);
             doc.rect(210, idStartY, 35, 6); doc.text(os.data_prescricao ? format(parseISO(os.data_prescricao), 'dd/MM/yyyy') : '        /        /        ', 212, idStartY + 4.5);
             doc.rect(245, idStartY, 25, 6); doc.text('Pressão PSI:', 247, idStartY + 4.5);
-            doc.rect(270, idStartY, 22, 6); doc.text(os.dados_tecnicos?.pressao || '', 272, idStartY + 4.5);
+                        doc.rect(270, idStartY, 22, 6); doc.text(String(os.dados_tecnicos?.pressao || ''), 272, idStartY + 4.5);
 
             const row2Y = idStartY + 6;
             doc.rect(5, row2Y, 25, 6); doc.text('Área Ha:', 7, row2Y + 4.5);
             doc.rect(30, row2Y, 60, 6); doc.text(areaHa, 32, row2Y + 4.5); 
             doc.rect(90, row2Y, 45, 6); doc.text('N° Recomendação:', 92, row2Y + 4.5);
-            doc.rect(135, row2Y, 40, 6); doc.text(os.recomendacao || '', 137, row2Y + 4.5);
+           doc.rect(135, row2Y, 40, 6); doc.text(String(os.recomendacao || ''), 137, row2Y + 4.5);
             doc.rect(175, row2Y, 35, 6); doc.text('Hora Inicial:', 177, row2Y + 4.5);
             doc.rect(210, row2Y, 35, 6); doc.text('        :        ', 212, row2Y + 4.5);
             doc.rect(245, row2Y, 25, 6); doc.text('Qtde de Pés:', 247, row2Y + 4.5);
@@ -372,7 +372,7 @@ const Prescriptions = ({ logo }) => {
             const dataFinalStr = reg.data_final ? format(parseISO(reg.data_final), 'dd / MM / yyyy') : '        /        /        ';
             doc.rect(210, row3Y, 35, 6); doc.text(dataFinalStr, 212, row3Y + 4.5);
             doc.rect(245, row3Y, 25, 6); doc.text('Marcha:', 247, row3Y + 4.5);
-            doc.rect(270, row3Y, 22, 6); doc.text(os.dados_tecnicos?.marcha || '', 272, row3Y + 4.5);
+            doc.rect(270, row3Y, 22, 6); doc.text(String(os.dados_tecnicos?.marcha || ''), 272, row3Y + 4.5);
 
             const row4Y = row3Y + 6;
             doc.rect(5, row4Y, 25, 6); doc.text('Equipamento:', 7, row4Y + 4.5);
@@ -382,7 +382,7 @@ const Prescriptions = ({ logo }) => {
             doc.rect(175, row4Y, 35, 6); doc.text('Hora Final:', 177, row4Y + 4.5);
             doc.rect(210, row4Y, 35, 6); doc.text('        :        ', 212, row4Y + 4.5);
             doc.rect(245, row4Y, 25, 6); doc.text('Rotação:', 247, row4Y + 4.5);
-            doc.rect(270, row4Y, 22, 6); doc.text(os.dados_tecnicos?.rpm || '', 272, row4Y + 4.5);
+            doc.rect(270, row4Y, 22, 6); doc.text(String(os.dados_tecnicos?.rpm || ''), 272, row4Y + 4.5);
 
             const formatVal = (val) => {
                 if (val === undefined || val === null || val === '') return '';
