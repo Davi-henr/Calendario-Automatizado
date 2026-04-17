@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
-    Plus,
     History,
     Search,
     ArrowUpRight,
@@ -519,8 +518,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
     const [items, setItems] = useState([...order.saidas]);
     const [quadras, setQuadras] = useState([]);
     const [atividades, setAtividades] = useState([]);
-    // Novo estado para carregar os insumos e permitir a seleção
-    const [insumosMeta, setInsumosMeta] = useState([]); 
     const [targetOS, setTargetOS] = useState(null);
     const [itemDestinations, setItemDestinations] = useState({});
     const [pendingOS, setPendingOS] = useState([]);
@@ -532,11 +529,10 @@ function OrderModal({ order, onClose, onSave, mode }) {
     }, []);
 
     const fetchMeta = async () => {
-        const [q, a, pos, ins] = await Promise.all([
+        const [q, a, pos] = await Promise.all([
             quadrasService.getAll(),
             atividadesService.getAll(),
-            osService.getPending(),
-            insumosService.getAll() // Buscamos a lista de insumos para o Select
+            osService.getPending()
         ]);
 
         // MUDANÇA 1: Ordenar pela data de prescrição (Mais antiga primeiro)
@@ -566,7 +562,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
         setQuadras(q);
         setAtividades(a);
         setPendingOS(posEnriched);
-        setInsumosMeta(ins);
 
         if (!header.quadra_id && order.quadras?.nome) {
             const foundQuadra = q.find(quadra => quadra.nome === order.quadras.nome);
@@ -575,44 +570,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
             }
         }
     };
-
-    // --- NOVAS FUNÇÕES PARA EDIÇÃO DA TABELA ---
-    const handleAddNewRow = () => {
-        setItems([...items, { 
-            id: crypto.randomUUID(), 
-            insumo_id: '', 
-            dosagem: '', 
-            quantidade: '', 
-            devolucao: '',
-            insumos: { insumo: '' } // Mock structure for display
-        }]);
-    };
-
-    const handleItemChange = (idx, field, value) => {
-        const newItems = [...items];
-        
-        if (field === 'insumo_id') {
-            const selectedMeta = insumosMeta.find(i => i.id === value);
-            newItems[idx].insumo_id = value;
-            newItems[idx].insumos = { insumo: selectedMeta?.insumo || '' };
-            newItems[idx].dosagem = selectedMeta?.dosagem?.toString().replace(',', '.') || '';
-            
-            const bombasAplicadas = parseFloat(header.bombas_aplicadas || header.quantidade_bombas || 0);
-            const dosagem = parseFloat(newItems[idx].dosagem) || 0;
-            newItems[idx].quantidade = (bombasAplicadas * dosagem).toFixed(2);
-        } else {
-            newItems[idx][field] = value.replace(',', '.');
-        }
-        
-        setItems(newItems);
-    };
-
-    const handleRemoveItem = (idx) => {
-        const newItems = [...items];
-        newItems.splice(idx, 1);
-        setItems(newItems);
-    };
-    // -------------------------------------------
 
     const handleSave = async () => {
         if (mode === 'check' && (!header.bombas_aplicadas || header.bombas_aplicadas <= 0)) {
@@ -664,7 +621,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 targetAId = atividades.find(at => at.nome?.trim().toLowerCase() === targetOS.operacao?.trim().toLowerCase())?.id || header.atividade_id;
             }
 
-            // 1. FAZ A TRANSFERÊNCIA PRIMEIRO (Modo Check)
+            // 1. FAZ A TRANSFERÊNCIA PRIMEIRO (Busca Segura, s/ bug do INNER JOIN)
             if (hasTransfers) {
                 for (const item of items) {
                     const destination = itemDestinations[item.id] || 'estoque';
@@ -677,11 +634,12 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                 headerUpdates.observacao += transferItemNote;
                             }
 
+                            // MUDANÇA 2: Busca Segura em Duas Etapas COM FILTRO DE ATIVO (Evitando o erro silencioso de !inner no banco)
                             const { data: existingOrdens, error: oError } = await supabase
                                 .from('ordens_saida')
                                 .select('id')
                                 .eq('os_id', targetOS.id)
-                                .eq('ativo', true) 
+                                .eq('ativo', true) // CORREÇÃO: Respeita o Soft Delete
                                 .neq('situacao', 'Conferida')
                                 .order('created_at', { ascending: true }) 
                                 .limit(1);
@@ -696,7 +654,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                     .select('*')
                                     .eq('ordem_saida_id', targetOrdemId)
                                     .eq('insumo_id', item.insumo_id)
-                                    .eq('ativo', true);
+                                    .eq('ativo', true); // CORREÇÃO: Respeita o Soft Delete
 
                                 if (searchError) throw searchError;
 
@@ -743,175 +701,10 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 }
             }
 
-            // ====================================================================
-            // MÁGICA NOVA: SINCRONIZAÇÃO FORÇADA DE INSUMOS (MODO EDIÇÃO)
-            // ====================================================================
-            if (mode === 'edit') {
-                const oldIds = order.saidas.map(i => i.id);
-                const currentIds = items.map(i => i.id);
-                
-                // A. Excluir itens removidos (Usando Soft Delete ativo = false para segurança)
-                const toDelete = oldIds.filter(id => !currentIds.includes(id));
-                if (toDelete.length > 0) {
-                    await supabase.from('saidas').update({ ativo: false }).in('id', toDelete);
-                }
-
-                // B. Inserir novos itens ou Atualizar quantidades dos existentes
-                for (const item of items) {
-                    const isNew = !oldIds.includes(item.id);
-                    if (isNew) {
-                        await supabase.from('saidas').insert({
-                            insumo_id: item.insumo_id,
-                            dosagem: item.dosagem,
-                            quantidade: item.quantidade,
-                            ordem_saida_id: order.id,
-                            data_saida: header.data,
-                            quadra_id: header.quadra_id || order.quadras?.id || null,
-                            atividade_id: header.atividade_id || order.atividades?.id || null,
-                            ativo: true
-                        });
-                    } else {
-                        await supabase.from('saidas').update({
-                            insumo_id: item.insumo_id,
-                            dosagem: item.dosagem,
-                            quantidade: item.quantidade
-                        }).eq('id', item.id);
-                    }
-                }
-            }
-            // ====================================================================
-
-            // 2. ATUALIZA A ORDEM ATUAL (Salva o cabeçalho e as devoluções)
+            // 2. ATUALIZA A ORDEM ATUAL (Só dá o OK depois de garantir as transferências)
             await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
 
-            alert(mode === 'check' ? 'Conferência salva e transferências realizadas com sucesso!' : 'Edição salva com sucesso!');
-            onSave();
-            onClose();
-        } catch (error) {
-            alert('Erro: ' + error.message);
-        }
-    };
-            const headerUpdates = {
-                data: header.data,
-                turno: header.turno,
-                quantidade_bombas: header.quantidade_bombas,
-                bombas_aplicadas: header.bombas_aplicadas,
-                numero_carreta: header.numero_carreta,
-                observacao: header.observacao || '',
-                situacao: mode === 'check' ? 'Conferida' : header.situacao
-            };
-
-            const itemsWithObs = items.map(item => {
-                const bAplicadas = parseFloat(header.bombas_aplicadas || 0);
-                const predictedReturn = (parseFloat(item.quantidade) - (bAplicadas * parseFloat(item.dosagem))).toFixed(2);
-                const actualReturn = parseFloat(item.devolucao || 0);
-
-                let obs = '';
-                if (mode === 'check' && actualReturn != predictedReturn) {
-                    obs = `Divergência: Esperado ${predictedReturn}, recebido ${actualReturn}`;
-                }
-                return { ...item, observacao_divergencia: obs };
-            });
-
-            let targetRecipeNo = null;
-            let targetQId = null;
-            let targetAId = null;
-
-            if (hasTransfers && targetOS) {
-                targetRecipeNo = `${format(new Date(targetOS.data_prescricao + 'T00:00:00'), 'yy')}/${targetOS.numero_os.toString().padStart(6, '0')}`;
-                const transferNote = `\n[Sobra transferida p/ Receita ${targetRecipeNo} na Quadra ${targetOS.quadra}]`;
-                
-                if (!headerUpdates.observacao.includes(transferNote)) {
-                    headerUpdates.observacao += transferNote;
-                }
-
-                targetQId = quadras.find(q => q.nome?.toString().trim().toLowerCase() === targetOS.quadra?.toString().trim().toLowerCase())?.id || header.quadra_id;
-                targetAId = atividades.find(at => at.nome?.trim().toLowerCase() === targetOS.operacao?.trim().toLowerCase())?.id || header.atividade_id;
-            }
-
-            // 1. FAZ A TRANSFERÊNCIA PRIMEIRO 
-            if (hasTransfers) {
-                for (const item of items) {
-                    const destination = itemDestinations[item.id] || 'estoque';
-                    const amountToTransfer = parseFloat(item.devolucao || 0);
-
-                    if (destination === 'transfer' && amountToTransfer > 0) {
-                        try {
-                            const transferItemNote = `\n- ${item.insumos?.insumo}: ${amountToTransfer} unid. transferidas p/ Receita ${targetRecipeNo}`;
-                            if (!headerUpdates.observacao.includes(transferItemNote)) {
-                                headerUpdates.observacao += transferItemNote;
-                            }
-
-                            const { data: existingOrdens, error: oError } = await supabase
-                                .from('ordens_saida')
-                                .select('id')
-                                .eq('os_id', targetOS.id)
-                                .eq('ativo', true) 
-                                .neq('situacao', 'Conferida')
-                                .order('created_at', { ascending: true }) 
-                                .limit(1);
-
-                            if (oError) throw oError;
-
-                            if (existingOrdens && existingOrdens.length > 0) {
-                                const targetOrdemId = existingOrdens[0].id;
-                                
-                                const { data: existingSaidas, error: searchError } = await supabase
-                                    .from('saidas')
-                                    .select('*')
-                                    .eq('ordem_saida_id', targetOrdemId)
-                                    .eq('insumo_id', item.insumo_id)
-                                    .eq('ativo', true);
-
-                                if (searchError) throw searchError;
-
-                                if (existingSaidas && existingSaidas.length > 0) {
-                                    const targetSaida = existingSaidas[0];
-                                    const newQty = parseFloat(targetSaida.quantidade || 0) + amountToTransfer;
-                                    await saidasService.update(targetSaida.id, { quantidade: newQty });
-                                } else {
-                                    const newItem = {
-                                        insumo_id: item.insumo_id,
-                                        dosagem: item.dosagem,
-                                        quantidade: amountToTransfer,
-                                        ordem_saida_id: targetOrdemId,
-                                        data_saida: format(new Date(), 'yyyy-MM-dd'),
-                                        quadra_id: targetQId,
-                                        atividade_id: targetAId
-                                    };
-                                    await saidasService.create(newItem);
-                                }
-                            } else {
-                                const newHeader = {
-                                    data: format(new Date(), 'yyyy-MM-dd'),
-                                    turno: header.turno,
-                                    quantidade_bombas: targetOS.quantidade_bombas || 0,
-                                    numero_carreta: header.numero_carreta,
-                                    os_id: targetOS.id,
-                                    quadra_id: targetQId,
-                                    atividade_id: targetAId,
-                                    numero_receita: targetRecipeNo,
-                                    observacao: `Recebido por transferência da Receita #[${header.numero_receita || order.numero_receita}]`,
-                                    situacao: 'Pendente'
-                                };
-                                const newItem = {
-                                    insumo_id: item.insumo_id,
-                                    dosagem: item.dosagem,
-                                    quantidade: amountToTransfer
-                                };
-                                await ordensSaidaService.create(newHeader, [newItem]);
-                            }
-                        } catch (transferErr) {
-                            console.error('Transfer failed for item:', item.insumos?.insumo, transferErr);
-                        }
-                    }
-                }
-            }
-
-            // 2. ATUALIZA A ORDEM ATUAL 
-            await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
-
-            alert(mode === 'check' ? 'Conferência salva e transferências realizadas com sucesso!' : 'Edição salva com sucesso!');
+            alert('Conferência salva e transferências realizadas com sucesso!');
             onSave();
             onClose();
         } catch (error) {
@@ -931,7 +724,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                         {mode === 'edit' ? <Edit3 size={24} /> : <CheckCircle2 size={24} />}
                         {mode === 'edit' ? 'Editar Ordem de Saída' : 'Conferir Devolução'}
                     </h3>
-                    <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={20} /></button>
+                    <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', cursor: 'pointer', borderRadius: '50%', width: '40px', height: '40px' }}><X size={20} /></button>
                 </div>
 
                 {/* Header Fields */}
@@ -953,7 +746,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                     </div>
                     <div className="form-group">
                         <label style={{ fontSize: '0.75rem', fontWeight: '800' }}>Qtde Bombas Prevista</label>
-                        <input type="number" value={header.quantidade_bombas} readOnly={mode === 'check'} onChange={e => setHeader({ ...header, quantidade_bombas: e.target.value })} className="input-field" />
+                        <input type="number" value={header.quantidade_bombas} readOnly={mode === 'check'} className="input-field" />
                     </div>
 
                     <div className="form-group">
@@ -1137,7 +930,6 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                 <th style={{ padding: '0.8rem' }}>Devolução</th>
                                 {mode === 'check' && <th style={{ padding: '0.8rem' }}>Destino Sobra</th>}
                                 {mode === 'check' && <th style={{ padding: '0.8rem' }}>Situação</th>}
-                                {mode === 'edit' && <th style={{ padding: '0.8rem' }}>Ações</th>}
                             </tr>
                         </thead>
                         <tbody>
@@ -1145,36 +937,25 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                 const bombasAplicadas = parseFloat(header.bombas_aplicadas || 0);
                                 const predictedReturn = (parseFloat(item.quantidade) - (bombasAplicadas * parseFloat(item.dosagem))).toFixed(2);
                                 
+                                // Nova lógica para os botões de Ok e Divergente
                                 const hasDevolucao = item.devolucao !== undefined && item.devolucao !== '';
                                 const isOk = hasDevolucao && parseFloat(item.devolucao) == parseFloat(predictedReturn);
                                 const isDivergent = hasDevolucao && parseFloat(item.devolucao) != parseFloat(predictedReturn);
 
                                 return (
                                     <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                        <td style={{ padding: '0.8rem', fontWeight: '800' }}>
-                                            {mode === 'check' ? (
-                                                item.insumos?.insumo
-                                            ) : (
-                                                <select
-                                                    value={item.insumo_id}
-                                                    onChange={e => handleItemChange(idx, 'insumo_id', e.target.value)}
-                                                    className="input-field"
-                                                    style={{ width: '100%', padding: '0.4rem', fontWeight: '800', color: 'var(--primary)' }}
-                                                    required
-                                                >
-                                                    <option value="">Selecione...</option>
-                                                    {insumosMeta.map(i => <option key={i.id} value={i.id}>{i.insumo}</option>)}
-                                                </select>
-                                            )}
-                                        </td>
+                                        <td style={{ padding: '0.8rem', fontWeight: '800' }}>{item.insumos?.insumo}</td>
                                         <td style={{ padding: '0.8rem' }}>
                                             <input
                                                 type="text"
                                                 value={item.dosagem}
                                                 readOnly={mode === 'check'}
-                                                onChange={e => handleItemChange(idx, 'dosagem', e.target.value)}
-                                                className="input-field" 
-                                                style={mode === 'edit' ? { width: '80px', padding: '0.4rem', border: '1px solid var(--border)' } : { width: '60px', padding: '0.3rem', border: 'none', background: 'transparent' }}
+                                                onChange={e => {
+                                                    const newItems = [...items];
+                                                    newItems[idx].dosagem = e.target.value.replace(',', '.');
+                                                    setItems(newItems);
+                                                }}
+                                                className="input-field" style={{ width: '60px', padding: '0.3rem' }}
                                             />
                                         </td>
                                         <td style={{ padding: '0.8rem' }}>
@@ -1182,9 +963,12 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                 type="text"
                                                 value={item.quantidade}
                                                 readOnly={mode === 'check'}
-                                                onChange={e => handleItemChange(idx, 'quantidade', e.target.value)}
-                                                className="input-field" 
-                                                style={mode === 'edit' ? { width: '100px', padding: '0.4rem', border: '1px solid var(--border)', color: '#ef4444' } : { width: '80px', padding: '0.3rem', border: 'none', background: 'transparent' }}
+                                                onChange={e => {
+                                                    const newItems = [...items];
+                                                    newItems[idx].quantidade = e.target.value.replace(',', '.');
+                                                    setItems(newItems);
+                                                }}
+                                                className="input-field" style={{ width: '80px', padding: '0.3rem' }}
                                             />
                                         </td>
                                         {mode === 'check' && (
@@ -1195,8 +979,12 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         <td style={{ padding: '0.8rem' }}>
                                             <input
                                                 type="text"
-                                                value={item.devolucao || ''}
-                                                onChange={e => handleItemChange(idx, 'devolucao', e.target.value)}
+                                                value={item.devolucao}
+                                                onChange={e => {
+                                                    const newItems = [...items];
+                                                    newItems[idx].devolucao = e.target.value.replace(',', '.');
+                                                    setItems(newItems);
+                                                }}
                                                 className="input-field"
                                                 style={{ width: '80px', padding: '0.3rem', border: mode === 'check' ? '2px solid #10b981' : '1px solid #e2e8f0' }}
                                             />
@@ -1272,27 +1060,11 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                 </div>
                                             </td>
                                         )}
-                                        {mode === 'edit' && (
-                                            <td style={{ padding: '0.8rem' }}>
-                                                <button onClick={() => handleRemoveItem(idx)} className="btn btn-mini" style={{ color: '#ef4444' }} title="Excluir Insumo">
-                                                    <div className="btn-inner"><Trash2 size={16} /></div>
-                                                </button>
-                                            </td>
-                                        )}
                                     </tr>
                                 );
                             })}
                         </tbody>
                     </table>
-                    
-                    {/* NOVO BOTÃO: Aparece apenas no modo de edição para adicionar linhas na tabela */}
-                    {mode === 'edit' && (
-                        <button type="button" onClick={handleAddNewRow} className="btn btn-outline" style={{ marginTop: '1rem' }}>
-                            <div className="btn-inner" style={{ color: '#10b981', borderColor: '#10b981' }}>
-                                <Plus size={16} /> Adicionar Insumo
-                            </div>
-                        </button>
-                    )}
                 </div>
 
                 <div className="form-group" style={{ marginBottom: '2rem' }}>
