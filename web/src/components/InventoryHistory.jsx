@@ -664,6 +664,171 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 targetAId = atividades.find(at => at.nome?.trim().toLowerCase() === targetOS.operacao?.trim().toLowerCase())?.id || header.atividade_id;
             }
 
+            // 1. FAZ A TRANSFERÊNCIA PRIMEIRO (Modo Check)
+            if (hasTransfers) {
+                for (const item of items) {
+                    const destination = itemDestinations[item.id] || 'estoque';
+                    const amountToTransfer = parseFloat(item.devolucao || 0);
+
+                    if (destination === 'transfer' && amountToTransfer > 0) {
+                        try {
+                            const transferItemNote = `\n- ${item.insumos?.insumo}: ${amountToTransfer} unid. transferidas p/ Receita ${targetRecipeNo}`;
+                            if (!headerUpdates.observacao.includes(transferItemNote)) {
+                                headerUpdates.observacao += transferItemNote;
+                            }
+
+                            const { data: existingOrdens, error: oError } = await supabase
+                                .from('ordens_saida')
+                                .select('id')
+                                .eq('os_id', targetOS.id)
+                                .eq('ativo', true) 
+                                .neq('situacao', 'Conferida')
+                                .order('created_at', { ascending: true }) 
+                                .limit(1);
+
+                            if (oError) throw oError;
+
+                            if (existingOrdens && existingOrdens.length > 0) {
+                                const targetOrdemId = existingOrdens[0].id;
+                                
+                                const { data: existingSaidas, error: searchError } = await supabase
+                                    .from('saidas')
+                                    .select('*')
+                                    .eq('ordem_saida_id', targetOrdemId)
+                                    .eq('insumo_id', item.insumo_id)
+                                    .eq('ativo', true);
+
+                                if (searchError) throw searchError;
+
+                                if (existingSaidas && existingSaidas.length > 0) {
+                                    const targetSaida = existingSaidas[0];
+                                    const newQty = parseFloat(targetSaida.quantidade || 0) + amountToTransfer;
+                                    await saidasService.update(targetSaida.id, { quantidade: newQty });
+                                } else {
+                                    const newItem = {
+                                        insumo_id: item.insumo_id,
+                                        dosagem: item.dosagem,
+                                        quantidade: amountToTransfer,
+                                        ordem_saida_id: targetOrdemId,
+                                        data_saida: format(new Date(), 'yyyy-MM-dd'),
+                                        quadra_id: targetQId,
+                                        atividade_id: targetAId
+                                    };
+                                    await saidasService.create(newItem);
+                                }
+                            } else {
+                                const newHeader = {
+                                    data: format(new Date(), 'yyyy-MM-dd'),
+                                    turno: header.turno,
+                                    quantidade_bombas: targetOS.quantidade_bombas || 0,
+                                    numero_carreta: header.numero_carreta,
+                                    os_id: targetOS.id,
+                                    quadra_id: targetQId,
+                                    atividade_id: targetAId,
+                                    numero_receita: targetRecipeNo,
+                                    observacao: `Recebido por transferência da Receita #[${header.numero_receita || order.numero_receita}]`,
+                                    situacao: 'Pendente'
+                                };
+                                const newItem = {
+                                    insumo_id: item.insumo_id,
+                                    dosagem: item.dosagem,
+                                    quantidade: amountToTransfer
+                                };
+                                await ordensSaidaService.create(newHeader, [newItem]);
+                            }
+                        } catch (transferErr) {
+                            console.error('Transfer failed for item:', item.insumos?.insumo, transferErr);
+                        }
+                    }
+                }
+            }
+
+            // ====================================================================
+            // MÁGICA NOVA: SINCRONIZAÇÃO FORÇADA DE INSUMOS (MODO EDIÇÃO)
+            // ====================================================================
+            if (mode === 'edit') {
+                const oldIds = order.saidas.map(i => i.id);
+                const currentIds = items.map(i => i.id);
+                
+                // A. Excluir itens removidos (Usando Soft Delete ativo = false para segurança)
+                const toDelete = oldIds.filter(id => !currentIds.includes(id));
+                if (toDelete.length > 0) {
+                    await supabase.from('saidas').update({ ativo: false }).in('id', toDelete);
+                }
+
+                // B. Inserir novos itens ou Atualizar quantidades dos existentes
+                for (const item of items) {
+                    const isNew = !oldIds.includes(item.id);
+                    if (isNew) {
+                        await supabase.from('saidas').insert({
+                            insumo_id: item.insumo_id,
+                            dosagem: item.dosagem,
+                            quantidade: item.quantidade,
+                            ordem_saida_id: order.id,
+                            data_saida: header.data,
+                            quadra_id: header.quadra_id || order.quadras?.id || null,
+                            atividade_id: header.atividade_id || order.atividades?.id || null,
+                            ativo: true
+                        });
+                    } else {
+                        await supabase.from('saidas').update({
+                            insumo_id: item.insumo_id,
+                            dosagem: item.dosagem,
+                            quantidade: item.quantidade
+                        }).eq('id', item.id);
+                    }
+                }
+            }
+            // ====================================================================
+
+            // 2. ATUALIZA A ORDEM ATUAL (Salva o cabeçalho e as devoluções)
+            await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
+
+            alert(mode === 'check' ? 'Conferência salva e transferências realizadas com sucesso!' : 'Edição salva com sucesso!');
+            onSave();
+            onClose();
+        } catch (error) {
+            alert('Erro: ' + error.message);
+        }
+    };
+            const headerUpdates = {
+                data: header.data,
+                turno: header.turno,
+                quantidade_bombas: header.quantidade_bombas,
+                bombas_aplicadas: header.bombas_aplicadas,
+                numero_carreta: header.numero_carreta,
+                observacao: header.observacao || '',
+                situacao: mode === 'check' ? 'Conferida' : header.situacao
+            };
+
+            const itemsWithObs = items.map(item => {
+                const bAplicadas = parseFloat(header.bombas_aplicadas || 0);
+                const predictedReturn = (parseFloat(item.quantidade) - (bAplicadas * parseFloat(item.dosagem))).toFixed(2);
+                const actualReturn = parseFloat(item.devolucao || 0);
+
+                let obs = '';
+                if (mode === 'check' && actualReturn != predictedReturn) {
+                    obs = `Divergência: Esperado ${predictedReturn}, recebido ${actualReturn}`;
+                }
+                return { ...item, observacao_divergencia: obs };
+            });
+
+            let targetRecipeNo = null;
+            let targetQId = null;
+            let targetAId = null;
+
+            if (hasTransfers && targetOS) {
+                targetRecipeNo = `${format(new Date(targetOS.data_prescricao + 'T00:00:00'), 'yy')}/${targetOS.numero_os.toString().padStart(6, '0')}`;
+                const transferNote = `\n[Sobra transferida p/ Receita ${targetRecipeNo} na Quadra ${targetOS.quadra}]`;
+                
+                if (!headerUpdates.observacao.includes(transferNote)) {
+                    headerUpdates.observacao += transferNote;
+                }
+
+                targetQId = quadras.find(q => q.nome?.toString().trim().toLowerCase() === targetOS.quadra?.toString().trim().toLowerCase())?.id || header.quadra_id;
+                targetAId = atividades.find(at => at.nome?.trim().toLowerCase() === targetOS.operacao?.trim().toLowerCase())?.id || header.atividade_id;
+            }
+
             // 1. FAZ A TRANSFERÊNCIA PRIMEIRO 
             if (hasTransfers) {
                 for (const item of items) {
