@@ -49,6 +49,14 @@ export default function InventoryOutbound({ logo }) {
         os_id: ''
     });
 
+    // Insumo being added
+    const [currentInsumo, setCurrentInsumo] = useState({
+        insumo_id: '',
+        codigo: '',
+        nome: '',
+        dosagem: ''
+    });
+
     // List of insumos for the current order
     const [items, setItems] = useState([]);
 
@@ -81,6 +89,57 @@ export default function InventoryOutbound({ logo }) {
         } catch (error) {
             console.error('Error fetching prescriptions:', error);
         }
+    };
+
+    const handleInsumoSelect = (insumoId) => {
+        const insumo = insumosMeta.find(i => i.id === insumoId);
+        if (insumo) {
+            setCurrentInsumo({
+                ...currentInsumo,
+                insumo_id: insumo.id,
+                codigo: insumo.codigo || '',
+                nome: insumo.insumo,
+                dosagem: insumo.dosagem || ''
+            });
+        }
+    };
+
+    const addItem = () => {
+        if (!currentInsumo.insumo_id || !currentInsumo.dosagem) {
+            alert('Selecione um insumo e informe a dosagem.');
+            return;
+        }
+
+        // Calculation: pumps * dosage
+        const bombas = parseFloat(header.quantidade_bombas) || 0;
+        const dosagem = parseFloat(currentInsumo.dosagem.toString().replace(',', '.')) || 0;
+        const total = (bombas * dosagem).toFixed(2);
+
+        const newItem = {
+            id: crypto.randomUUID(),
+            insumo_id: currentInsumo.insumo_id,
+            codigo: currentInsumo.codigo,
+            insumo_nome: currentInsumo.nome,
+            dosagem: dosagem,
+            quantidade: total,
+            quantidade_sobra: 0
+        };
+
+        setItems([...items, newItem]);
+        setCurrentInsumo({ insumo_id: '', codigo: '', nome: '', dosagem: '' });
+    };
+
+    const removeItem = (id) => {
+        setItems(items.filter(item => item.id !== id));
+    };
+
+    const updateItemQty = (id, field, value) => {
+        setItems(items.map(item => {
+            if (item.id === id) {
+                return { ...item, [field]: value.replace(',', '.') };
+            }
+            return item;
+        }));
     };
 
     const selectPrescription = (os) => {
@@ -127,56 +186,6 @@ export default function InventoryOutbound({ logo }) {
             return { ...item, quantidade: (bombas * dosagem).toFixed(2) };
         }));
     }, [header.quantidade_bombas]);
-
-    // Nova função: Adiciona uma linha em branco direto na tabela
-    const handleAddNewRow = () => {
-        setItems([...items, { 
-            id: crypto.randomUUID(), 
-            insumo_id: '', 
-            codigo: '', 
-            insumo_nome: '', 
-            dosagem: '', 
-            quantidade: '', 
-            quantidade_sobra: '0' 
-        }]);
-    };
-
-    // Nova função: Edita qualquer campo direto na linha da tabela
-    const handleItemChange = (id, field, value) => {
-        setItems(items.map(item => {
-            if (item.id === id) {
-                const updatedItem = { ...item, [field]: value };
-
-                // Se o usuário trocou o Insumo, preenchemos os dados automáticos
-                if (field === 'insumo_id') {
-                    const insumoData = insumosMeta.find(i => i.id === value);
-                    updatedItem.codigo = insumoData?.codigo || '';
-                    updatedItem.insumo_nome = insumoData?.insumo || '';
-                    updatedItem.dosagem = insumoData?.dosagem?.toString().replace(',', '.') || '';
-                    
-                    // Recalcula a quantidade (Bombas * Dosagem)
-                    const bombas = parseFloat(header.quantidade_bombas) || 0;
-                    const dosagem = parseFloat(updatedItem.dosagem) || 0;
-                    updatedItem.quantidade = (bombas * dosagem).toFixed(2);
-                }
-
-                // Se o usuário mexer na dosagem manualmente, recalcula o total
-                if (field === 'dosagem') {
-                    updatedItem.dosagem = value.replace(',', '.');
-                    const bombas = parseFloat(header.quantidade_bombas) || 0;
-                    const dosagem = parseFloat(updatedItem.dosagem) || 0;
-                    updatedItem.quantidade = (bombas * dosagem).toFixed(2);
-                }
-
-                return updatedItem;
-            }
-            return item;
-        }));
-    };
-
-    const removeItem = (id) => {
-        setItems(items.filter(item => item.id !== id));
-    };
 
     const handleSave = async () => {
         if (!header.quadra_id || items.length === 0) {
@@ -495,92 +504,94 @@ export default function InventoryOutbound({ logo }) {
                         <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }}></div>
                     </div>
 
-                    {/* NOVA TABELA EDITÁVEL INLINE */}
-                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px', marginBottom: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr 150px 80px', gap: '1rem', marginBottom: '1.5rem', alignItems: 'flex-end' }}>
+                        <div className="form-group">
+                            <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Código</label>
+                            <input type="text" value={currentInsumo.codigo} readOnly className="input-field" style={{ backgroundColor: '#f1f5f9', fontSize: '0.8rem' }} />
+                        </div>
+                        <div className="form-group">
+                            <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Insumo</label>
+                            <select
+                                value={currentInsumo.insumo_id}
+                                onChange={e => handleInsumoSelect(e.target.value)}
+                                className="input-field"
+                                style={{ padding: '0.85rem' }}
+                            >
+                                <option value="">Selecione...</option>
+                                {insumosMeta.map(i => <option key={i.id} value={i.id}>{i.insumo}</option>)}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label style={{ fontSize: '0.7rem', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'block' }}>Dosagem</label>
+                            <input
+                                type="text"
+                                value={currentInsumo.dosagem}
+                                onChange={e => setCurrentInsumo({ ...currentInsumo, dosagem: e.target.value })}
+                                className="input-field"
+                                placeholder="Ex: 4,00"
+                            />
+                        </div>
+                        <button
+                            onClick={addItem}
+                            style={{
+                                width: '100%', height: '45px', borderRadius: '12px', background: '#10b981',
+                                border: 'none', color: 'white', cursor: 'pointer', display: 'flex',
+                                alignItems: 'center', justifyContent: 'center'
+                            }}
+                        >
+                            <Plus size={24} />
+                        </button>
+                    </div>
+
+                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
                         <thead>
                             <tr style={{ textAlign: 'left', fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                                <th style={{ padding: '0.5rem 1rem', width: '15%' }}>Código</th>
-                                <th style={{ padding: '0.5rem 1rem', width: '40%' }}>Insumo</th>
+                                <th style={{ padding: '0.5rem 1rem' }}>Código</th>
+                                <th style={{ padding: '0.5rem 1rem' }}>Insumo</th>
                                 <th style={{ padding: '0.5rem 1rem' }}>Dosagem</th>
-                                <th style={{ padding: '0.5rem 1rem' }}>Qtd Retirar</th>
-                                <th style={{ padding: '0.5rem 1rem' }}>Sobra</th>
+                                <th style={{ padding: '0.5rem 1rem' }}>Qtd a Retirar</th>
+                                <th style={{ padding: '0.5rem 1rem' }}>Qtd Sobra</th>
                                 <th style={{ width: '50px' }}></th>
                             </tr>
                         </thead>
                         <tbody>
                             {items.map((item) => (
                                 <tr key={item.id} style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                                    
-                                    {/* CÓDIGO (Preenche automático) */}
-                                    <td style={{ padding: '0.5rem 1rem', borderRadius: '12px 0 0 12px' }}>
-                                        <input type="text" value={item.codigo} readOnly className="input-field" style={{ backgroundColor: '#f1f5f9', fontSize: '0.8rem', width: '100%' }} placeholder="Cód" />
-                                    </td>
-
-                                    {/* INSUMO (Select Editável direto na linha) */}
-                                    <td style={{ padding: '0.5rem 1rem' }}>
-                                        <select
-                                            value={item.insumo_id}
-                                            onChange={(e) => handleItemChange(item.id, 'insumo_id', e.target.value)}
-                                            className="input-field"
-                                            style={{ width: '100%', fontWeight: '800', color: 'var(--primary)', padding: '0.6rem' }}
-                                            required
-                                        >
-                                            <option value="">Selecione o produto...</option>
-                                            {insumosMeta.map(i => <option key={i.id} value={i.id}>{i.insumo}</option>)}
-                                        </select>
-                                    </td>
-
-                                    {/* DOSAGEM */}
-                                    <td style={{ padding: '0.5rem 1rem' }}>
+                                    <td style={{ padding: '1rem', fontWeight: '700', borderRadius: '12px 0 0 12px' }}>{item.codigo}</td>
+                                    <td style={{ padding: '1rem', fontWeight: '800', color: 'var(--primary)' }}>{item.insumo_nome}</td>
+                                    <td style={{ padding: '1rem' }}>
                                         <input
                                             type="text"
                                             value={item.dosagem}
-                                            onChange={e => handleItemChange(item.id, 'dosagem', e.target.value)}
-                                            className="input-field"
-                                            style={{ width: '80px', padding: '0.6rem' }}
-                                            placeholder="0.00"
-                                            required
+                                            onChange={e => updateItemQty(item.id, 'dosagem', e.target.value)}
+                                            style={{ width: '80px', border: 'none', background: 'transparent', fontWeight: '800', outline: 'none' }}
                                         />
                                     </td>
-
-                                    {/* QTD A RETIRAR */}
-                                    <td style={{ padding: '0.5rem 1rem' }}>
+                                    <td style={{ padding: '1rem' }}>
                                         <input
                                             type="text"
                                             value={item.quantidade}
-                                            onChange={e => handleItemChange(item.id, 'quantidade', e.target.value)}
-                                            style={{ width: '90px', padding: '0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: '900', color: '#ef4444' }}
-                                            required
+                                            onChange={e => updateItemQty(item.id, 'quantidade', e.target.value)}
+                                            style={{ width: '100px', padding: '0.4rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: '900', color: '#ef4444' }}
                                         />
                                     </td>
-
-                                    {/* SOBRA */}
-                                    <td style={{ padding: '0.5rem 1rem' }}>
+                                    <td style={{ padding: '1rem' }}>
                                         <input
                                             type="text"
                                             value={item.quantidade_sobra}
-                                            onChange={e => handleItemChange(item.id, 'quantidade_sobra', e.target.value)}
-                                            style={{ width: '70px', padding: '0.6rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: '800' }}
+                                            onChange={e => updateItemQty(item.id, 'quantidade_sobra', e.target.value)}
+                                            style={{ width: '80px', padding: '0.4rem', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: '800' }}
                                         />
                                     </td>
-
-                                    {/* BOTÃO EXCLUIR LINHA */}
-                                    <td style={{ padding: '0.5rem 1rem', borderRadius: '0 12px 12px 0', textAlign: 'center' }}>
-                                        <button type="button" onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }} title="Remover Insumo">
-                                            <Trash2 size={20} />
+                                    <td style={{ padding: '1rem', borderRadius: '0 12px 12px 0' }}>
+                                        <button onClick={() => removeItem(item.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>
+                                            <Trash2 size={18} />
                                         </button>
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-
-                    {/* BOTÃO INCLUIR LINHA NOVA */}
-                    <button type="button" onClick={handleAddNewRow} className="btn btn-outline" style={{ alignSelf: 'flex-start', marginTop: '0.5rem' }}>
-                        <div className="btn-inner" style={{ padding: '0.5rem 1rem', color: '#10b981', borderColor: '#10b981' }}>
-                            <Plus size={16} /> Adicionar Nova Linha
-                        </div>
-                    </button>
                 </div>
             </div>
 
