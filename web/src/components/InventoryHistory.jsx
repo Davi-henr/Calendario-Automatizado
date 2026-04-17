@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
+    Plus,
     History,
     Search,
     ArrowUpRight,
