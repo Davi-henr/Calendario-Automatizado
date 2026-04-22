@@ -10,42 +10,6 @@ import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// NOVO: Função para cálculo dinâmico de situação baseado em data e hora
-const getDynamicStatus = (item) => {
-    // Se já estiver conferida no banco, mantém.
-    if (item.situacao === 'Conferida') return 'Conferida';
-
-    // Pega a data dependendo se é uma Ordem de Saída (data) ou Receita (data_prescricao)
-    const dataRef = item.data || item.data_prescricao;
-    if (!dataRef) return 'Pendente';
-
-    const today = new Date();
-    const refDate = new Date(dataRef + 'T00:00:00');
-
-    // Normaliza para comparar apenas os dias
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-    const refStart = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate()).getTime();
-
-    if (refStart > todayStart) {
-        // Data no futuro
-        return 'Programado';
-    } else if (refStart === todayStart) {
-        // Data de Hoje
-        const currentHour = today.getHours();
-        const isDayNow = currentHour >= 5 && currentHour < 18; // Considera "Dia" das 05:00 às 17:59
-
-        if (item.turno && item.turno.toUpperCase() === 'NOITE') {
-            if (isDayNow) {
-                return 'Programado'; // É hoje de noite, mas ainda estamos de dia
-            }
-        }
-        return 'Pendente'; // É hoje, e é de dia (ou já estamos de noite no turno da noite)
-    } else {
-        // Datas passadas
-        return 'Pendente';
-    }
-};
-
 const Prescriptions = ({ logo }) => {
     const [ordens, setOrdens] = useState([]);
     const [searchTerm, setSearchTerm] = useState(''); 
@@ -127,26 +91,43 @@ const Prescriptions = ({ logo }) => {
         return filtered;
     }, [ordens, searchTerm, statusFilter]);
 
-    // CIRURGIA 1: Ajuste na busca do saldo ignorando os inativos
+    // CIRURGIA: Função segura para evitar bugs com vírgula em cálculos matemáticos
+    const safeNum = (val) => {
+        if (val === undefined || val === null || val === '') return 0;
+        if (typeof val === 'number') return val;
+        const parsed = parseFloat(val.toString().replace(',', '.'));
+        return isNaN(parsed) ? 0 : parsed;
+    };
+
+    // CIRURGIA: Cálculo blindado respeitando Soft Delete e o Fechamento de Estoque
     const calcularSaldoInsumo = (insumoNome) => {
         if (!insumoNome) return '';
 
         const insumoBase = insumosMeta.find(i => i.insumo.toLowerCase() === insumoNome.toLowerCase());
         if (!insumoBase) return '';
 
-        let saldo = parseFloat(insumoBase.saldo_inicial || 0);
+        let saldo = safeNum(insumoBase.saldo_inicial);
+        
+        // Oculta movimentações passadas caso tenha havido um fechamento de estoque (Baixar Inventário)
+        const dataCorte = insumoBase.data_fechamento ? new Date(insumoBase.data_fechamento + 'T00:00:00').getTime() : 0;
 
         entradasMeta.forEach(e => {
             if (e.insumo_id === insumoBase.id && e.ativo !== false) {
-                saldo += parseFloat(e.quantidade || 0);
+                const dataEntrada = e.data_entrada ? new Date(e.data_entrada + 'T00:00:00').getTime() : new Date(e.created_at || 0).getTime();
+                if (dataEntrada >= dataCorte) {
+                    saldo += safeNum(e.quantidade);
+                }
             }
         });
 
         saidasMeta.forEach(s => {
             if (s.insumo_id === insumoBase.id && s.ativo !== false) {
-                const retirada = parseFloat(s.quantidade || 0);
-                const devolucao = parseFloat(s.devolucao || 0);
-                saldo -= (retirada - devolucao);
+                const dataSaida = s.data_saida ? new Date(s.data_saida + 'T00:00:00').getTime() : new Date(s.created_at || 0).getTime();
+                if (dataSaida >= dataCorte) {
+                    const retirada = safeNum(s.quantidade);
+                    const devolucao = safeNum(s.devolucao);
+                    saldo -= (retirada - devolucao);
+                }
             }
         });
 
@@ -646,7 +627,7 @@ const Prescriptions = ({ logo }) => {
                         <p style={{ color: 'var(--text-muted)', fontWeight: '600' }}>Gestão de Ordens de Serviço (OS)</p>
                     </div>
                     <button onClick={() => {
-                        // CIRURGIA 2: Limpando a sujeira antes de abrir uma nova receita
+                        // CIRURGIA: Limpa a sujeira antes de abrir uma nova receita!
                         if (showForm) {
                             setShowForm(false);
                             setEditingId(null); 
@@ -686,7 +667,6 @@ const Prescriptions = ({ logo }) => {
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
                             <div className="form-group">
-                                {/* O botão agora aparece apenas exigindo a Quadra */}
                                 <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                     <span><Search size={14} /> Quadra</span>
                                     {formData.quadra && (
@@ -977,7 +957,6 @@ const Prescriptions = ({ logo }) => {
                                                     {insumosFiltradosParaExibicao.length > 0 ? (
                                                         insumosFiltradosParaExibicao.map((i, idx) => (
                                                             <div key={idx} style={{ fontSize: '0.85rem', marginBottom: '0.2rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                                                                {/* ADICIONADO A DOSAGEM AQUI */}
                                                                 • {i.material} ({i.dosagem})
                                                             </div>
                                                         ))
