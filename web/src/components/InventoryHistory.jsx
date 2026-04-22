@@ -516,7 +516,11 @@ function RecipeView({ ordens, searchTerm, statusFilter, onEdit, onCheck, onDelet
 
 function OrderModal({ order, onClose, onSave, mode }) {
     const [header, setHeader] = useState({ ...order });
-    const [items, setItems] = useState([...order.saidas]);
+    
+    // MÁGICA AQUI: O .filter barra qualquer fantasma antes mesmo de desenhar a tela.
+    const validItems = order.saidas ? order.saidas.filter(item => item.ativo !== false) : [];
+    const [items, setItems] = useState([...validItems]);
+    
     const [quadras, setQuadras] = useState([]);
     const [atividades, setAtividades] = useState([]);
     const [insumosMeta, setInsumosMeta] = useState([]); 
@@ -753,9 +757,8 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 }
             }
 
-            // CONTROLE MANUAL DE EXCLUSÃO PARA O MODO EDIÇÃO
             if (mode === 'edit') {
-                const oldIds = order.saidas.map(i => i.id);
+                const oldIds = validItems.map(i => i.id);
                 const currentIds = items.map(i => i.id);
                 
                 const toDelete = oldIds.filter(id => !currentIds.includes(id));
@@ -786,10 +789,9 @@ function OrderModal({ order, onClose, onSave, mode }) {
                     }
                 }
 
-                // Atualiza APENAS o cabeçalho enviando um array de items vazio.
+                // Atualiza APENAS o cabeçalho
                 await ordensSaidaService.update(order.id, headerUpdates, []);
             } else {
-                // Modo check usa a lógica original
                 await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
             }
 
@@ -904,25 +906,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
                                         border: '1px solid #e2e8f0', marginTop: '5px', maxHeight: '200px', overflowY: 'auto'
                                     }}>
-                                        {pendingOS.filter(os => {
-                                            const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
-                                            let itemStatus = 'Pendente';
-                                            
-                                            if (unconfirmedOrders.length > 0) {
-                                                itemStatus = getDynamicStatus(unconfirmedOrders[0]);
-                                            } else {
-                                                itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
-                                            }
-
-                                            if (itemStatus !== 'Pendente') return false; 
-
-                                            const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
-                                            return (
-                                                recipeNo.includes(osSearchTerm) ||
-                                                os.numero_os?.toString().includes(osSearchTerm) ||
-                                                os.quadra?.toString().toLowerCase().includes(osSearchTerm.toLowerCase())
-                                            );
-                                        }).map(os => {
+                                        {pendingOS.map(os => {
                                             const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             const hasUnconfirmed = unconfirmedOrders.length > 0;
@@ -961,7 +945,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                             fontSize: '0.65rem', fontWeight: '900', padding: '2px 6px', borderRadius: '4px',
                                                             backgroundColor: hasUnconfirmed ? '#10b981' : '#ef4444', color: 'white'
                                                         }}>
-                                                            {hasUnconfirmed ? 'SAÍDA LANÇADA' : 'SEM SAÍDA'}
+                                                            {hasUnconfirmed ? 'SAÍDA LANÇADA' : 'ERRO - SEM SAÍDA'}
                                                         </span>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -977,17 +961,9 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                             );
                                         })}
                                         
-                                        {pendingOS.filter(os => {
-                                            const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
-                                            let itemStatus = 'Pendente';
-                                            if (unconfirmedOrders.length > 0) itemStatus = getDynamicStatus(unconfirmedOrders[0]);
-                                            else itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
-                                            if (itemStatus !== 'Pendente') return false; 
-                                            const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
-                                            return recipeNo.includes(osSearchTerm) || os.numero_os?.toString().includes(osSearchTerm) || os.quadra?.toString().toLowerCase().includes(osSearchTerm.toLowerCase());
-                                        }).length === 0 && (
+                                        {pendingOS.length === 0 && (
                                             <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                                Nenhuma receita pendente encontrada.
+                                                Nenhuma receita lançada encontrada.
                                             </div>
                                         )}
                                     </div>
