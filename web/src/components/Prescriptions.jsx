@@ -22,7 +22,6 @@ const Prescriptions = ({ logo }) => {
     const [loading, setLoading] = useState(true);
     const [editingId, setEditingId] = useState(null); 
     
-    // Estado para controlar o modal de histórico
     const [showHistoryModal, setShowHistoryModal] = useState(false);
 
     const [formData, setFormData] = useState({
@@ -73,6 +72,35 @@ const Prescriptions = ({ logo }) => {
         }
     };
 
+    const getDynamicStatus = (item) => {
+        if (item.situacao === 'Conferida') return 'Conferida';
+
+        const dataRef = item.data || item.data_prescricao;
+        if (!dataRef) return 'Pendente';
+
+        const today = new Date();
+        const refDate = new Date(dataRef + 'T00:00:00');
+
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+        const refStart = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate()).getTime();
+
+        if (refStart > todayStart) {
+            return 'Programado';
+        } else if (refStart === todayStart) {
+            const currentHour = today.getHours();
+            const isDayNow = currentHour >= 5 && currentHour < 18; 
+
+            if (item.turno && item.turno.toUpperCase() === 'NOITE') {
+                if (isDayNow) {
+                    return 'Programado'; 
+                }
+            }
+            return 'Pendente'; 
+        } else {
+            return 'Pendente';
+        }
+    };
+
     const filteredOrdens = useMemo(() => {
         let filtered = ordens.filter(os => {
             const search = searchTerm.toLowerCase();
@@ -81,58 +109,60 @@ const Prescriptions = ({ logo }) => {
             const operacao = (os.operacao || '').toLowerCase();
             
             const matchSearch = osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
-            const matchStatus = statusFilter === 'Todos' || os.situacao === statusFilter;
+            const dynamicStatus = getDynamicStatus(os);
+            const matchStatus = statusFilter === 'Todos' || dynamicStatus === statusFilter;
 
             return matchSearch && matchStatus;
         });
 
-        filtered.sort((a, b) => (b.numero_os || 0) - (a.numero_os || 0));
+        filtered.sort((a, b) => {
+            const dateA = new Date(a.data_prescricao || 0).getTime();
+            const dateB = new Date(b.data_prescricao || 0).getTime();
+            if (dateB !== dateA) return dateB - dateA;
+            return (b.numero_os || 0) - (a.numero_os || 0);
+        });
 
         return filtered;
     }, [ordens, searchTerm, statusFilter]);
 
-    // CIRURGIA: Função segura para evitar bugs com vírgula em cálculos matemáticos
+    // ====================================================================
+    // CIRURGIA: CÓPIA EXATA DA LÓGICA DE SALDO DO MÓDULO DE PEDIDOS
+    // ====================================================================
     const safeNum = (val) => {
-        if (val === undefined || val === null || val === '') return 0;
-        if (typeof val === 'number') return val;
+        if (!val) return 0;
         const parsed = parseFloat(val.toString().replace(',', '.'));
         return isNaN(parsed) ? 0 : parsed;
     };
 
-    // CIRURGIA: Cálculo blindado respeitando Soft Delete e o Fechamento de Estoque
     const calcularSaldoInsumo = (insumoNome) => {
         if (!insumoNome) return '';
 
         const insumoBase = insumosMeta.find(i => i.insumo.toLowerCase() === insumoNome.toLowerCase());
         if (!insumoBase) return '';
 
-        let saldo = safeNum(insumoBase.saldo_inicial);
+        const cutoffDate = insumoBase.data_saldo_inicial || '1970-01-01';
+
+        const totalEntradas = entradasMeta
+            .filter(e => e.insumo_id === insumoBase.id && e.data_entrada >= cutoffDate && e.ativo !== false)
+            .reduce((sum, e) => sum + safeNum(e.quantidade), 0);
         
-        // Oculta movimentações passadas caso tenha havido um fechamento de estoque (Baixar Inventário)
-        const dataCorte = insumoBase.data_fechamento ? new Date(insumoBase.data_fechamento + 'T00:00:00').getTime() : 0;
+        const validSaidas = saidasMeta.filter(s => 
+            s.insumo_id === insumoBase.id && 
+            s.ativo !== false && // Garante ignorar saídas excluídas logicamente (Soft Delete)
+            s.data_saida >= cutoffDate
+        );
 
-        entradasMeta.forEach(e => {
-            if (e.insumo_id === insumoBase.id && e.ativo !== false) {
-                const dataEntrada = e.data_entrada ? new Date(e.data_entrada + 'T00:00:00').getTime() : new Date(e.created_at || 0).getTime();
-                if (dataEntrada >= dataCorte) {
-                    saldo += safeNum(e.quantidade);
-                }
-            }
-        });
-
-        saidasMeta.forEach(s => {
-            if (s.insumo_id === insumoBase.id && s.ativo !== false) {
-                const dataSaida = s.data_saida ? new Date(s.data_saida + 'T00:00:00').getTime() : new Date(s.created_at || 0).getTime();
-                if (dataSaida >= dataCorte) {
-                    const retirada = safeNum(s.quantidade);
-                    const devolucao = safeNum(s.devolucao);
-                    saldo -= (retirada - devolucao);
-                }
-            }
-        });
-
+        const totalSaidas = validSaidas.reduce((sum, s) => sum + safeNum(s.quantidade), 0);
+        const totalDevolucoes = validSaidas.reduce((sum, s) => sum + safeNum(s.devolucao), 0);
+        
+        const saldoInicial = safeNum(insumoBase.saldo_inicial);
+        const consumoReal = totalSaidas - totalDevolucoes;
+        
+        let saldo = saldoInicial + totalEntradas - consumoReal;
+        
         return saldo % 1 === 0 ? saldo.toString() : saldo.toFixed(2);
     };
+    // ====================================================================
 
     const handleQuadraChange = (e) => {
         const selectedQuadra = e.target.value;
@@ -627,7 +657,7 @@ const Prescriptions = ({ logo }) => {
                         <p style={{ color: 'var(--text-muted)', fontWeight: '600' }}>Gestão de Ordens de Serviço (OS)</p>
                     </div>
                     <button onClick={() => {
-                        // CIRURGIA: Limpa a sujeira antes de abrir uma nova receita!
+                        // CIRURGIA: Limpa a sujeira do form sempre que for criar nova receita
                         if (showForm) {
                             setShowForm(false);
                             setEditingId(null); 
