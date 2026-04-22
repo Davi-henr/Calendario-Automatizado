@@ -544,18 +544,34 @@ function OrderModal({ order, onClose, onSave, mode }) {
         try {
             const { data: ordensPendentes } = await supabase
                 .from('ordens_saida')
-                .select('id, turno, data, situacao')
+                .select('id, turno, data, situacao, os_id')
                 .eq('ativo', true) 
                 .neq('situacao', 'Conferida');
 
             if (ordensPendentes) {
-                posEnriched = pos.map(os => {
+                // Filtra para mostrar APENAS receitas que têm uma OS lançada (que esteja na tabela ordens_saida)
+                posEnriched = pos.filter(os => {
+                     // Verifica se existe alguma ordem_saida pendente vinculada a esta OS
+                     return ordensPendentes.some(op => op.os_id === os.id);
+                }).map(os => {
                     const enrichedOrdens = os.ordens_saida?.map(o => {
                         const realData = ordensPendentes.find(op => op.id === o.id);
                         return realData ? { ...o, ...realData } : o;
                     }) || [];
                     return { ...os, ordens_saida: enrichedOrdens };
                 });
+
+                // Agrupa para exibir apenas a mais antiga por numero_os (caso a mesma receita tenha múltiplas saídas)
+                const uniqueOS = [];
+                const seenOS = new Set();
+
+                for (const os of posEnriched) {
+                    if (!seenOS.has(os.numero_os)) {
+                        seenOS.add(os.numero_os);
+                        uniqueOS.push(os);
+                    }
+                }
+                posEnriched = uniqueOS;
             }
         } catch (e) {
             console.error("Erro silencioso ao enriquecer ordens pendentes", e);
@@ -738,6 +754,8 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 }
             }
 
+            // MÁGICA: SINCRONIZAÇÃO FORÇADA DE INSUMOS APENAS NO MODO EDIÇÃO (mode === 'edit')
+            // Removendo itens que o usuário deletou na tela, E inserindo os novos itens adicionados
             if (mode === 'edit') {
                 const oldIds = order.saidas.map(i => i.id);
                 const currentIds = items.map(i => i.id);
@@ -768,9 +786,15 @@ function OrderModal({ order, onClose, onSave, mode }) {
                         }).eq('id', item.id);
                     }
                 }
+            } else {
+                 // No modo "check", enviamos a lista original para apenas atualizar a devolução
+                 await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
             }
 
-            await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
+            if (mode === 'edit') {
+                 // No modo edit precisamos apenas dar um update no cabeçalho
+                 await ordensSaidaService.update(order.id, headerUpdates, []);
+            }
 
             alert(mode === 'check' ? 'Conferência salva e transferências realizadas com sucesso!' : 'Edição salva com sucesso!');
             onSave();
@@ -778,7 +802,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
         } catch (error) {
             alert('Erro: ' + error.message);
         }
-    }; // <-- VEJA: O handleSave FECHA AQUI!
+    };
 
     return (
         <div style={{
@@ -883,25 +907,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
                                         border: '1px solid #e2e8f0', marginTop: '5px', maxHeight: '200px', overflowY: 'auto'
                                     }}>
-                                        {pendingOS.filter(os => {
-                                            const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
-                                            let itemStatus = 'Pendente';
-                                            
-                                            if (unconfirmedOrders.length > 0) {
-                                                itemStatus = getDynamicStatus(unconfirmedOrders[0]);
-                                            } else {
-                                                itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
-                                            }
-
-                                            if (itemStatus !== 'Pendente') return false; 
-
-                                            const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
-                                            return (
-                                                recipeNo.includes(osSearchTerm) ||
-                                                os.numero_os?.toString().includes(osSearchTerm) ||
-                                                os.quadra?.toString().toLowerCase().includes(osSearchTerm.toLowerCase())
-                                            );
-                                        }).map(os => {
+                                        {pendingOS.map(os => {
                                             const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             const hasUnconfirmed = unconfirmedOrders.length > 0;
@@ -940,7 +946,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                             fontSize: '0.65rem', fontWeight: '900', padding: '2px 6px', borderRadius: '4px',
                                                             backgroundColor: hasUnconfirmed ? '#10b981' : '#ef4444', color: 'white'
                                                         }}>
-                                                            {hasUnconfirmed ? 'SAÍDA LANÇADA' : 'SEM SAÍDA'}
+                                                            {hasUnconfirmed ? 'SAÍDA LANÇADA' : 'ERRO - SEM SAÍDA'}
                                                         </span>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -956,17 +962,9 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                             );
                                         })}
                                         
-                                        {pendingOS.filter(os => {
-                                            const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
-                                            let itemStatus = 'Pendente';
-                                            if (unconfirmedOrders.length > 0) itemStatus = getDynamicStatus(unconfirmedOrders[0]);
-                                            else itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
-                                            if (itemStatus !== 'Pendente') return false; 
-                                            const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
-                                            return recipeNo.includes(osSearchTerm) || os.numero_os?.toString().includes(osSearchTerm) || os.quadra?.toString().toLowerCase().includes(osSearchTerm.toLowerCase());
-                                        }).length === 0 && (
+                                        {pendingOS.length === 0 && (
                                             <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                                Nenhuma receita pendente encontrada.
+                                                Nenhuma receita lançada encontrada.
                                             </div>
                                         )}
                                     </div>
