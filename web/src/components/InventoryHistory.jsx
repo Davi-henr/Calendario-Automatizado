@@ -549,9 +549,8 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 .neq('situacao', 'Conferida');
 
             if (ordensPendentes) {
-                // Filtra para mostrar APENAS receitas que têm uma OS lançada (que esteja na tabela ordens_saida)
+                // Filtra para mostrar APENAS receitas que têm uma OS lançada
                 posEnriched = pos.filter(os => {
-                     // Verifica se existe alguma ordem_saida pendente vinculada a esta OS
                      return ordensPendentes.some(op => op.os_id === os.id);
                 }).map(os => {
                     const enrichedOrdens = os.ordens_saida?.map(o => {
@@ -561,7 +560,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                     return { ...os, ordens_saida: enrichedOrdens };
                 });
 
-                // Agrupa para exibir apenas a mais antiga por numero_os (caso a mesma receita tenha múltiplas saídas)
+                // Agrupa para exibir apenas a mais antiga por numero_os
                 const uniqueOS = [];
                 const seenOS = new Set();
 
@@ -754,8 +753,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                 }
             }
 
-            // MÁGICA: SINCRONIZAÇÃO FORÇADA DE INSUMOS APENAS NO MODO EDIÇÃO (mode === 'edit')
-            // Removendo itens que o usuário deletou na tela, E inserindo os novos itens adicionados
+            // CONTROLE MANUAL DE EXCLUSÃO PARA O MODO EDIÇÃO
             if (mode === 'edit') {
                 const oldIds = order.saidas.map(i => i.id);
                 const currentIds = items.map(i => i.id);
@@ -782,18 +780,17 @@ function OrderModal({ order, onClose, onSave, mode }) {
                         await supabase.from('saidas').update({
                             insumo_id: item.insumo_id,
                             dosagem: item.dosagem,
-                            quantidade: item.quantidade
+                            quantidade: item.quantidade,
+                            ativo: true
                         }).eq('id', item.id);
                     }
                 }
-            } else {
-                 // No modo "check", enviamos a lista original para apenas atualizar a devolução
-                 await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
-            }
 
-            if (mode === 'edit') {
-                 // No modo edit precisamos apenas dar um update no cabeçalho
-                 await ordensSaidaService.update(order.id, headerUpdates, []);
+                // Atualiza APENAS o cabeçalho enviando um array de items vazio.
+                await ordensSaidaService.update(order.id, headerUpdates, []);
+            } else {
+                // Modo check usa a lógica original
+                await ordensSaidaService.update(order.id, headerUpdates, itemsWithObs);
             }
 
             alert(mode === 'check' ? 'Conferência salva e transferências realizadas com sucesso!' : 'Edição salva com sucesso!');
@@ -907,7 +904,25 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                         backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
                                         border: '1px solid #e2e8f0', marginTop: '5px', maxHeight: '200px', overflowY: 'auto'
                                     }}>
-                                        {pendingOS.map(os => {
+                                        {pendingOS.filter(os => {
+                                            const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
+                                            let itemStatus = 'Pendente';
+                                            
+                                            if (unconfirmedOrders.length > 0) {
+                                                itemStatus = getDynamicStatus(unconfirmedOrders[0]);
+                                            } else {
+                                                itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
+                                            }
+
+                                            if (itemStatus !== 'Pendente') return false; 
+
+                                            const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
+                                            return (
+                                                recipeNo.includes(osSearchTerm) ||
+                                                os.numero_os?.toString().includes(osSearchTerm) ||
+                                                os.quadra?.toString().toLowerCase().includes(osSearchTerm.toLowerCase())
+                                            );
+                                        }).map(os => {
                                             const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
                                             const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
                                             const hasUnconfirmed = unconfirmedOrders.length > 0;
@@ -946,7 +961,7 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                                             fontSize: '0.65rem', fontWeight: '900', padding: '2px 6px', borderRadius: '4px',
                                                             backgroundColor: hasUnconfirmed ? '#10b981' : '#ef4444', color: 'white'
                                                         }}>
-                                                            {hasUnconfirmed ? 'SAÍDA LANÇADA' : 'ERRO - SEM SAÍDA'}
+                                                            {hasUnconfirmed ? 'SAÍDA LANÇADA' : 'SEM SAÍDA'}
                                                         </span>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -962,9 +977,17 @@ function OrderModal({ order, onClose, onSave, mode }) {
                                             );
                                         })}
                                         
-                                        {pendingOS.length === 0 && (
+                                        {pendingOS.filter(os => {
+                                            const unconfirmedOrders = os.ordens_saida?.filter(o => o.situacao !== 'Conferida') || [];
+                                            let itemStatus = 'Pendente';
+                                            if (unconfirmedOrders.length > 0) itemStatus = getDynamicStatus(unconfirmedOrders[0]);
+                                            else itemStatus = getDynamicStatus({ data_prescricao: os.data_prescricao, turno: os.turno || null });
+                                            if (itemStatus !== 'Pendente') return false; 
+                                            const recipeNo = `${format(new Date(os.data_prescricao + 'T00:00:00'), 'yy')}/${os.numero_os.toString().padStart(6, '0')}`;
+                                            return recipeNo.includes(osSearchTerm) || os.numero_os?.toString().includes(osSearchTerm) || os.quadra?.toString().toLowerCase().includes(osSearchTerm.toLowerCase());
+                                        }).length === 0 && (
                                             <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                                Nenhuma receita lançada encontrada.
+                                                Nenhuma receita pendente encontrada.
                                             </div>
                                         )}
                                     </div>
