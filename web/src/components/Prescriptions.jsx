@@ -100,13 +100,15 @@ const Prescriptions = ({ logo }) => {
         let saldo = parseFloat(insumoBase.saldo_inicial || 0);
 
         entradasMeta.forEach(e => {
-            if (e.insumo_id === insumoBase.id) {
+            // CIRURGIA AQUI: Ignora as entradas deletadas logicamente
+            if (e.ativo !== false && e.insumo_id === insumoBase.id) {
                 saldo += parseFloat(e.quantidade || 0);
             }
         });
 
         saidasMeta.forEach(s => {
-            if (s.insumo_id === insumoBase.id) {
+            // CIRURGIA AQUI: Ignora as saídas deletadas logicamente (Soft Delete)
+            if (s.ativo !== false && s.insumo_id === insumoBase.id) {
                 const retirada = parseFloat(s.quantidade || 0);
                 const devolucao = parseFloat(s.devolucao || 0);
                 saldo -= (retirada - devolucao);
