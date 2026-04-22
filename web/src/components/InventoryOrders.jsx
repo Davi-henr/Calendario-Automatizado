@@ -19,17 +19,16 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import emailjs from '@emailjs/browser'; 
 
-export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
+export default function InventoryOrders({ subview = 'fazer', onNavigate, logo }) {
     const [pedidos, setPedidos] = useState([]);
     const [insumos, setInsumos] = useState([]);
     const [stockMap, setStockMap] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
+    const [reportStatusFilter, setReportStatusFilter] = useState('Todos'); // NOVO FILTRO
     const [loading, setLoading] = useState(true);
     
-    // Form state (Fazer Pedido)
     const [orderQuantities, setOrderQuantities] = useState({});
 
-    // Form state (Edição Relatório)
     const [showForm, setShowForm] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
     const [selectedId, setSelectedId] = useState(null);
@@ -53,14 +52,12 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                 saidasService.getAll()
             ]);
 
-            // TRAVA DE SEGURANÇA para números com vírgula
             const safeNum = (val) => {
                 if (!val) return 0;
                 const parsed = parseFloat(val.toString().replace(',', '.'));
                 return isNaN(parsed) ? 0 : parsed;
             };
 
-            // CORREÇÃO: Cálculo com ponto de corte do inventário e exclusão lógica (ativo !== false)
             const currentStock = {};
             insumosData.forEach(insumo => {
                 const cutoffDate = insumo.data_saldo_inicial || '1970-01-01';
@@ -112,7 +109,6 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
 
         if (window.confirm(`Confirmar e enviar o pedido de ${itemsToOrder.length} insumo(s)?`)) {
             try {
-                // 1. Salvar no banco de dados primeiro
                 for (const [id, qty] of itemsToOrder) {
                     await pedidosService.create({
                         insumo_id: id,
@@ -121,12 +117,10 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                     });
                 }
 
-                // 2. Preparar dados para o E-mail
-                const dataEntrega = nextTuesday(new Date()); // Acha a próxima terça-feira
+                const dataEntrega = nextTuesday(new Date()); 
                 const dataEntregaCompleta = format(dataEntrega, 'dd/MM');
                 const dataEntregaCurta = format(dataEntrega, 'dd/MM');
 
-                // Montar as linhas da tabela HTML dinamicamente
                 let tabelaHTML = `
                     <table style="width: 100%; border-collapse: collapse; margin-top: 20px; font-family: Arial, sans-serif;">
                         <thead>
@@ -141,7 +135,6 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                 itemsToOrder.forEach(([id, qty]) => {
                     const insumo = insumos.find(i => i.id === id);
                     const nomeProduto = insumo ? insumo.insumo : 'Produto Desconhecido';
-
                     tabelaHTML += `
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 10px; font-size: 15px; color: #444;">${nomeProduto}</td>
@@ -150,10 +143,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                     `;
                 });
 
-                tabelaHTML += `
-                        </tbody>
-                    </table>
-                `;
+                tabelaHTML += `</tbody></table>`;
 
                 const templateParams = {
                     data_entrega_completa: dataEntregaCompleta,
@@ -162,10 +152,9 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                     email: "vaniafvl@hotmail.com, fvl.financeiro@markbemcitrus.com.br, f.alegria@markbemcitrus.com.br"
                 };
 
-                // 3. Enviar o E-mail
                 await emailjs.send('service_tybtcoc', 'template_digqj1d', templateParams, '7_OdWq1mfyUmAIhEc');
 
-                setOrderQuantities({}); // ZERA OS CAMPOS APÓS BAIXAR O PEDIDO
+                setOrderQuantities({}); 
                 alert('Pedido registrado e enviado por e-mail com sucesso! Acompanhe-os no Relatório.');
                 if (onNavigate) onNavigate('relatorio');
 
@@ -215,50 +204,49 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
         }
     };
 
-    // Gerador de PDF Profissional
+    // NOVO GERADOR DE PDF PROFISSIONAL COM LOGO
     const handlePrint = () => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const pw = doc.internal.pageSize.getWidth();
         
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        
-        if (subview === 'fazer') {
-            doc.text('Lista de Insumos - Sugestão de Pedidos', pw / 2, 15, { align: 'center' });
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pw / 2, 22, { align: 'center' });
+        // Moldura do Cabeçalho
+        doc.setLineWidth(0.3);
+        doc.rect(10, 10, pw - 20, 20);
 
-            const tableData = filteredInsumos.map(insumo => {
-                const qty = orderQuantities[insumo.id] ? orderQuantities[insumo.id].toString() : '';
-                return [
-                    insumo.insumo,
-                    insumo.classificacao || '-',
-                    (stockMap[insumo.id] !== undefined ? stockMap[insumo.id].toString() : '0'),
-                    qty
-                ];
-            });
+        // Logo
+        if (logo) {
+            try { doc.addImage(logo, 'PNG', 12, 12, 25, 15); } catch (e) { }
+        }
+
+        // Títulos
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        const title = subview === 'fazer' ? 'LISTA DE INSUMOS - SUGESTÃO DE PEDIDOS' : 'RELATÓRIO DE PEDIDOS DE INSUMOS';
+        doc.text(title, pw / 2 + 10, 20, { align: 'center' });
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pw / 2 + 10, 26, { align: 'center' });
+
+        if (subview === 'fazer') {
+            const tableData = filteredInsumos.map(insumo => [
+                insumo.insumo,
+                insumo.classificacao || '-',
+                (stockMap[insumo.id] || '0'),
+                orderQuantities[insumo.id] || ''
+            ]);
 
             autoTable(doc, {
-                startY: 30,
+                startY: 35,
                 head: [['Insumo', 'Classificação', 'Saldo Atual', 'Qtd Solicitada']],
                 body: tableData,
                 theme: 'grid',
-                headStyles: { fillColor: [245, 158, 11] },
+                headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
                 styles: { fontSize: 9, cellPadding: 3 },
-                columnStyles: {
-                    2: { halign: 'center' },
-                    3: { halign: 'center' }
-                }
+                columnStyles: { 2: { halign: 'center' }, 3: { halign: 'center' } }
             });
-            
             doc.save(`Sugestao_Pedidos_${format(new Date(), 'ddMMyyyy')}.pdf`);
         } else {
-            doc.text('Relatório de Pedidos Pendentes', pw / 2, 15, { align: 'center' });
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pw / 2, 22, { align: 'center' });
-
             const tableData = filteredPedidos.map(pedido => [
                 pedido.insumos?.insumo || '-',
                 pedido.created_at ? format(new Date(pedido.created_at), 'dd/MM/yyyy') : '-',
@@ -267,18 +255,14 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
             ]);
 
             autoTable(doc, {
-                startY: 30,
+                startY: 35,
                 head: [['Insumo', 'Data do Pedido', 'Qtd Solicitada', 'Situação']],
                 body: tableData,
                 theme: 'grid',
-                headStyles: { fillColor: [245, 158, 11] },
+                headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
                 styles: { fontSize: 9, cellPadding: 3 },
-                columnStyles: {
-                    2: { halign: 'center' },
-                    3: { halign: 'center' }
-                }
+                columnStyles: { 2: { halign: 'center' }, 3: { halign: 'center' } }
             });
-            
             doc.save(`Relatorio_Pedidos_${format(new Date(), 'ddMMyyyy')}.pdf`);
         }
     };
@@ -290,7 +274,9 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
 
     const filteredPedidos = pedidos.filter(pedido => {
         const search = searchTerm.toLowerCase();
-        return pedido.insumos?.insumo?.toLowerCase().includes(search);
+        const matchesSearch = pedido.insumos?.insumo?.toLowerCase().includes(search);
+        const matchesStatus = reportStatusFilter === 'Todos' || pedido.status === reportStatusFilter;
+        return matchesSearch && matchesStatus;
     });
 
     return (
@@ -333,7 +319,26 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    {/* NOVO FILTRO DE SITUAÇÃO NO RELATÓRIO */}
+                    {subview === 'relatorio' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#f8fafc', padding: '0.2rem 0.5rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)' }}>
+                            <Filter size={16} style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }} />
+                            <select
+                                value={reportStatusFilter}
+                                onChange={(e) => setReportStatusFilter(e.target.value)}
+                                style={{
+                                    padding: '0.5rem', border: 'none', background: 'transparent',
+                                    fontSize: '0.9rem', outline: 'none', color: 'var(--text)', cursor: 'pointer'
+                                }}
+                            >
+                                <option value="Todos">Todas Situações</option>
+                                <option value="Pendente">Pendente</option>
+                                <option value="Concluído">Concluído</option>
+                            </select>
+                        </div>
+                    )}
+
                     <div style={{ position: 'relative', width: '250px' }}>
                         <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                         <input
@@ -413,7 +418,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                         </thead>
                         <tbody>
                             {filteredPedidos.length === 0 ? (
-                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Nenhum pedido no histórico.</td></tr>
+                                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>Nenhum pedido encontrado com estes filtros.</td></tr>
                             ) : (
                                 filteredPedidos.map(item => (
                                     <tr
@@ -485,7 +490,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
                 )}
             </div>
 
-            {/* Modal de Edição (Apenas no Relatório) */}
+            {/* Modal de Edição */}
             {showForm && (
                 <div style={{
                     position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
