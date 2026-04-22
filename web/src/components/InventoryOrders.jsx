@@ -13,19 +13,21 @@ import {
     ClipboardList,
     CheckCircle
 } from 'lucide-react';
-import { pedidosService, insumosService, entradasService, saidasService } from '../lib/services';
+// ADICIONADO: settingsService para buscar a logo
+import { pedidosService, insumosService, entradasService, saidasService, settingsService } from '../lib/services';
 import { format, nextTuesday } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import emailjs from '@emailjs/browser'; 
 
-export default function InventoryOrders({ subview = 'fazer', onNavigate, logo }) {
+export default function InventoryOrders({ subview = 'fazer', onNavigate }) {
     const [pedidos, setPedidos] = useState([]);
     const [insumos, setInsumos] = useState([]);
     const [stockMap, setStockMap] = useState({});
     const [searchTerm, setSearchTerm] = useState('');
     const [reportStatusFilter, setReportStatusFilter] = useState('Todos'); // NOVO FILTRO
     const [loading, setLoading] = useState(true);
+    const [logo, setLogo] = useState(null); // ESTADO DA LOGO
     
     const [orderQuantities, setOrderQuantities] = useState({});
 
@@ -40,6 +42,8 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate, logo })
 
     useEffect(() => {
         fetchData();
+        // BUSCANDO A LOGO NO BANCO DE DADOS
+        settingsService.get().then(s => setLogo(s.logo_url)).catch(() => {});
     }, [subview]);
 
     const fetchData = async () => {
@@ -204,7 +208,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate, logo })
         }
     };
 
-    // NOVO GERADOR DE PDF PROFISSIONAL COM LOGO
+    // GERADOR DE PDF PROFISSIONAL COM LOGO
     const handlePrint = () => {
         const doc = new jsPDF('p', 'mm', 'a4');
         const pw = doc.internal.pageSize.getWidth();
@@ -232,7 +236,7 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate, logo })
             const tableData = filteredInsumos.map(insumo => [
                 insumo.insumo,
                 insumo.classificacao || '-',
-                (stockMap[insumo.id] || '0'),
+                (stockMap[insumo.id] !== undefined ? stockMap[insumo.id].toString() : '0'),
                 orderQuantities[insumo.id] || ''
             ]);
 
@@ -320,8 +324,8 @@ export default function InventoryOrders({ subview = 'fazer', onNavigate, logo })
                 </div>
 
                 <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                    {/* NOVO FILTRO DE SITUAÇÃO NO RELATÓRIO */}
-                    {subview === 'relatorio' && (
+                    {/* AQUI ESTÁ A MÁGICA: Vai aparecer sempre que não for a tela de "Fazer Pedido" */}
+                    {subview !== 'fazer' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#f8fafc', padding: '0.2rem 0.5rem', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)' }}>
                             <Filter size={16} style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }} />
                             <select
