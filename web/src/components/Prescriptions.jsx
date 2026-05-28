@@ -44,7 +44,7 @@ const Prescriptions = ({ logo }) => {
         }
     });
 
-    const operations = ["Chuá","Chuá - Fertilizante", "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Aplicação de Sivanto", "Herbicida Manual", "Herbicida"];
+    const operations = ["Chuá","Chuá - Fertilizante", "Chuá - Replantas", "Chuá - PROTETOR SOLAR",  "Leprose", "Alternária", "Pinta Preta", "Aplicação de Winner", "Aplicação de Sivanto", "Herbicida Manual", "Herbicida", "Aguação Replantas" ];
 
     useEffect(() => {
         fetchData();
