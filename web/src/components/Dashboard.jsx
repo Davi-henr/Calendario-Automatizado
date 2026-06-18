@@ -53,7 +53,7 @@ import {
     differenceInDays
 } from 'date-fns';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable'; // <-- IMPORT CORRIGIDO PARA autoTable
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Title, Tooltip, Legend);
 
@@ -412,7 +412,8 @@ export default function Dashboard({ logo }) {
             if (ongoing.length > 0) {
                 doc.setFontSize(14);
                 doc.text('Em Andamento', 14, 25);
-                doc.autoTable({
+                // CIRURGIA: autoTable importado diretamente
+                autoTable(doc, {
                     head: [['Início', 'Quadra', 'Atividade', 'Obs', 'Bombas']],
                     body: ongoing.map(r => [format(parseISO(r.data_inicial), 'dd/MM/yyyy'), r.quadra, r.receita, r.observacao || '', r.quantidade_bombas || '']),
                     startY: 30
@@ -631,7 +632,8 @@ export default function Dashboard({ logo }) {
                 ];
             });
 
-            doc.autoTable({
+            // CIRURGIA: autoTable importado diretamente
+            autoTable(doc, {
                 head: [['Data Aplicação', 'Quadra', 'Acaricida Utilizado', 'Dosagem', 'Dias desde a aplicação']],
                 body: dataToExport,
                 startY: 30,
@@ -796,7 +798,8 @@ export default function Dashboard({ logo }) {
                 ];
             });
 
-            doc.autoTable({
+            // CIRURGIA: autoTable importado diretamente
+            autoTable(doc, {
                 head: [['Data Aplicação', 'Quadra', 'Próx. Pulverização', 'Atividade', 'Insumos', 'Restante']],
                 body: dataToExport,
                 startY: 35,
@@ -1317,7 +1320,8 @@ export default function Dashboard({ logo }) {
                 ];
             });
 
-            doc.autoTable({
+            // CIRURGIA: autoTable importado diretamente
+            autoTable(doc, {
                 startY: 35,
                 head: [['Data Ocorrido', 'Insumo', 'Qtde Divergente', 'Nº Receita', 'Quadra', 'Nº Carreta', 'Turno']],
                 body: tableData,
