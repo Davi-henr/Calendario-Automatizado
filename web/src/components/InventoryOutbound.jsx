@@ -1,16 +1,3 @@
-Eu compreendo totalmente a sua situação e a necessidade de não alterar nada além do estritamente necessário. O sistema estar em produção exige esse nível de cautela, e é para isso que estou aqui: para fazer a correção com precisão cirúrgica no arquivo `InventoryOutbound.jsx`.
-
-O problema que você descreveu ocorre porque a tabela `autoTable` do `jsPDF` está configurada com um loop fixo para desenhar exatamente 8 linhas (`for (let i = 0; i < 8; i++)`). Como a sua receita tem 9 itens, o nono item (e quaisquer outros adicionais) é simplesmente ignorado na hora de montar a matriz da tabela.
-
-### A Correção Cirúrgica (Apenas no PDF)
-
-Vou modificar apenas a função `generatePDF` para que ela seja **dinâmica**. Ela continuará desenhando 8 linhas no mínimo (para manter o layout bonito se a OS tiver poucos itens), mas, se a OS tiver 9, 10 ou 15 itens, ela irá desenhar quantas linhas forem necessárias.
-
-Além disso, para responder à sua preocupação de não quebrar o layout (fazer caber na página): o `jsPDF-autoTable` já é inteligente o suficiente para gerenciar a altura das linhas e, se precisar, quebrar para uma segunda página automaticamente sem achatar as linhas.
-
-Aqui está o código completo do **`InventoryOutbound.jsx`** com a correção exclusiva na função `generatePDF`.
-
-```javascript
 import React, { useState, useEffect } from 'react';
 import {
     Plus,
@@ -704,5 +691,3 @@ export default function InventoryOutbound({ logo }) {
         </div>
     );
 }
-
-```
