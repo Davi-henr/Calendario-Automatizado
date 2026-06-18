@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { registrosService, chuvasService, insumosService, settingsService } from '../lib/services';
+import { registrosService, chuvasService, insumosService, saidasService, settingsService } from '../lib/services';
 import PageHeader from './PageHeader';
 import InteractiveMap from './InteractiveMap';
 import {
@@ -23,7 +23,9 @@ import {
     ListFilter,
     Map,
     Edit2,
-    Printer
+    Printer,
+    Calendar,
+    Truck
 } from 'lucide-react';
 import {
     Chart as ChartJS,
@@ -133,6 +135,7 @@ export default function Dashboard({ logo }) {
     const [registros, setRegistros] = useState([]);
     const [chuvas, setChuvas] = useState([]);
     const [insumos, setInsumos] = useState([]);
+    const [saidas, setSaidas] = useState([]); // NOVO ESTADO
     const [forecast, setForecast] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -162,6 +165,12 @@ export default function Dashboard({ logo }) {
     const [showRainForm, setShowRainForm] = useState(false);
     const [rainFormData, setRainFormData] = useState({ data: format(new Date(), 'yyyy-MM-dd'), mm: '', local: 'Sede' });
 
+    // NOVOS ESTADOS PARA DIVERGÊNCIAS
+    const [divStartDate, setDivStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+    const [divEndDate, setDivEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [divTurno, setDivTurno] = useState('Todos');
+    const [divCarreta, setDivCarreta] = useState('');
+
     useEffect(() => {
         fetchData();
         fetchWeather();
@@ -170,14 +179,16 @@ export default function Dashboard({ logo }) {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [regData, rainData, insData] = await Promise.all([
+            const [regData, rainData, insData, saidasData] = await Promise.all([
                 registrosService.getAll(),
                 chuvasService.getAll(),
-                insumosService.getAll()
+                insumosService.getAll(),
+                saidasService.getAll().catch(() => []) // Adicionado
             ]);
             setRegistros(regData);
             setChuvas(rainData);
             setInsumos(insData);
+            setSaidas(saidasData || []);
         } catch (err) {
             console.error(err);
         } finally {
@@ -1232,6 +1243,212 @@ export default function Dashboard({ logo }) {
         );
     };
 
+    // ==========================================
+    // NOVA SESSÃO: DIVERGÊNCIAS DE CAMPO
+    // ==========================================
+    const renderDivergencias = () => {
+        const divergences = [];
+        
+        saidas.forEach(s => {
+            if (s.ativo === false) return;
+            if (!s.ordens_saida || s.ordens_saida.situacao !== 'Conferida') return;
+
+            const retirado = parseFloat(s.quantidade) || 0;
+            const devolvido = parseFloat(s.devolucao) || 0;
+            const dosagem = parseFloat(s.dosagem) || 0;
+            const bombasAplicadas = parseFloat(s.ordens_saida.bombas_aplicadas) || 0;
+
+            const sobraEsperada = retirado - (bombasAplicadas * dosagem);
+            const divergencia = devolvido - sobraEsperada;
+
+            // Se houver uma diferença mínima de 0.01
+            if (Math.abs(divergencia) >= 0.01) {
+                divergences.push({
+                    ...s,
+                    divergencia,
+                    sobraEsperada
+                });
+            }
+        });
+
+        const filteredDivergences = divergences.filter(d => {
+            if (divStartDate && d.data_saida < divStartDate) return false;
+            if (divEndDate && d.data_saida > divEndDate) return false;
+            if (divTurno !== 'Todos' && d.ordens_saida?.turno !== divTurno) return false;
+            if (divCarreta && !d.ordens_saida?.numero_carreta?.toLowerCase().includes(divCarreta.toLowerCase())) return false;
+            return true;
+        }).sort((a, b) => new Date(b.data_saida || 0) - new Date(a.data_saida || 0));
+
+        const getDivergenceStyle = (div) => {
+            if (div < 0) return { bg: '#fef2f2', color: '#ef4444' }; // Faltou: Vermelho
+            if (div > 0) return { bg: '#fffbeb', color: '#d97706' }; // Sobrou: Amarelo
+            return { bg: 'transparent', color: 'var(--text)' };
+        };
+
+        const handlePrintDivergences = () => {
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pw = doc.internal.pageSize.getWidth();
+            
+            doc.setLineWidth(0.3);
+            doc.rect(10, 10, pw - 20, 20);
+
+            if (logo) {
+                try { doc.addImage(logo, 'PNG', 12, 12, 25, 15); } catch (e) { }
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.text('RELATÓRIO DE DIVERGÊNCIAS DE CAMPO', pw / 2 + 10, 20, { align: 'center' });
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pw / 2 + 10, 26, { align: 'center' });
+
+            const tableData = filteredDivergences.map(d => {
+                const qtdeFormatada = d.divergencia > 0 ? `+${d.divergencia.toFixed(2)}` : d.divergencia.toFixed(2);
+                return [
+                    d.data_saida ? format(parseISO(d.data_saida), 'dd/MM/yyyy') : '-',
+                    d.insumos?.insumo || '-',
+                    qtdeFormatada,
+                    d.ordens_saida?.numero_receita || '-',
+                    d.quadras?.nome || '-',
+                    d.ordens_saida?.numero_carreta || '-',
+                    d.ordens_saida?.turno || '-'
+                ];
+            });
+
+            autoTable(doc, {
+                startY: 35,
+                head: [['Data Ocorrido', 'Insumo', 'Qtde Divergente', 'Nº Receita', 'Quadra', 'Nº Carreta', 'Turno']],
+                body: tableData,
+                theme: 'grid',
+                headStyles: { fillColor: [239, 68, 68], textColor: 255, fontStyle: 'bold' },
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: {
+                    2: { halign: 'center', fontStyle: 'bold' },
+                    5: { halign: 'center' },
+                    6: { halign: 'center' }
+                },
+                didParseCell: function (data) {
+                    if (data.section === 'body' && data.column.index === 2) {
+                        const val = parseFloat(data.cell.raw);
+                        if (val < 0) data.cell.styles.textColor = [239, 68, 68];
+                        if (val > 0) data.cell.styles.textColor = [217, 119, 6];
+                    }
+                }
+            });
+            
+            doc.save(`Divergencias_Campo_${format(new Date(), 'ddMMyyyy')}.pdf`);
+        };
+
+        return (
+            <div className="premium-card glass" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', borderTop: '4px solid #ef4444' }}>
+                <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                    <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text)', margin: 0 }}>
+                        <div style={{ padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '10px' }}>
+                            <AlertTriangle size={20} color="#ef4444" />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: '800' }}>Divergências de Campo</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>Controle de devoluções a mais ou a menos das receitas</span>
+                        </div>
+                    </h4>
+                    <button onClick={handlePrintDivergences} disabled={filteredDivergences.length === 0} className="btn btn-secondary">
+                        <div className="btn-inner">
+                            <Printer size={18} /> Imprimir Tabela
+                        </div>
+                    </button>
+                </div>
+
+                <div className="no-print" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', padding: '0.3rem 0.8rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                        <Calendar size={16} style={{ color: 'var(--text-muted)' }} />
+                        <input type="date" value={divStartDate} onChange={(e) => setDivStartDate(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.85rem', color: 'var(--text)' }} />
+                        <span style={{ color: 'var(--text-muted)' }}>até</span>
+                        <input type="date" value={divEndDate} onChange={(e) => setDivEndDate(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.85rem', color: 'var(--text)' }} />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', padding: '0.3rem 0.8rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                        <Clock size={16} style={{ color: 'var(--text-muted)' }} />
+                        <select value={divTurno} onChange={(e) => setDivTurno(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.85rem', color: 'var(--text)', cursor: 'pointer' }}>
+                            <option value="Todos">Todos os Turnos</option>
+                            <option value="DIA">DIA</option>
+                            <option value="NOITE">NOITE</option>
+                        </select>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', padding: '0.3rem 0.8rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                        <Truck size={16} style={{ color: 'var(--text-muted)' }} />
+                        <input type="text" placeholder="Nº Carreta..." value={divCarreta} onChange={(e) => setDivCarreta(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.85rem', color: 'var(--text)', width: '100px' }} />
+                    </div>
+                </div>
+
+                <div className="table-responsive">
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
+                        <thead style={{ backgroundColor: '#fafbfc' }}>
+                            <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left', color: 'var(--text-muted)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Data Ocorrido</th>
+                                <th style={{ padding: '1rem', fontWeight: '800' }}>Insumo</th>
+                                <th style={{ padding: '1rem', fontWeight: '800', textAlign: 'center' }}>Qtde Divergente</th>
+                                <th style={{ padding: '1rem', fontWeight: '800', textAlign: 'center' }}>Nº Receita</th>
+                                <th style={{ padding: '1rem', fontWeight: '800', textAlign: 'center' }}>Quadra</th>
+                                <th style={{ padding: '1rem', fontWeight: '800', textAlign: 'center' }}>Nº Carreta</th>
+                                <th style={{ padding: '1rem', fontWeight: '800', textAlign: 'center' }}>Turno</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredDivergences.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                                        <AlertTriangle size={48} style={{ opacity: 0.1, marginBottom: '1rem', display: 'block', margin: '0 auto' }} />
+                                        Nenhuma divergência de campo encontrada para os filtros selecionados.
+                                    </td>
+                                </tr>
+                            ) : (
+                                filteredDivergences.map(d => {
+                                    const style = getDivergenceStyle(d.divergencia);
+                                    const sinal = d.divergencia > 0 ? '+' : '';
+                                    return (
+                                        <tr key={d.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#ffffff', transition: 'all 0.2s' }}>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '700', color: 'var(--text-muted)' }}>
+                                                {d.data_saida ? format(parseISO(d.data_saida), 'dd/MM/yyyy') : '-'}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', fontWeight: '900', color: 'var(--primary)' }}>
+                                                {d.insumos?.insumo}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '0.4rem 0.8rem', borderRadius: '8px',
+                                                    background: style.bg, color: style.color,
+                                                    fontWeight: '900', fontSize: '0.9rem',
+                                                    display: 'inline-block', minWidth: '80px'
+                                                }}>
+                                                    {sinal}{d.divergencia.toFixed(2)}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '700', color: 'var(--text-muted)' }}>
+                                                {d.ordens_saida?.numero_receita || '-'}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '700', color: 'var(--text)' }}>
+                                                Q-{d.quadras?.nome || '-'}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '700', color: 'var(--text)' }}>
+                                                {d.ordens_saida?.numero_carreta || '-'}
+                                            </td>
+                                            <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '800', color: 'var(--text)' }}>
+                                                {d.ordens_saida?.turno || '-'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1248,6 +1465,7 @@ export default function Dashboard({ logo }) {
                     { id: 'mapaManual', label: 'Mapa Manual (Livre)', icon: <Map size={18} /> },
                     { id: 'leprose', label: 'Relatório Leprose', icon: <Bug size={18} /> },
                     { id: 'relatorioAtividade', label: 'Relatório por Atividade', icon: <ListFilter size={18} /> },
+                    { id: 'divergencias', label: 'Divergências Campo', icon: <AlertTriangle size={18} /> },
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -1258,7 +1476,7 @@ export default function Dashboard({ logo }) {
                             padding: activeTab === tab.id ? '2.5px' : '0.75rem 1.25rem',
                             borderRadius: '14px', border: '1.5px solid var(--border)',
                             background: activeTab === tab.id ? 'transparent' : 'white',
-                            color: activeTab === tab.id ? (tab.id === 'leprose' ? '#ef4444' : 'var(--text)') : 'var(--text-muted)',
+                            color: activeTab === tab.id ? (tab.id === 'leprose' || tab.id === 'divergencias' ? '#ef4444' : 'var(--text)') : 'var(--text-muted)',
                             cursor: 'pointer', fontWeight: '900',
                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                             whiteSpace: 'nowrap', fontSize: '0.85rem'
@@ -1286,6 +1504,7 @@ export default function Dashboard({ logo }) {
                     {activeTab === 'leprose' && renderLeprose()}
                     {activeTab === 'relatorioAtividade' && renderRelatorioAtividade()}
                     {activeTab === 'mapaManual' && renderMapaManual()}
+                    {activeTab === 'divergencias' && renderDivergencias()}
                 </>
             )}
 
