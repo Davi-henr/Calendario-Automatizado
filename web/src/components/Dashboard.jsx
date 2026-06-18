@@ -1317,7 +1317,7 @@ export default function Dashboard({ logo }) {
                 ];
             });
 
-            autoTable(doc, {
+            doc.autoTable({
                 startY: 35,
                 head: [['Data Ocorrido', 'Insumo', 'Qtde Divergente', 'Nº Receita', 'Quadra', 'Nº Carreta', 'Turno']],
                 body: tableData,
