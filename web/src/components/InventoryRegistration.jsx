@@ -195,7 +195,8 @@ export default function InventoryRegistration({ subview }) {
                 principio_ativo: '',
                 dias_carencia: '',
                 dosagem: '',
-                saldo_inicial: ''
+                saldo_inicial: '',
+                exibir_auditoria: true
             });
         } else if (subview === 'atividade') {
             setFormData({ nome: '' });
@@ -287,6 +288,7 @@ export default function InventoryRegistration({ subview }) {
                 { name: 'dias_carencia', label: 'Dias de Carência', type: 'number' },
                 { name: 'dosagem', label: 'Dosagem Recomendada' },
                 { name: 'saldo_inicial', label: 'Saldo Inicial', type: 'number' },
+                { name: 'exibir_auditoria', label: 'Exibir na Auditoria (Citrus)', type: 'checkbox', fullWidth: true }
             ]
         },
         atividade: {
@@ -539,19 +541,38 @@ export default function InventoryRegistration({ subview }) {
                         </div>
 
                         <form onSubmit={handleSave} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-                            {config.fields.map(field => (
-                                <div key={field.name} className="form-group" style={{ gridColumn: field.fullWidth ? '1 / -1' : 'auto' }}>
-                                    <label style={{ color: 'var(--text)', fontWeight: '800', fontSize: '0.85rem', marginBottom: '0.5rem', display: 'block' }}>{field.label}</label>
-                                    <input
-                                        type={field.type || 'text'}
-                                        className="input-field"
-                                        style={{ width: '100%', padding: '0.9rem', borderRadius: '12px' }}
-                                        value={formData[field.name] || ''}
-                                        onChange={e => setFormData({ ...formData, [field.name]: e.target.value })}
-                                        required={field.required}
-                                    />
-                                </div>
-                            ))}
+                            {config.fields.map(field => {
+                                if (field.type === 'checkbox') {
+                                    return (
+                                        <div key={field.name} className="form-group" style={{ gridColumn: field.fullWidth ? '1 / -1' : 'auto', display: 'flex', alignItems: 'center', gap: '10px', marginTop: '0.5rem' }}>
+                                            <input
+                                                type="checkbox"
+                                                id={field.name}
+                                                checked={formData[field.name] !== false}
+                                                onChange={e => setFormData({ ...formData, [field.name]: e.target.checked })}
+                                                style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                                            />
+                                            <label htmlFor={field.name} style={{ color: 'var(--text)', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer', margin: 0 }}>
+                                                {field.label}
+                                            </label>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div key={field.name} className="form-group" style={{ gridColumn: field.fullWidth ? '1 / -1' : 'auto' }}>
+                                        <label style={{ color: 'var(--text)', fontWeight: '800', fontSize: '0.85rem', marginBottom: '0.5rem', display: 'block' }}>{field.label}</label>
+                                        <input
+                                            type={field.type || 'text'}
+                                            className="input-field"
+                                            style={{ width: '100%', padding: '0.9rem', borderRadius: '12px' }}
+                                            value={formData[field.name] || ''}
+                                            onChange={e => setFormData({ ...formData, [field.name]: e.target.value })}
+                                            required={field.required}
+                                        />
+                                    </div>
+                                );
+                            })}
 
                             <div style={{ gridColumn: '1 / -1', marginTop: '1.5rem', display: 'flex', gap: '1rem' }}>
                                 <button type="submit" className="btn btn-primary" style={{ flex: 1, padding: '1rem', borderRadius: '14px' }}>
