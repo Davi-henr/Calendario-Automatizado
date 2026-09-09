@@ -13,6 +13,7 @@ import {
     User,
     Settings as SettingsIcon,
     ClipboardList,
+    ShieldCheck, // Ícone adicionado para a Auditoria
 } from 'lucide-react';
 
 import Launch from './components/Launch';
@@ -22,6 +23,7 @@ import Dashboard from './components/Dashboard';
 import Hub from './components/Hub';
 import Inventory from './components/Inventory';
 import Prescriptions from './components/Prescriptions';
+import PrescriptionsAudit from './components/PrescriptionsAudit'; // Tela Nova Adicionada
 import Settings from './components/Settings';
 import { settingsService } from './lib/services';
 
@@ -178,6 +180,7 @@ function App() {
     const adminMenuItems = [
         { id: 'dashboard', label: 'Dashboard', icon: <PieChart /> },
         { id: 'prescriptions', label: 'Receitas', icon: <ClipboardList /> },
+        { id: 'audit', label: 'Auditoria', icon: <ShieldCheck /> }, // Menu novo inserido aqui
         { id: 'calendar', label: 'Calendário', icon: <CalendarIcon /> },
     ];
 
@@ -337,6 +340,7 @@ function App() {
                 <div className="container" style={{ padding: 0 }}>
                     {currentPage === 'launch' && <Launch logo={logo} />}
                     {currentPage === 'prescriptions' && <Prescriptions logo={logo} />}
+                    {currentPage === 'audit' && <PrescriptionsAudit logo={logo} />} {/* Renderização da Tela Nova */}
                     {currentPage === 'dashboard' && <Dashboard logo={logo} />}
                     {currentPage === 'calendar' && <SprayingCalendar logo={logo} />}
                     {currentPage === 'climate' && <Climate logo={logo} />}
