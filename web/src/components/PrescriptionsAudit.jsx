@@ -9,7 +9,6 @@ import autoTable from 'jspdf-autotable';
 const PrescriptionsAudit = ({ logo }) => {
     const [ordens, setOrdens] = useState([]);
     const [searchTerm, setSearchTerm] = useState(''); 
-    const [statusFilter, setStatusFilter] = useState('Pendente');
     const [insumosMeta, setInsumosMeta] = useState([]);
     const [quadrasMeta, setQuadrasMeta] = useState([]);
     const [entradasMeta, setEntradasMeta] = useState([]);
@@ -81,9 +80,11 @@ const PrescriptionsAudit = ({ logo }) => {
             const osNum = String(os.numero_os || '').padStart(6, '0');
             const quadra = (os.quadra || '').toLowerCase();
             const operacao = (os.operacao || '').toLowerCase();
+            
             const matchSearch = osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
-            const dynamicStatus = getDynamicStatus(os);
-            const matchStatus = statusFilter === 'Todos' || dynamicStatus === statusFilter;
+            // TRAVADO: Só aceita se a OS estiver Finalizada
+            const matchStatus = os.situacao === 'Finalizada'; 
+            
             return matchSearch && matchStatus;
         });
         filtered.sort((a, b) => {
@@ -93,7 +94,7 @@ const PrescriptionsAudit = ({ logo }) => {
             return (b.numero_os || 0) - (a.numero_os || 0);
         });
         return filtered;
-    }, [ordens, searchTerm, statusFilter]);
+    }, [ordens, searchTerm]);
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -389,15 +390,6 @@ const PrescriptionsAudit = ({ logo }) => {
             <div className="premium-card glass">
                 {ordens.length > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', gap: '1rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <Filter size={16} style={{ color: '#94a3b8' }} />
-                            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="filter-select" style={{ minWidth: '150px' }}>
-                                <option value="Todos">Todas as Situações</option>
-                                <option value="Pendente">Pendentes</option>
-                                <option value="Iniciada">Iniciadas</option>
-                                <option value="Finalizada">Finalizadas</option>
-                            </select>
-                        </div>
                         <div style={{ position: 'relative', width: '300px' }}>
                             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                             <input type="text" placeholder="Buscar por OS, Quadra..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.2rem', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none' }} />
