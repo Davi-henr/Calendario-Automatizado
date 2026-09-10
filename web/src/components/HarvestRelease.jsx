@@ -145,63 +145,60 @@ export default function HarvestRelease({ logo }) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 1. Mapeia e calcula a data ajustada, IGNORANDO 'Bordas' e 'Limão'
-        const allProcessed = registros
-            .filter(r => r.quadra !== 'Bordas' && r.quadra !== 'Limão')
-            .map(reg => {
-                const dataBase = adjustedDates[reg.id] || reg.data_inicial;
-                const carenciaMaxima = reg.os_id ? getMaxCarencia(reg.os_id) : parseInt(reg.dias_carencia || 0, 10);
-                
-                let dataLiberada = null;
-                let statusColheita = 'Bloqueada';
-                
-                if (dataBase) {
-                    const dateObj = parseISO(dataBase);
-                    dataLiberada = addDays(dateObj, carenciaMaxima);
-                    
-                    if (reg.situacao === 'Iniciada') {
-                        statusColheita = 'Bloqueada';
-                    } else if (differenceInDays(today, dataLiberada) >= 0) {
-                        statusColheita = 'Liberada';
-                    } else {
-                        statusColheita = 'Bloqueada';
-                    }
-                }
+        // 1. Filtra as quadras ignoradas ANTES de fazer qualquer cálculo
+        const registrosFiltrados = registros.filter(r => 
+            r.quadra !== 'Bordas' && r.quadra !== 'Limão'
+        );
+        
+        // 2. Ordena pela data REAL do banco (mais recente primeiro) e usa o ID como desempate.
+        // Isso impede que a tabela se misture ou que uma quadra perca a operação certa.
+        registrosFiltrados.sort((a, b) => {
+            const dateA = new Date(a.data_inicial).getTime() || 0;
+            const dateB = new Date(b.data_inicial).getTime() || 0;
+            if (dateB !== dateA) return dateB - dateA;
+            return String(b.id).localeCompare(String(a.id), undefined, { numeric: true });
+        });
 
-                return {
-                    ...reg,
-                    data_base: dataBase,
-                    carencia_maxima: carenciaMaxima,
-                    data_liberada: dataLiberada,
-                    status_colheita: statusColheita
-                };
-            });
-
-        // 2. Agrupa por quadra para manter APENAS O MAIS RECENTE de cada quadra
+        // 3. Pega SOMENTE o primeiro registro de cada quadra (que já sabemos ser o mais recente)
         const quadrasMap = {};
-        allProcessed.forEach(reg => {
+        registrosFiltrados.forEach(reg => {
             const quadra = String(reg.quadra);
             if (!quadrasMap[quadra]) {
                 quadrasMap[quadra] = reg;
-            } else {
-                const currentData = new Date(quadrasMap[quadra].data_base).getTime() || 0;
-                const newData = new Date(reg.data_base).getTime() || 0;
-                
-                // Se a data do loop for maior (mais recente), substitui.
-                if (newData > currentData) {
-                    quadrasMap[quadra] = reg;
-                } else if (newData === currentData) {
-                    // Desempate: Se as datas forem idênticas, mantém o que foi criado por último no banco (ID maior)
-                    if (reg.id > quadrasMap[quadra].id) {
-                        quadrasMap[quadra] = reg;
-                    }
-                }
             }
         });
 
-        let data = Object.values(quadrasMap);
+        // 4. Agora aplica a "maquiagem" da data apenas nessas quadras separadas
+        let data = Object.values(quadrasMap).map(reg => {
+            const dataBase = adjustedDates[reg.id] || reg.data_inicial;
+            const carenciaMaxima = reg.os_id ? getMaxCarencia(reg.os_id) : parseInt(reg.dias_carencia || 0, 10);
+            
+            let dataLiberada = null;
+            let statusColheita = 'Bloqueada';
+            
+            if (dataBase) {
+                const dateObj = parseISO(dataBase);
+                dataLiberada = addDays(dateObj, carenciaMaxima);
+                
+                if (reg.situacao === 'Iniciada') {
+                    statusColheita = 'Bloqueada';
+                } else if (differenceInDays(today, dataLiberada) >= 0) {
+                    statusColheita = 'Liberada';
+                } else {
+                    statusColheita = 'Bloqueada';
+                }
+            }
 
-        // 3. Aplica os filtros da tela
+            return {
+                ...reg,
+                data_base: dataBase,
+                carencia_maxima: carenciaMaxima,
+                data_liberada: dataLiberada,
+                status_colheita: statusColheita
+            };
+        });
+
+        // 5. Filtros visuais
         if (searchTerm) {
             const lowerSearch = searchTerm.toLowerCase();
             data = data.filter(r => (r.quadra || '').toLowerCase().includes(lowerSearch) || (r.receita || '').toLowerCase().includes(lowerSearch));
@@ -210,7 +207,7 @@ export default function HarvestRelease({ logo }) {
             data = data.filter(r => r.status_colheita === filterStatus);
         }
 
-        // 4. Ordena: Ordem alfanumérica crescente pelas quadras (001, 002, 005A, 005B...)
+        // 6. Ordem Alfanumérica (A-Z) para as linhas nunca pularem de lugar.
         data.sort((a, b) => String(a.quadra).localeCompare(String(b.quadra), undefined, { numeric: true, sensitivity: 'base' }));
 
         return data;
@@ -221,7 +218,7 @@ export default function HarvestRelease({ logo }) {
     // ==========================================
     const getQuadraHarvestState = (quadraId) => {
         const records = processedData.filter(r => String(r.quadra) === String(quadraId));
-        if (records.length === 0) return 'Vazia'; // Cinza (Sem aplicações recentes ativas)
+        if (records.length === 0) return 'Vazia'; 
         
         const isBlocked = records.some(r => r.status_colheita === 'Bloqueada');
         return isBlocked ? 'Bloqueada' : 'Liberada';
@@ -229,9 +226,9 @@ export default function HarvestRelease({ logo }) {
 
     const getQuadraColor = (quadraId) => {
         const state = getQuadraHarvestState(quadraId);
-        if (state === 'Bloqueada') return '#fca5a5'; // Vermelho
-        if (state === 'Liberada') return '#bbf7d0'; // Verde
-        return '#f1f5f9'; // Cinza/Vazia
+        if (state === 'Bloqueada') return '#fca5a5'; 
+        if (state === 'Liberada') return '#bbf7d0'; 
+        return '#f1f5f9'; 
     };
 
     const getQuadraStroke = (quadraId) => {
@@ -284,7 +281,6 @@ export default function HarvestRelease({ logo }) {
             const doc = new jsPDF('p', 'mm', 'a4');
             const pw = doc.internal.pageSize.getWidth();
 
-            // Cabeçalho
             if (logo) doc.addImage(logo, 'PNG', 14, 10, 25, 15);
             doc.setFontSize(14);
             doc.setFont('helvetica', 'bold');
@@ -293,7 +289,6 @@ export default function HarvestRelease({ logo }) {
             doc.setFont('helvetica', 'normal');
             doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy')}`, pw / 2, 22, { align: 'center' });
 
-            // Imagem do Mapa
             const mapW = 110;
             const mapH = mapW * (646 / 522);
             const mapX = (pw - mapW) / 2;
@@ -301,7 +296,6 @@ export default function HarvestRelease({ logo }) {
 
             let currentY = 30 + mapH + 15;
 
-            // Tabela de Dados (Auditoria)
             const tableBody = processedData.map(reg => [
                 `Q-${reg.quadra}`,
                 reg.receita,
@@ -390,7 +384,6 @@ export default function HarvestRelease({ logo }) {
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', flex: 1, minHeight: '500px' }}>
-                {/* O MAPA */}
                 <div className="premium-card" style={{ flex: 2.5, display: 'flex', justifyContent: 'center', background: '#fff', position: 'relative' }}>
                     {loading ? (
                         <p style={{ alignSelf: 'center', color: '#94a3b8' }}>Calculando Carências...</p>
@@ -430,7 +423,6 @@ export default function HarvestRelease({ logo }) {
                     )}
                 </div>
 
-                {/* PAINEL DE DETALHES DA QUADRA */}
                 <div className="premium-card" style={{ flex: 1.5, background: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', borderLeft: '5px solid var(--primary)', overflowY: 'auto' }}>
                     <h2 style={{ fontSize: '1.2rem', color: 'var(--primary)', borderBottom: '2px solid var(--border)', paddingBottom: '0.5rem' }}>
                         <MapIcon size={20} style={{ verticalAlign: 'middle', marginRight: '5px' }}/> Quadra {selectedQuadraId || '...'}
@@ -470,7 +462,6 @@ export default function HarvestRelease({ logo }) {
                 </div>
             </div>
 
-            {/* TABELA DE AUDITORIA COM DATAS EDITÁVEIS */}
             <div className="premium-card glass" style={{ marginTop: '1rem' }}>
                 <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Beaker size={20} color="var(--secondary)" /> Detalhamento Operacional (Edição de Auditoria)
@@ -481,7 +472,7 @@ export default function HarvestRelease({ logo }) {
                             <tr style={{ borderBottom: '2.5px solid var(--border)', textAlign: 'left' }}>
                                 <th style={{ padding: '1rem' }}>Quadra</th>
                                 <th style={{ padding: '1rem' }}>Operação / Receita</th>
-                                <th style={{ padding: '1rem' }}>Data Iniciada (Editável)</th>
+                                <th style={{ padding: '1rem' }}>Data Inicial (Editável)</th>
                                 <th style={{ padding: '1rem', textAlign: 'center' }}>Carência</th>
                                 <th style={{ padding: '1rem' }}>Liberada em</th>
                                 <th style={{ padding: '1rem' }}>Status</th>
@@ -496,7 +487,7 @@ export default function HarvestRelease({ logo }) {
                                         <td style={{ padding: '1rem', fontWeight: '900', color: 'var(--text)' }}>Q-{reg.quadra}</td>
                                         <td style={{ padding: '1rem', fontWeight: '600', color: 'var(--text-muted)' }}>{reg.receita}</td>
                                         <td style={{ padding: '1rem' }}>
-                                            {/* CAMPO EDITÁVEL: USANDO onBlur E defaultValue */}
+                                            {/* CAMPO EDITÁVEL ISOLADO - Só salva ao sair do campo (onBlur) */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <CalendarIcon size={16} color="var(--primary)" />
                                                 <input 
