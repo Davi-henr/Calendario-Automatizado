@@ -107,7 +107,6 @@ export default function HarvestRelease({ logo }) {
                 osService.getAll(),
                 insumosService.getAll()
             ]);
-            // Apenas OS ativas que interferem na colheita
             setRegistros(regData.filter(r => r.situacao === 'Iniciada' || r.situacao === 'Finalizada'));
             setOsList(osData);
             setInsumosMeta(insData);
@@ -146,8 +145,8 @@ export default function HarvestRelease({ logo }) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        let data = registros.map(reg => {
-            // Se houver data editada localmente, usa ela. Senão, puxa a real do banco.
+        // 1. Mapeia e calcula a data ajustada e status de TODOS os registros
+        const allProcessed = registros.map(reg => {
             const dataBase = adjustedDates[reg.id] || reg.data_inicial;
             const carenciaMaxima = reg.os_id ? getMaxCarencia(reg.os_id) : parseInt(reg.dias_carencia || 0, 10);
             
@@ -158,7 +157,6 @@ export default function HarvestRelease({ logo }) {
                 const dateObj = parseISO(dataBase);
                 dataLiberada = addDays(dateObj, carenciaMaxima);
                 
-                // Regra de Liberação: Se está 'Iniciada', bloqueia. Se a data chegou, libera.
                 if (reg.situacao === 'Iniciada') {
                     statusColheita = 'Bloqueada';
                 } else if (differenceInDays(today, dataLiberada) >= 0) {
@@ -177,6 +175,32 @@ export default function HarvestRelease({ logo }) {
             };
         });
 
+        // 2. Agrupa por quadra para manter APENAS O MAIS RECENTE de cada quadra
+        const quadrasMap = {};
+        allProcessed.forEach(reg => {
+            const quadra = String(reg.quadra);
+            if (!quadrasMap[quadra]) {
+                quadrasMap[quadra] = reg;
+            } else {
+                const currentData = new Date(quadrasMap[quadra].data_base).getTime() || 0;
+                const newData = new Date(reg.data_base).getTime() || 0;
+                
+                // Se a data do loop for maior (mais recente), substitui.
+                if (newData > currentData) {
+                    quadrasMap[quadra] = reg;
+                } else if (newData === currentData) {
+                    // Desempate: Se as datas forem idênticas, mantém o que foi criado por último no banco (ID maior)
+                    if (reg.id > quadrasMap[quadra].id) {
+                        quadrasMap[quadra] = reg;
+                    }
+                }
+            }
+        });
+
+        // Converte o objeto de volta para um array
+        let data = Object.values(quadrasMap);
+
+        // 3. Aplica os filtros da tela
         if (searchTerm) {
             const lowerSearch = searchTerm.toLowerCase();
             data = data.filter(r => (r.quadra || '').toLowerCase().includes(lowerSearch) || (r.receita || '').toLowerCase().includes(lowerSearch));
@@ -185,7 +209,7 @@ export default function HarvestRelease({ logo }) {
             data = data.filter(r => r.status_colheita === filterStatus);
         }
 
-        // Ordena: Bloqueadas no topo, seguidas pela data mais recente
+        // 4. Ordena: Bloqueadas no topo, seguidas pela data mais recente
         data.sort((a, b) => {
             if (a.status_colheita === 'Bloqueada' && b.status_colheita === 'Liberada') return -1;
             if (a.status_colheita === 'Liberada' && b.status_colheita === 'Bloqueada') return 1;
@@ -200,9 +224,8 @@ export default function HarvestRelease({ logo }) {
     // ==========================================
     const getQuadraHarvestState = (quadraId) => {
         const records = processedData.filter(r => String(r.quadra) === String(quadraId));
-        if (records.length === 0) return 'Vazia'; // Cinza (Sem aplicações ativas)
+        if (records.length === 0) return 'Vazia'; // Cinza (Sem aplicações recentes ativas)
         
-        // Se QUALQUER aplicação da quadra estiver Bloqueada, a quadra inteira fica Vermelha
         const isBlocked = records.some(r => r.status_colheita === 'Bloqueada');
         return isBlocked ? 'Bloqueada' : 'Liberada';
     };
@@ -307,8 +330,8 @@ export default function HarvestRelease({ logo }) {
                     headStyles: { fillColor: [37, 99, 235] }, 
                     didParseCell: function(data) {
                         if (data.section === 'body' && data.column.index === 5) {
-                            if (data.cell.raw === 'Liberada') data.cell.styles.textColor = [22, 163, 74]; // Verde
-                            if (data.cell.raw === 'Bloqueada') data.cell.styles.textColor = [220, 38, 38]; // Vermelho
+                            if (data.cell.raw === 'Liberada') data.cell.styles.textColor = [22, 163, 74]; 
+                            if (data.cell.raw === 'Bloqueada') data.cell.styles.textColor = [220, 38, 38]; 
                         }
                     }
                 });
@@ -419,12 +442,12 @@ export default function HarvestRelease({ logo }) {
                     {!selectedQuadraId ? (
                         <div style={{ textAlign: 'center', marginTop: '2rem', color: '#94a3b8' }}>
                             <AlertCircle size={40} style={{ margin: '0 auto 1rem', opacity: 0.3 }}/>
-                            <p style={{ fontSize: '0.8rem' }}>Clique em uma quadra no mapa para ver as aplicações.</p>
+                            <p style={{ fontSize: '0.8rem' }}>Clique em uma quadra no mapa para ver a aplicação mais recente.</p>
                         </div>
                     ) : latestSelected.length === 0 ? (
                         <div style={{ textAlign: 'center', marginTop: '2rem', color: '#94a3b8' }}>
                             <ShieldCheck size={40} style={{ margin: '0 auto 1rem', color: '#22c55e', opacity: 0.5 }}/>
-                            <p style={{ fontSize: '0.8rem' }}>Quadra totalmente liberada.<br/>Nenhuma aplicação ativa encontrada.</p>
+                            <p style={{ fontSize: '0.8rem' }}>Quadra totalmente liberada.<br/>Nenhuma aplicação recente encontrada.</p>
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
