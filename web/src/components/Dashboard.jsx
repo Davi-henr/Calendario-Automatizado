@@ -480,6 +480,22 @@ export default function Dashboard({ logo }) {
     const renderResumo = () => {
         const activityTotals = {};
         normalRegistros.forEach(r => {
+            // --- NOVO: Aplica dinamicamente os mesmos filtros nos Cards de Resumo ---
+            if (summaryFilters.quadra !== 'Todos' && r.quadra !== summaryFilters.quadra) return;
+            if (summaryFilters.receita !== 'Todos' && r.receita !== summaryFilters.receita) return;
+            
+            const dataRef = r.data_final || r.data_inicial;
+            if (dataRef && summaryStartDate && summaryEndDate) {
+                try {
+                    if (!isWithinInterval(parseISO(dataRef), { start: parseISO(summaryStartDate), end: parseISO(summaryEndDate) })) {
+                        return;
+                    }
+                } catch (e) {
+                    return;
+                }
+            }
+            // ------------------------------------------------------------------------
+
             activityTotals[r.receita] = (activityTotals[r.receita] || 0) + (parseInt(r.quantidade_bombas) || 0);
         });
 
@@ -839,6 +855,7 @@ export default function Dashboard({ logo }) {
                             {recipes.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
                         <select value={actReportClass} onChange={(e) => setActReportClass(e.target.value)} className="filter-select">
+                            <option value="Todos">Todos Insumos</option>
                             {classOptions.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                     </div>
