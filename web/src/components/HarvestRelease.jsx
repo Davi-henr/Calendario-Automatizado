@@ -320,7 +320,7 @@ export default function HarvestRelease({ logo }) {
                 
                 autoTable(doc, {
                     startY: currentY + 3,
-                    head: [['Quadra', 'Operação', 'Data Início', 'Carência', 'Liberação', 'Status']],
+                    head: [['Quadra', 'Operação', 'Data Pulverização', 'Carência', 'Liberação', 'Status']],
                     body: tableBody,
                     theme: 'grid',
                     styles: { fontSize: 8, cellPadding: 1.5 },
@@ -481,7 +481,7 @@ export default function HarvestRelease({ logo }) {
                             <tr style={{ borderBottom: '2.5px solid var(--border)', textAlign: 'left' }}>
                                 <th style={{ padding: '1rem' }}>Quadra</th>
                                 <th style={{ padding: '1rem' }}>Operação / Receita</th>
-                                <th style={{ padding: '1rem' }}>Data Inicial (Editável p/ Auditoria)</th>
+                                <th style={{ padding: '1rem' }}>Data Iniciada (Editável)</th>
                                 <th style={{ padding: '1rem', textAlign: 'center' }}>Carência</th>
                                 <th style={{ padding: '1rem' }}>Liberada em</th>
                                 <th style={{ padding: '1rem' }}>Status</th>
