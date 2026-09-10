@@ -24,6 +24,7 @@ import Hub from './components/Hub';
 import Inventory from './components/Inventory';
 import Prescriptions from './components/Prescriptions';
 import PrescriptionsAudit from './components/PrescriptionsAudit'; // Tela Nova Adicionada
+import HarvestRelease from './components/HarvestRelease'; // <-- TELA NOVA ADICIONADA: Relatório Colheita
 import Settings from './components/Settings';
 import { settingsService } from './lib/services';
 
@@ -181,6 +182,7 @@ function App() {
         { id: 'dashboard', label: 'Dashboard', icon: <PieChart /> },
         { id: 'prescriptions', label: 'Receitas', icon: <ClipboardList /> },
         { id: 'audit', label: 'Auditoria', icon: <ShieldCheck /> }, // Menu novo inserido aqui
+        { id: 'harvest', label: 'Relatório Colheita', icon: <Sprout /> }, // <-- MENU NOVO ADICIONADO AQUI
         { id: 'calendar', label: 'Calendário', icon: <CalendarIcon /> },
     ];
 
@@ -341,6 +343,7 @@ function App() {
                     {currentPage === 'launch' && <Launch logo={logo} />}
                     {currentPage === 'prescriptions' && <Prescriptions logo={logo} />}
                     {currentPage === 'audit' && <PrescriptionsAudit logo={logo} />} {/* Renderização da Tela Nova */}
+                    {currentPage === 'harvest' && <HarvestRelease logo={logo} />} {/* <-- COMPONENTE NOVO RENDERIZADO AQUI */}
                     {currentPage === 'dashboard' && <Dashboard logo={logo} />}
                     {currentPage === 'calendar' && <SprayingCalendar logo={logo} />}
                     {currentPage === 'climate' && <Climate logo={logo} />}
