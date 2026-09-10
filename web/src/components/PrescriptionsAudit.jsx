@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { osService, insumosService, quadrasService, ordensSaidaService, entradasService, saidasService } from '../lib/services';
-import { Search, Printer, ClipboardList, CheckCircle, Clock, AlertCircle, Filter, CheckSquare } from 'lucide-react';
+import { Search, Printer, ClipboardList, CheckCircle, Clock, AlertCircle, Filter, CheckSquare, Calendar as CalendarIcon } from 'lucide-react';
 import { format, parseISO, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { jsPDF } from 'jspdf';
@@ -17,7 +17,15 @@ const PrescriptionsAudit = ({ logo }) => {
     const [isPrinting, setIsPrinting] = useState(false);
     const [selectedIds, setSelectedIds] = useState([]);
 
+    // Estado para guardar as Datas Finais "maquiadas" só para a auditoria
+    const [adjustedFinalDates, setAdjustedFinalDates] = useState({});
+
     useEffect(() => {
+        // Carrega as datas finais alteradas do armazenamento local do navegador
+        const savedDates = localStorage.getItem('audit_os_final_dates');
+        if (savedDates) {
+            setAdjustedFinalDates(JSON.parse(savedDates));
+        }
         fetchData();
     }, []);
 
@@ -63,12 +71,20 @@ const PrescriptionsAudit = ({ logo }) => {
         return 'Pendente';
     };
 
+    // Atualiza o localStorage sem mexer no banco de dados
+    const handleFinalDateChange = (osId, newDate) => {
+        setAdjustedFinalDates(prev => {
+            const next = { ...prev, [osId]: newDate };
+            localStorage.setItem('audit_os_final_dates', JSON.stringify(next));
+            return next;
+        });
+    };
+
     // FILTRO VITAL DA AUDITORIA (Remove da tela e do PDF)
     const filtrarInsumosAuditoria = (insumos) => {
         if (!insumos) return [];
         return insumos.filter(ins => {
             const matchedMaterial = insumosMeta.find(m => m.insumo?.toLowerCase() === ins.material?.toLowerCase().trim());
-            // Se o produto existir e estiver marcado como FALSE, ele sai da lista.
             if (matchedMaterial && matchedMaterial.exibir_auditoria === false) return false;
             return true;
         });
@@ -129,6 +145,9 @@ const PrescriptionsAudit = ({ logo }) => {
                 const areaHa = quadraInfo.hectares ? String(quadraInfo.hectares) : String(os.area_ha || '');
                 const variety = quadraInfo.variedade || '';
 
+                // PEGA A DATA FINAL AJUSTADA (OU A DO BANCO SE NÃO TIVER EDIÇÃO)
+                const adjustedFinalDate = adjustedFinalDates[os.id] || reg.data_final || '';
+
                 doc.setFont('helvetica', 'normal');
                 doc.setDrawColor(0);
                 doc.setLineWidth(0.4);
@@ -185,8 +204,11 @@ const PrescriptionsAudit = ({ logo }) => {
                 doc.rect(90, row3Y, 45, 6); doc.text('N° Lançamento:', 92, row3Y + 4.5);
                 doc.rect(135, row3Y, 40, 6); doc.text('', 137, row3Y + 4.5);
                 doc.rect(175, row3Y, 35, 6); doc.text('Data Final:', 177, row3Y + 4.5);
-                const dataFinalStr = reg.data_final ? format(parseISO(reg.data_final), 'dd / MM / yyyy') : '        /        /        ';
+                
+                // IMPRIME A DATA FINAL EDITADA NO LUGAR DA ORIGINAL
+                const dataFinalStr = adjustedFinalDate ? format(parseISO(adjustedFinalDate), 'dd / MM / yyyy') : '        /        /        ';
                 doc.rect(210, row3Y, 35, 6); doc.text(dataFinalStr, 212, row3Y + 4.5);
+                
                 doc.rect(245, row3Y, 25, 6); doc.text('Marcha:', 247, row3Y + 4.5);
                 doc.rect(270, row3Y, 22, 6); doc.text(String(os.dados_tecnicos?.marcha || ''), 272, row3Y + 4.5);
 
@@ -286,8 +308,9 @@ const PrescriptionsAudit = ({ logo }) => {
                 doc.rect(135, midY, 75, 6); doc.text('Carencia (Dias):    ' + carenciaParaImprimir, 137, midY + 4.5);
                 
                 let liberadoColheitaText = 'LIBERADO COLHEITA:';
-                if (os.situacao === 'Finalizada' && reg.data_final) {
-                    const releaseDate = addDays(parseISO(reg.data_final), carenciaParaImprimir);
+                // CALCULA A LIBERAÇÃO USANDO A DATA FINAL EDITADA
+                if (os.situacao === 'Finalizada' && adjustedFinalDate) {
+                    const releaseDate = addDays(parseISO(adjustedFinalDate), carenciaParaImprimir);
                     liberadoColheitaText += ' ' + format(releaseDate, 'dd/MM/yyyy');
                 } else {
                     liberadoColheitaText += ' (Aguardando Fim)';
@@ -412,7 +435,7 @@ const PrescriptionsAudit = ({ logo }) => {
                                         <input type="checkbox" onChange={handleSelectAll} checked={selectedIds.length === filteredOrdens.length && filteredOrdens.length > 0} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
                                     </th>
                                     <th style={{ padding: '1rem' }}>OS Nº</th>
-                                    <th style={{ padding: '1rem' }}>Data</th>
+                                    <th style={{ padding: '1rem' }}>Data Final (Editável)</th>
                                     <th style={{ padding: '1rem' }}>Quadra</th>
                                     <th style={{ padding: '1rem' }}>Operação</th>
                                     <th style={{ padding: '1rem' }}>Insumos (Filtrados)</th>
@@ -424,6 +447,10 @@ const PrescriptionsAudit = ({ logo }) => {
                                     const status = getStatusStyle(os.situacao);
                                     const insumosParaAuditoria = filtrarInsumosAuditoria(os.insumos);
                                     
+                                    // Pega os registros da OS para buscar a data final real do banco
+                                    const reg = os.registros?.[0] || {};
+                                    const adjustedFinalDate = adjustedFinalDates[os.id] || reg.data_final || '';
+                                    
                                     return (
                                         <tr key={os.id} style={{ borderBottom: '1px solid var(--border)', fontSize: '0.88rem' }}>
                                             <td style={{ padding: '1rem' }}>
@@ -432,7 +459,30 @@ const PrescriptionsAudit = ({ logo }) => {
                                             <td style={{ padding: '1rem', fontWeight: '900', color: 'var(--primary)' }}>
                                                 {`${format(parseISO(os.data_prescricao), 'yy')}/${String(os.numero_os).padStart(6, '0')}`}
                                             </td>
-                                            <td style={{ padding: '1rem', fontWeight: '600' }}>{format(parseISO(os.data_prescricao), 'dd/MM/yy')}</td>
+                                            
+                                            <td style={{ padding: '1rem' }}>
+                                                {/* CAMPO EDITÁVEL DA DATA FINAL (ONBLUR) */}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <CalendarIcon size={16} color="var(--primary)" />
+                                                    <input 
+                                                        type="date" 
+                                                        defaultValue={adjustedFinalDate}
+                                                        onBlur={(e) => {
+                                                            if (e.target.value !== adjustedFinalDate) {
+                                                                handleFinalDateChange(os.id, e.target.value);
+                                                            }
+                                                        }}
+                                                        style={{ 
+                                                            padding: '0.4rem 0.6rem', borderRadius: '6px', 
+                                                            border: '1px solid #bfdbfe', color: 'var(--primary)',
+                                                            fontWeight: 'bold', outline: 'none',
+                                                            backgroundColor: adjustedFinalDates[os.id] ? '#eff6ff' : 'white'
+                                                        }}
+                                                        title={adjustedFinalDates[os.id] ? "Data ajustada para auditoria" : "Data real do sistema"}
+                                                    />
+                                                </div>
+                                            </td>
+                                            
                                             <td style={{ padding: '1rem', fontWeight: '800' }}>Q-{os.quadra}</td>
                                             <td style={{ padding: '1rem', fontWeight: '700' }}>{os.operacao}</td>
                                             <td style={{ padding: '1rem' }}>
