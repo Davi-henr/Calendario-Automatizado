@@ -145,35 +145,37 @@ export default function HarvestRelease({ logo }) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 1. Mapeia e calcula a data ajustada e status de TODOS os registros
-        const allProcessed = registros.map(reg => {
-            const dataBase = adjustedDates[reg.id] || reg.data_inicial;
-            const carenciaMaxima = reg.os_id ? getMaxCarencia(reg.os_id) : parseInt(reg.dias_carencia || 0, 10);
-            
-            let dataLiberada = null;
-            let statusColheita = 'Bloqueada';
-            
-            if (dataBase) {
-                const dateObj = parseISO(dataBase);
-                dataLiberada = addDays(dateObj, carenciaMaxima);
+        // 1. Mapeia e calcula a data ajustada, IGNORANDO 'Bordas' e 'Limão'
+        const allProcessed = registros
+            .filter(r => r.quadra !== 'Bordas' && r.quadra !== 'Limão')
+            .map(reg => {
+                const dataBase = adjustedDates[reg.id] || reg.data_inicial;
+                const carenciaMaxima = reg.os_id ? getMaxCarencia(reg.os_id) : parseInt(reg.dias_carencia || 0, 10);
                 
-                if (reg.situacao === 'Iniciada') {
-                    statusColheita = 'Bloqueada';
-                } else if (differenceInDays(today, dataLiberada) >= 0) {
-                    statusColheita = 'Liberada';
-                } else {
-                    statusColheita = 'Bloqueada';
+                let dataLiberada = null;
+                let statusColheita = 'Bloqueada';
+                
+                if (dataBase) {
+                    const dateObj = parseISO(dataBase);
+                    dataLiberada = addDays(dateObj, carenciaMaxima);
+                    
+                    if (reg.situacao === 'Iniciada') {
+                        statusColheita = 'Bloqueada';
+                    } else if (differenceInDays(today, dataLiberada) >= 0) {
+                        statusColheita = 'Liberada';
+                    } else {
+                        statusColheita = 'Bloqueada';
+                    }
                 }
-            }
 
-            return {
-                ...reg,
-                data_base: dataBase,
-                carencia_maxima: carenciaMaxima,
-                data_liberada: dataLiberada,
-                status_colheita: statusColheita
-            };
-        });
+                return {
+                    ...reg,
+                    data_base: dataBase,
+                    carencia_maxima: carenciaMaxima,
+                    data_liberada: dataLiberada,
+                    status_colheita: statusColheita
+                };
+            });
 
         // 2. Agrupa por quadra para manter APENAS O MAIS RECENTE de cada quadra
         const quadrasMap = {};
@@ -197,7 +199,6 @@ export default function HarvestRelease({ logo }) {
             }
         });
 
-        // Converte o objeto de volta para um array
         let data = Object.values(quadrasMap);
 
         // 3. Aplica os filtros da tela
@@ -209,12 +210,8 @@ export default function HarvestRelease({ logo }) {
             data = data.filter(r => r.status_colheita === filterStatus);
         }
 
-        // 4. Ordena: Bloqueadas no topo, seguidas pela data mais recente
-        data.sort((a, b) => {
-            if (a.status_colheita === 'Bloqueada' && b.status_colheita === 'Liberada') return -1;
-            if (a.status_colheita === 'Liberada' && b.status_colheita === 'Bloqueada') return 1;
-            return new Date(b.data_base).getTime() - new Date(a.data_base).getTime();
-        });
+        // 4. Ordena: Ordem alfanumérica crescente pelas quadras (001, 002, 005A, 005B...)
+        data.sort((a, b) => String(a.quadra).localeCompare(String(b.quadra), undefined, { numeric: true, sensitivity: 'base' }));
 
         return data;
     }, [registros, osList, insumosMeta, adjustedDates, searchTerm, filterStatus]);
@@ -499,13 +496,17 @@ export default function HarvestRelease({ logo }) {
                                         <td style={{ padding: '1rem', fontWeight: '900', color: 'var(--text)' }}>Q-{reg.quadra}</td>
                                         <td style={{ padding: '1rem', fontWeight: '600', color: 'var(--text-muted)' }}>{reg.receita}</td>
                                         <td style={{ padding: '1rem' }}>
-                                            {/* CAMPO EDITÁVEL ISOLADO (LOCALSTORAGE) */}
+                                            {/* CAMPO EDITÁVEL: USANDO onBlur E defaultValue */}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                 <CalendarIcon size={16} color="var(--primary)" />
                                                 <input 
                                                     type="date" 
-                                                    value={reg.data_base}
-                                                    onChange={(e) => handleDateChange(reg.id, e.target.value)}
+                                                    defaultValue={reg.data_base}
+                                                    onBlur={(e) => {
+                                                        if (e.target.value !== reg.data_base) {
+                                                            handleDateChange(reg.id, e.target.value);
+                                                        }
+                                                    }}
                                                     style={{ 
                                                         padding: '0.4rem 0.6rem', borderRadius: '6px', 
                                                         border: '1px solid #bfdbfe', color: 'var(--primary)',
