@@ -9,6 +9,8 @@ import autoTable from 'jspdf-autotable';
 const PrescriptionsAudit = ({ logo }) => {
     const [ordens, setOrdens] = useState([]);
     const [searchTerm, setSearchTerm] = useState(''); 
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [insumosMeta, setInsumosMeta] = useState([]);
     const [quadrasMeta, setQuadrasMeta] = useState([]);
     const [entradasMeta, setEntradasMeta] = useState([]);
@@ -100,8 +102,13 @@ const PrescriptionsAudit = ({ logo }) => {
             const matchSearch = osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
             // TRAVADO: Só aceita se a OS estiver Finalizada
             const matchStatus = os.situacao === 'Finalizada'; 
+
+            const reg = os.registros?.[0] || {};
+            const dataRef = adjustedFinalDates[os.id] || reg.data_final || os.data_prescricao || '';
+            const matchStart = !startDate || (dataRef && dataRef >= startDate);
+            const matchEnd = !endDate || (dataRef && dataRef <= endDate);
             
-            return matchSearch && matchStatus;
+            return matchSearch && matchStatus && matchStart && matchEnd;
         });
         filtered.sort((a, b) => {
             const dateA = new Date(a.data_prescricao || 0).getTime();
@@ -110,7 +117,7 @@ const PrescriptionsAudit = ({ logo }) => {
             return (b.numero_os || 0) - (a.numero_os || 0);
         });
         return filtered;
-    }, [ordens, searchTerm]);
+    }, [ordens, searchTerm, startDate, endDate, adjustedFinalDates]);
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -412,7 +419,34 @@ const PrescriptionsAudit = ({ logo }) => {
 
             <div className="premium-card glass">
                 {ordens.length > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', gap: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <CalendarIcon size={16} style={{ color: '#94a3b8' }} />
+                            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>Data:</span>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', color: 'var(--text)', fontWeight: '600' }}
+                            />
+                            <span style={{ fontSize: '0.8rem', fontWeight: '700', color: 'var(--text-muted)' }}>até Data:</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', color: 'var(--text)', fontWeight: '600' }}
+                            />
+                            {(startDate || endDate) && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setStartDate(''); setEndDate(''); }}
+                                    style={{ background: '#f1f5f9', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                    title="Limpar filtro de datas"
+                                >
+                                    Limpar
+                                </button>
+                            )}
+                        </div>
                         <div style={{ position: 'relative', width: '300px' }}>
                             <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
                             <input type="text" placeholder="Buscar por OS, Quadra..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ width: '100%', padding: '0.6rem 1rem 0.6rem 2.2rem', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none' }} />
