@@ -86,6 +86,8 @@ export default function HarvestRelease({ logo }) {
     // Filtros e UI
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('Todos');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [selectedQuadraId, setSelectedQuadraId] = useState(null);
     const [isFullScreen, setIsFullScreen] = useState(false);
     const [isExporting, setIsExporting] = useState(false);
@@ -146,11 +148,14 @@ export default function HarvestRelease({ logo }) {
         today.setHours(0, 0, 0, 0);
 
         // 1. Filtra as quadras e atividades (Herbicida) ignoradas ANTES de fazer qualquer cálculo
-        const registrosFiltrados = registros.filter(r => 
-            r.quadra !== 'Bordas' &&
-            r.quadra !== 'Limão' &&
-            !(r.receita || '').toLowerCase().includes('herbicida')
-        );
+        const registrosFiltrados = registros.filter(r => {
+            if (r.quadra === 'Bordas' || r.quadra === 'Limão') return false;
+            if ((r.receita || '').toLowerCase().includes('herbicida')) return false;
+            const dRef = (adjustedDates[r.id] || r.data_inicial || '').slice(0, 10);
+            if (startDate && (!dRef || dRef < startDate)) return false;
+            if (endDate && (!dRef || dRef > endDate)) return false;
+            return true;
+        });
         
         // 2. Ordena pela data REAL do banco (mais recente primeiro) e usa o ID como desempate.
         // Isso impede que a tabela se misture ou que uma quadra perca a operação certa.
@@ -213,7 +218,7 @@ export default function HarvestRelease({ logo }) {
         data.sort((a, b) => String(a.quadra).localeCompare(String(b.quadra), undefined, { numeric: true, sensitivity: 'base' }));
 
         return data;
-    }, [registros, osList, insumosMeta, adjustedDates, searchTerm, filterStatus]);
+    }, [registros, osList, insumosMeta, adjustedDates, searchTerm, filterStatus, startDate, endDate]);
 
     // ==========================================
     // LÓGICA DE CORES DO MAPA
@@ -375,6 +380,36 @@ export default function HarvestRelease({ logo }) {
                         <option value="Liberada">Apenas Liberadas</option>
                         <option value="Bloqueada">Apenas Bloqueadas</option>
                     </select>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <div>
+                        <label style={{ fontSize: '0.65rem', fontWeight: '900', display: 'block' }}>DE (DATA)</label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="filter-select"
+                        />
+                    </div>
+                    <div>
+                        <label style={{ fontSize: '0.65rem', fontWeight: '900', display: 'block' }}>ATÉ (DATA)</label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="filter-select"
+                        />
+                    </div>
+                    {(startDate || endDate) && (
+                        <button
+                            type="button"
+                            onClick={() => { setStartDate(''); setEndDate(''); }}
+                            style={{ background: '#f1f5f9', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.55rem 0.75rem', fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', cursor: 'pointer' }}
+                            title="Limpar filtro de datas"
+                        >
+                            Limpar
+                        </button>
+                    )}
                 </div>
                 <div style={{ flex: 2, minWidth: '200px' }}>
                     <label style={{ fontSize: '0.65rem', fontWeight: '900' }}>PESQUISAR (QUADRA OU RECEITA)</label>
