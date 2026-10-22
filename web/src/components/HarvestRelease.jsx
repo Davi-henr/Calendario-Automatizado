@@ -145,9 +145,11 @@ export default function HarvestRelease({ logo }) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 1. Filtra as quadras ignoradas ANTES de fazer qualquer cálculo
+        // 1. Filtra as quadras e atividades (Herbicida) ignoradas ANTES de fazer qualquer cálculo
         const registrosFiltrados = registros.filter(r => 
-            r.quadra !== 'Bordas' && r.quadra !== 'Limão'
+            r.quadra !== 'Bordas' &&
+            r.quadra !== 'Limão' &&
+            !(r.receita || '').toLowerCase().includes('herbicida')
         );
         
         // 2. Ordena pela data REAL do banco (mais recente primeiro) e usa o ID como desempate.
