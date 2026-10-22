@@ -1300,21 +1300,7 @@ export default function Dashboard({ logo }) {
         
         saidas.forEach(s => {
             if (s.ativo === false) return;
-            if (!s.ordens_saida || s.ordens_saida.ativo === false) return;
-
-            const hasCheckedFields =
-                s.ordens_saida.bombas_aplicadas !== null &&
-                s.ordens_saida.bombas_aplicadas !== undefined &&
-                String(s.ordens_saida.bombas_aplicadas).trim() !== '' &&
-                s.devolucao !== null &&
-                s.devolucao !== undefined &&
-                String(s.devolucao).trim() !== '';
-            const isConferida =
-                s.ordens_saida.situacao === 'Conferida' ||
-                (s.observacao_divergencia && String(s.observacao_divergencia).trim() !== '') ||
-                hasCheckedFields;
-
-            if (!isConferida) return;
+            if (!s.ordens_saida || s.ordens_saida.ativo === false || s.ordens_saida.situacao !== 'Conferida') return;
 
             const retirado = parseNum(s.quantidade);
             const devolvido = parseNum(s.devolucao);
