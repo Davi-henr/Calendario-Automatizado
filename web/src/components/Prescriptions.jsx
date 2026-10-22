@@ -109,8 +109,8 @@ const Prescriptions = ({ logo }) => {
             const operacao = (os.operacao || '').toLowerCase();
             
             const matchSearch = osNum.includes(search) || quadra.includes(search) || operacao.includes(search);
-            const dynamicStatus = getDynamicStatus(os);
-            const matchStatus = statusFilter === 'Todos' || dynamicStatus === statusFilter;
+            const osSituacao = (os.situacao || 'Pendente').trim().toLowerCase();
+            const matchStatus = statusFilter === 'Todos' || osSituacao === statusFilter.toLowerCase();
 
             return matchSearch && matchStatus;
         });
