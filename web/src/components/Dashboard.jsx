@@ -166,8 +166,8 @@ export default function Dashboard({ logo }) {
     const [rainFormData, setRainFormData] = useState({ data: format(new Date(), 'yyyy-MM-dd'), mm: '', local: 'Sede' });
 
     // NOVOS ESTADOS PARA DIVERGÊNCIAS
-    const [divStartDate, setDivStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-    const [divEndDate, setDivEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [divStartDate, setDivStartDate] = useState('');
+    const [divEndDate, setDivEndDate] = useState('');
     const [divTurno, setDivTurno] = useState('Todos');
     const [divCarreta, setDivCarreta] = useState('');
 
@@ -176,6 +176,30 @@ export default function Dashboard({ logo }) {
         fetchWeather();
     }, []);
 
+    const fetchAllSaidasDashboard = async () => {
+        try {
+            let allData = [];
+            let from = 0;
+            const step = 1000;
+            while (true) {
+                const { data, error } = await supabase
+                    .from('saidas')
+                    .select('*, insumos(insumo, codigo), quadras(nome), atividades(nome), ordens_saida(*, quadras(nome))')
+                    .eq('ativo', true)
+                    .order('data_saida', { ascending: false })
+                    .range(from, from + step - 1);
+                if (error) throw error;
+                if (!data || data.length === 0) break;
+                allData = allData.concat(data);
+                if (data.length < step) break;
+                from += step;
+            }
+            return allData;
+        } catch (e) {
+            return saidasService.getAll().catch(() => []);
+        }
+    };
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -183,7 +207,7 @@ export default function Dashboard({ logo }) {
                 registrosService.getAll(),
                 chuvasService.getAll(),
                 insumosService.getAll(),
-                saidasService.getAll().catch(() => []) // Adicionado
+                fetchAllSaidasDashboard()
             ]);
             setRegistros(regData);
             setChuvas(rainData);
@@ -1268,23 +1292,44 @@ export default function Dashboard({ logo }) {
     // ==========================================
     const renderDivergencias = () => {
         const divergences = [];
+        const parseNum = (val) => {
+            if (val === undefined || val === null || val === '') return 0;
+            const n = parseFloat(String(val).replace(',', '.'));
+            return isNaN(n) ? 0 : n;
+        };
         
         saidas.forEach(s => {
             if (s.ativo === false) return;
-            if (!s.ordens_saida || s.ordens_saida.situacao !== 'Conferida') return;
+            if (!s.ordens_saida || s.ordens_saida.ativo === false) return;
 
-            const retirado = parseFloat(s.quantidade) || 0;
-            const devolvido = parseFloat(s.devolucao) || 0;
-            const dosagem = parseFloat(s.dosagem) || 0;
-            const bombasAplicadas = parseFloat(s.ordens_saida.bombas_aplicadas) || 0;
+            const hasCheckedFields =
+                s.ordens_saida.bombas_aplicadas !== null &&
+                s.ordens_saida.bombas_aplicadas !== undefined &&
+                String(s.ordens_saida.bombas_aplicadas).trim() !== '' &&
+                s.devolucao !== null &&
+                s.devolucao !== undefined &&
+                String(s.devolucao).trim() !== '';
+            const isConferida =
+                s.ordens_saida.situacao === 'Conferida' ||
+                (s.observacao_divergencia && String(s.observacao_divergencia).trim() !== '') ||
+                hasCheckedFields;
+
+            if (!isConferida) return;
+
+            const retirado = parseNum(s.quantidade);
+            const devolvido = parseNum(s.devolucao);
+            const dosagem = parseNum(s.dosagem);
+            const bombasAplicadas = parseNum(s.ordens_saida.bombas_aplicadas);
 
             const sobraEsperada = retirado - (bombasAplicadas * dosagem);
             const divergencia = devolvido - sobraEsperada;
+            const dataOcorrido = (s.data_saida || s.ordens_saida?.data || '').slice(0, 10);
 
             // Se houver uma diferença mínima de 0.01
             if (Math.abs(divergencia) >= 0.01) {
                 divergences.push({
                     ...s,
+                    data_ocorrido: dataOcorrido,
                     divergencia,
                     sobraEsperada
                 });
@@ -1292,12 +1337,12 @@ export default function Dashboard({ logo }) {
         });
 
         const filteredDivergences = divergences.filter(d => {
-            if (divStartDate && d.data_saida < divStartDate) return false;
-            if (divEndDate && d.data_saida > divEndDate) return false;
-            if (divTurno !== 'Todos' && d.ordens_saida?.turno !== divTurno) return false;
-            if (divCarreta && !d.ordens_saida?.numero_carreta?.toLowerCase().includes(divCarreta.toLowerCase())) return false;
+            if (divStartDate && (!d.data_ocorrido || d.data_ocorrido < divStartDate)) return false;
+            if (divEndDate && (!d.data_ocorrido || d.data_ocorrido > divEndDate)) return false;
+            if (divTurno !== 'Todos' && (d.ordens_saida?.turno || '').trim().toUpperCase() !== divTurno.toUpperCase()) return false;
+            if (divCarreta && !(d.ordens_saida?.numero_carreta || '').toString().toLowerCase().includes(divCarreta.toLowerCase())) return false;
             return true;
-        }).sort((a, b) => new Date(b.data_saida || 0) - new Date(a.data_saida || 0));
+        }).sort((a, b) => new Date(b.data_ocorrido || 0) - new Date(a.data_ocorrido || 0));
 
         const getDivergenceStyle = (div) => {
             if (div < 0) return { bg: '#fef2f2', color: '#ef4444' }; // Faltou: Vermelho
@@ -1326,12 +1371,13 @@ export default function Dashboard({ logo }) {
 
             const tableData = filteredDivergences.map(d => {
                 const qtdeFormatada = d.divergencia > 0 ? `+${d.divergencia.toFixed(2)}` : d.divergencia.toFixed(2);
+                const quadraNome = d.quadras?.nome || d.ordens_saida?.quadras?.nome || '-';
                 return [
-                    d.data_saida ? format(parseISO(d.data_saida), 'dd/MM/yyyy') : '-',
+                    d.data_ocorrido ? format(parseISO(d.data_ocorrido), 'dd/MM/yyyy') : '-',
                     d.insumos?.insumo || '-',
                     qtdeFormatada,
                     d.ordens_saida?.numero_receita || '-',
-                    d.quadras?.nome || '-',
+                    quadraNome,
                     d.ordens_saida?.numero_carreta || '-',
                     d.ordens_saida?.turno || '-'
                 ];
@@ -1387,6 +1433,16 @@ export default function Dashboard({ logo }) {
                         <input type="date" value={divStartDate} onChange={(e) => setDivStartDate(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.85rem', color: 'var(--text)' }} />
                         <span style={{ color: 'var(--text-muted)' }}>até</span>
                         <input type="date" value={divEndDate} onChange={(e) => setDivEndDate(e.target.value)} style={{ border: 'none', outline: 'none', fontSize: '0.85rem', color: 'var(--text)' }} />
+                        {(divStartDate || divEndDate) && (
+                            <button
+                                type="button"
+                                onClick={() => { setDivStartDate(''); setDivEndDate(''); }}
+                                style={{ background: '#f1f5f9', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.2rem 0.5rem', fontSize: '0.7rem', fontWeight: '700', color: 'var(--text-muted)', cursor: 'pointer' }}
+                                title="Limpar filtro de datas"
+                            >
+                                Limpar
+                            </button>
+                        )}
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'white', padding: '0.3rem 0.8rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
@@ -1429,10 +1485,11 @@ export default function Dashboard({ logo }) {
                                 filteredDivergences.map(d => {
                                     const style = getDivergenceStyle(d.divergencia);
                                     const sinal = d.divergencia > 0 ? '+' : '';
+                                    const quadraNome = d.quadras?.nome || d.ordens_saida?.quadras?.nome || '-';
                                     return (
                                         <tr key={d.id} style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#ffffff', transition: 'all 0.2s' }}>
                                             <td style={{ padding: '1.2rem 1rem', fontWeight: '700', color: 'var(--text-muted)' }}>
-                                                {d.data_saida ? format(parseISO(d.data_saida), 'dd/MM/yyyy') : '-'}
+                                                {d.data_ocorrido ? format(parseISO(d.data_ocorrido), 'dd/MM/yyyy') : '-'}
                                             </td>
                                             <td style={{ padding: '1.2rem 1rem', fontWeight: '900', color: 'var(--primary)' }}>
                                                 {d.insumos?.insumo}
@@ -1451,7 +1508,7 @@ export default function Dashboard({ logo }) {
                                                 {d.ordens_saida?.numero_receita || '-'}
                                             </td>
                                             <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '700', color: 'var(--text)' }}>
-                                                Q-{d.quadras?.nome || '-'}
+                                                Q-{quadraNome}
                                             </td>
                                             <td style={{ padding: '1.2rem 1rem', textAlign: 'center', fontWeight: '700', color: 'var(--text)' }}>
                                                 {d.ordens_saida?.numero_carreta || '-'}
