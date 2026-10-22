@@ -432,12 +432,12 @@ const Prescriptions = ({ logo }) => {
             doc.rect(245, row4Y, 25, 6); doc.text('Rotação:', 247, row4Y + 4.5);
             doc.rect(270, row4Y, 22, 6); doc.text(String(os.dados_tecnicos?.rpm || ''), 272, row4Y + 4.5);
 
-            const formatVal = (val) => {
+            const formatVal = (val, decimals = 2) => {
                 if (val === undefined || val === null || val === '') return '';
                 const normalized = val.toString().replace(',', '.');
                 const num = parseFloat(normalized);
                 if (isNaN(num) || num === 0) return '';
-                return num.toFixed(2).replace('.', ',');
+                return num.toFixed(decimals).replace('.', ',');
             };
 
             const consumptionMap = {};
@@ -493,7 +493,7 @@ const Prescriptions = ({ logo }) => {
                 insumosRows.push([
                     ins.codigo || '',
                     desc,
-                    formatVal(ins.dosagem),
+                    formatVal(ins.dosagem, 3),
                     finalidadeAlvo, 
                     principioAtivo,
                     carenciaDias,
@@ -535,8 +535,6 @@ const Prescriptions = ({ logo }) => {
                 const finalDate = parseISO(reg.data_final);
                 const releaseDate = addDays(finalDate, carenciaParaImprimir);
                 liberadoColheitaText += ' ' + format(releaseDate, 'dd/MM/yyyy');
-            } else {
-                liberadoColheitaText += ' (Aguardando Fim)';
             }
 
             doc.rect(210, midY, 82, 6); 
